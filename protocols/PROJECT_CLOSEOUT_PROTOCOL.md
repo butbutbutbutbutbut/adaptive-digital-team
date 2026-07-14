@@ -17,20 +17,29 @@ DELIVERABLE_CREATED
 PROJECT_CLOSED
 ```
 
-A project reaches a closed state only after a closeout candidate has been prepared, independently audited, and merged by authorized human or Control Plane approval, or after an explicit incomplete-closeout state has been preserved.
+A project reaches `CLOSED` only after a closeout candidate has been prepared, independently audited, approved for merge, merged, and followed by a post-merge attestation that records the actual resulting repository state. An explicit audited incomplete-closeout state may be preserved when completion is impossible.
 
 ## 2. Authority boundary
 
 ```text
-AUTO_PREPARE_AND_PUSH: ALLOWED
-AUTO_CREATE_CLOSEOUT_PR: ALLOWED
+AUTO_PREPARE_AND_PUSH: ALLOWED_ONLY_WITH_VALID_AUTHORIZATION
+AUTO_CREATE_CLOSEOUT_PR: ALLOWED_ONLY_WITH_VALID_AUTHORIZATION
 AUTO_MERGE: FORBIDDEN
 SELF_ACCEPTANCE: FORBIDDEN
 INDEPENDENT_CLOSEOUT_AUDIT: REQUIRED
 IRREVERSIBLE_EXTERNAL_ACTION: REQUIRES_EXPLICIT_APPROVAL
 ```
 
-The Maker may prepare a closeout candidate and open its PR. The Maker may not act as the final Checker, merge the PR, delete external evidence, or silently omit blocked materials.
+`AUTO_PREPARE_AND_PUSH` and `AUTO_CREATE_CLOSEOUT_PR` are not ambient repository permissions. They are allowed only when at least one currently valid authority record explicitly covers the closeout action:
+
+- a Task Freeze;
+- a role assignment;
+- a Control Lease; or
+- explicit Control Plane authorization.
+
+The authority record must identify its source, scope, repository, branch or task, and relevant base or expected head. Missing, stale, conflicting, or out-of-scope authority fails closed.
+
+The Maker may prepare a closeout candidate and open its PR only within that authorization. The Maker may not act as the final Checker, merge the PR, delete external evidence, or silently omit blocked materials.
 
 ## 3. Trigger conditions
 
@@ -53,13 +62,15 @@ ACTIVE
 → MATERIAL_INVENTORY_CREATED
 → CLASSIFICATION_COMPLETED
 → SECRET_PRIVACY_LICENSE_SCAN_COMPLETED
-→ CLOSEOUT_MANIFEST_CREATED
-→ CLOSEOUT_BRANCH_PUSHED
-→ CLOSEOUT_PR_OPEN
+→ CLOSEOUT_CANDIDATE_CREATED
 → INDEPENDENT_CLOSEOUT_AUDIT
 → CONTROL_PLANE_MERGE_APPROVAL
+→ CANDIDATE_MERGED
+→ POST_MERGE_ATTESTATION_RECORDED
 → CLOSED
 ```
+
+The canonical state names above must be identical in the protocol and the manifest field contract.
 
 Permitted non-success terminal or holding states:
 
@@ -76,16 +87,73 @@ CLOSEOUT_REVERTED
 INCOMPLETE_CLOSEOUT_RECORDED
 ```
 
-A blocked or incomplete state must preserve the reason, affected materials, attempted actions, remaining owner, and recovery path. It must never be rewritten as `CLOSED` without a new audited candidate.
+A blocked or incomplete state must preserve the reason, affected materials, attempted actions, remaining owner, and recovery path. It must never be rewritten as `CLOSED` without a new audited candidate and the required post-merge attestation.
 
-## 5. Required closeout materials
+## 5. Candidate Manifest semantics
+
+The Candidate Manifest is created before merge at the proposed canonical path:
+
+```text
+.adt/tasks/<task-id>/CLOSEOUT_MANIFEST.yaml
+```
+
+It belongs to one immutable closeout transaction identified by `closeout_id` and `task_id`.
+
+Before merge it must:
+
+- record the verified base commit;
+- record the candidate branch, candidate head, and candidate tree;
+- record the closeout PR number or URL;
+- record the expected merge method;
+- record the Candidate Manifest Blob SHA when available;
+- record material inventory, classifications, scans, checks, unresolved items, rollback, authority, and audit state;
+- set `merged_commit` to `null`;
+- set `resulting_tree` to `null`;
+- avoid claiming the final repository state;
+- avoid claiming `CANDIDATE_MERGED`, `POST_MERGE_ATTESTATION_RECORDED`, or `CLOSED`.
+
+The Candidate Manifest is the auditable pre-merge claim. It cannot know or predict the actual squash or merge commit SHA.
+
+## 6. Post-Merge Attestation semantics
+
+After the authorized closeout PR is merged, a Post-Merge Attestation must record:
+
+- the unchanged `closeout_id` and `task_id`;
+- the original closeout PR;
+- the Candidate Manifest Blob SHA;
+- the candidate head and candidate tree;
+- the actual merged commit;
+- the resulting repository tree;
+- the actual merge method;
+- the independent audit decision and audit record;
+- the Control Plane merge authorization evidence;
+- the attestation recorder and timestamp.
+
+The canonical default location is a top-level comment on the original merged closeout PR with the heading:
+
+```text
+POST_MERGE_CLOSEOUT_ATTESTATION
+```
+
+This record belongs to the original closeout transaction. It does not recursively trigger another closeout when all of the following are true:
+
+1. `task_id` is unchanged;
+2. `closeout_id` is unchanged;
+3. no deliverable, source, governance, or external operational change is introduced;
+4. the record only attests facts created by the original closeout merge.
+
+This exemption is narrow. Any wider change, including a source edit, deliverable edit, governance edit, external operational action, changed task identity, or changed closeout identity, starts a new normal work line and follows ordinary authorization and closeout rules.
+
+A repository policy may require a separate attestation-only PR, but that path requires explicit authorization and must use the same narrow exemption. The attestation records the original closeout merge, not its own transport commit.
+
+## 7. Required closeout materials
 
 The inventory must evaluate, where applicable:
 
 - final source and configuration;
 - dependency and lock files;
 - project state and phase freezes;
-- task freezes, decisions, and accepted scope changes;
+- task freezes, decisions, authorization evidence, and accepted scope changes;
 - build, test, validation, and audit results;
 - changed-file and deletion records;
 - startup, deployment, handoff, and recovery instructions;
@@ -93,11 +161,13 @@ The inventory must evaluate, where applicable:
 - evidence manifests and checksums;
 - external binary references;
 - unresolved findings, limits, and known defects;
-- final repository, branch, PR, commit, and tree identifiers.
+- candidate repository, branch, PR, commit, tree, and manifest Blob identifiers.
+
+Final merged commit and resulting tree are recorded by the Post-Merge Attestation, not guessed by the Candidate Manifest.
 
 Absence is valid only when recorded as `NOT_APPLICABLE` with a reason.
 
-## 6. Material classification
+## 8. Material classification
 
 Every inventoried item must receive exactly one primary class:
 
@@ -114,27 +184,33 @@ Every inventoried item must receive exactly one primary class:
 
 Classification must be deterministic from repository policy, task freeze, file properties, provenance, and scan results. Convenience is not a valid reason to classify an item as excluded.
 
-## 7. Secret, privacy, and license gates
+## 9. Secret, privacy, and license gates
 
-### 7.1 Secret gate
+### 9.1 Secret gate
 
 The candidate must fail closed when a probable secret is detected in content, filename, metadata, history introduced by the candidate, or generated archive.
 
 The record must include only safe finding metadata. It must not reproduce the secret value.
 
-### 7.2 Privacy gate
+### 9.2 Privacy gate
 
-Unredacted personal data, private messages, private account exports, and sensitive identity material are forbidden unless the task freeze and repository policy explicitly authorize their storage.
+Unredacted personal data, private messages, private account exports, and sensitive identity material are forbidden unless the Task Freeze and repository policy explicitly authorize their storage.
 
 Redaction must be independently reviewable. A Maker declaration alone is insufficient.
 
-### 7.3 License gate
+### 9.3 License gate
 
 Third-party material requires provenance and a permitted-use status. Unknown ownership is `BLOCKED`, not implicitly allowed.
 
 For external or excluded third-party assets, Git stores the filename or stable identifier, source, license status, checksum when lawful, and reason for non-inclusion.
 
-## 8. Git and external-binary policy
+Completion of these three gates is represented only by the canonical state:
+
+```text
+SECRET_PRIVACY_LICENSE_SCAN_COMPLETED
+```
+
+## 10. Git and external-binary policy
 
 Git is the authoritative ledger for text, state, decisions, manifests, checksums, and review history. It is not automatically the storage location for every original asset.
 
@@ -153,9 +229,9 @@ An `EXTERNAL_BINARY` record must include:
 
 Raw credentials, private keys, and prohibited personal data must never be stored externally merely to bypass the Git prohibition.
 
-## 9. Closeout branch and PR protocol
+## 11. Closeout branch and PR protocol
 
-The closeout Maker must begin from the verified current default-branch HEAD.
+The closeout Maker must begin from the verified current default-branch HEAD and must possess valid authority under Section 2.
 
 ```text
 agent/<allowed-maker-role>/<task-id>-closeout-r<revision>
@@ -163,15 +239,10 @@ agent/<allowed-maker-role>/<task-id>-closeout-r<revision>
 
 `<allowed-maker-role>` must already be valid under the organization branch protocol. This proposal does not create a new permanent role.
 
-The canonical project manifest path is proposed as:
-
-```text
-.adt/tasks/<task-id>/CLOSEOUT_MANIFEST.yaml
-```
-
 The PR must state:
 
-- task and phase identifiers;
+- task, closeout, and phase identifiers;
+- authorization ID, source, scope, branch, base, and authorized current head;
 - verified base and candidate HEAD;
 - completion type;
 - included and excluded material counts;
@@ -186,22 +257,24 @@ The PR must state:
 
 The candidate becomes `CLOSEOUT_STALE_BASE` if the default branch changes before merge. Silent rebase, amend, reset, or force-push is forbidden.
 
-## 10. Independent closeout audit
+## 12. Independent closeout audit
 
 The Checker must be independent of the Maker and verify at least:
 
-1. task and phase identity;
-2. base freshness and candidate scope;
-3. manifest-schema validity;
-4. material inventory completeness;
-5. deterministic classification;
-6. secret, privacy, and license gates;
-7. external binary metadata and checksum coverage;
-8. unresolved and incomplete states;
-9. rollback instructions;
-10. no self-acceptance or automatic merge;
-11. no material omitted solely to obtain a passing result;
-12. repository facts match the closeout report.
+1. task, closeout, and phase identity;
+2. authorization evidence and scope;
+3. base freshness and candidate scope;
+4. manifest field-contract conformance;
+5. material inventory completeness;
+6. deterministic classification;
+7. secret, privacy, and license gates;
+8. external binary metadata and checksum coverage;
+9. unresolved and incomplete states;
+10. rollback instructions;
+11. no self-acceptance or automatic merge;
+12. no material omitted solely to obtain a passing result;
+13. repository facts match the Candidate Manifest;
+14. final repository facts are deferred to the Post-Merge Attestation.
 
 Allowed audit decisions:
 
@@ -215,7 +288,7 @@ SUPERSEDED
 
 Only the first two may proceed to Control Plane merge approval.
 
-## 11. Incomplete closeout
+## 13. Incomplete closeout
 
 A project that cannot produce a complete closeout must still produce an audited incomplete record when safe to do so.
 
@@ -233,7 +306,7 @@ The record must include:
 
 Incomplete closeout is evidence preservation, not acceptance.
 
-## 12. Rollback and revert
+## 14. Rollback and revert
 
 After a closeout merge, rollback must use a new branch created from the current default branch and a reviewed revert commit.
 
@@ -243,13 +316,13 @@ force-push: FORBIDDEN
 history deletion: FORBIDDEN
 ```
 
-The revert PR must reference the closeout manifest, merged closeout commit, reason for rollback, preserved external evidence, and resulting project status. The previous accepted closeout remains historical evidence and is marked `CLOSEOUT_REVERTED`, not deleted.
+The revert PR must reference the Candidate Manifest, Post-Merge Attestation, merged closeout commit, reason for rollback, preserved external evidence, and resulting project status. The previous accepted closeout remains historical evidence and is marked `CLOSEOUT_REVERTED`, not deleted.
 
-## 13. Acceptance matrix
+## 15. Acceptance matrix
 
 | Test | Fixture | Expected result |
 |---|---|---|
-| A | A repository-bootstrap project completes with two commits and six governance files | Closeout inventory includes bootstrap freeze, commits, tree/blob identifiers, audit and rollback facts; project creation is treated as project work |
+| A | A repository-bootstrap project completes with two commits and six governance files | Candidate inventory includes bootstrap freeze, candidate commits, tree/blob identifiers, audit and rollback facts; Post-Merge Attestation records the actual merge; project creation is treated as project work |
 | B | Candidate contains a credential-like value | `CLOSEOUT_BLOCKED_SECRET`; no value reproduced in the manifest |
 | C | Candidate includes an unredacted private conversation | `CLOSEOUT_BLOCKED_PRIVACY` |
 | D | Candidate includes a third-party asset with unknown rights | `CLOSEOUT_BLOCKED_LICENSE` |
@@ -259,25 +332,36 @@ The revert PR must reference the closeout manifest, merged closeout commit, reas
 | H | Maker attempts to issue the final audit decision | Audit fails for self-acceptance |
 | I | Project is abandoned after partial work | `INCOMPLETE_CLOSEOUT_RECORDED` with recovery owner and remaining work |
 | J | Accepted closeout must be rolled back | New revert branch and reviewed revert PR; old closeout preserved as `CLOSEOUT_REVERTED` |
+| K | Candidate Manifest attempts to include a predicted merged commit | Field-contract conformance fails; `merged_commit` must be `null` before merge |
+| L | Post-Merge Attestation uses unchanged task and closeout IDs and introduces no wider change | Attestation is recorded in the original transaction and does not trigger recursive closeout |
+| M | Post-Merge record changes source, governance, deliverable, operation, task ID, or closeout ID | A new normal authorized work line is required |
+| N | Maker has no valid Task Freeze, assignment, Lease, or explicit Control Plane authorization | Preparation and PR creation fail closed |
 
 Each implementation test must freeze its fixture commit, input paths, expected manifest path, expected branch and PR state, expected terminal status, and explicit PASS/FAIL rule.
 
-## 14. Proposal boundary
+## 16. Field contract and implementation boundary
 
-This candidate defines protocol and schema requirements only.
+The candidate field contract is:
 
-It does not:
+```text
+schemas/CLOSEOUT_MANIFEST_FIELD_CONTRACT.yaml
+```
 
+It is a non-executable field contract, not a standard JSON Schema. Conformance is an independent review obligation until a separate implementation workstream supplies an accepted executable schema or deterministic validator.
+
+This candidate defines protocol and field-contract requirements only. It does not:
+
+- implement a validator or executable JSON Schema;
 - implement automation;
 - create project bindings;
 - create runtime assignments or Control Leases;
 - add GitHub Actions;
 - upload project materials;
-- close the current Adaptive Digital Team repository project;
+- execute closeout for the current Adaptive Digital Team repository;
 - declare this protocol accepted.
 
 ```text
 IMPLEMENTATION_ALLOWED: NO
 MERGE_ALLOWED: NO
-NEXT_GATE: INDEPENDENT_PROJECT_CLOSEOUT_PROTOCOL_AUDIT
+NEXT_GATE: INDEPENDENT_PROJECT_CLOSEOUT_PROTOCOL_REAUDIT
 ```

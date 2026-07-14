@@ -1,0 +1,404 @@
+title: Project Closeout Manifest Field Contract
+contract_kind: FIELD_CONTRACT
+executable_schema: false
+validator: NOT_IMPLEMENTED
+status: PROPOSAL_CANDIDATE
+contract_version: 1
+implementation: NOT_IMPLEMENTED
+
+contract_notice:
+  summary: >-
+    This document is a non-executable field contract. It is not JSON Schema,
+    does not claim compatibility with a standard schema validator, and has no
+    accepted deterministic validator in the current workstream.
+  executable_json_schema_workstream: SEPARATE_IMPLEMENTATION_REQUIRED
+  validator_workstream: SEPARATE_IMPLEMENTATION_REQUIRED
+
+canonical_state_machine:
+  - ACTIVE
+  - CLOSEOUT_TRIGGERED
+  - MATERIAL_INVENTORY_CREATED
+  - CLASSIFICATION_COMPLETED
+  - SECRET_PRIVACY_LICENSE_SCAN_COMPLETED
+  - CLOSEOUT_CANDIDATE_CREATED
+  - INDEPENDENT_CLOSEOUT_AUDIT
+  - CONTROL_PLANE_MERGE_APPROVAL
+  - CANDIDATE_MERGED
+  - POST_MERGE_ATTESTATION_RECORDED
+  - CLOSED
+
+holding_or_terminal_states:
+  - CLOSEOUT_BLOCKED_SECRET
+  - CLOSEOUT_BLOCKED_PRIVACY
+  - CLOSEOUT_BLOCKED_LICENSE
+  - CLOSEOUT_BLOCKED_EXTERNAL_STORAGE
+  - CLOSEOUT_INCOMPLETE_EVIDENCE
+  - CLOSEOUT_STALE_BASE
+  - CLOSEOUT_CHANGES_REQUESTED
+  - CLOSEOUT_SUPERSEDED
+  - CLOSEOUT_REVERTED
+  - INCOMPLETE_CLOSEOUT_RECORDED
+
+candidate_manifest:
+  semantics:
+    created_before_merge: true
+    final_repository_state_claimed: false
+    merged_commit_before_merge: null
+    resulting_tree_before_merge: null
+    transaction_identity:
+      task_id_must_remain_stable: true
+      closeout_id_must_remain_stable: true
+  required_fields:
+    - closeout_id
+    - project_repository
+    - task_id
+    - project_type
+    - status
+    - completion_type
+    - generated_at
+    - default_branch
+    - base_commit
+    - candidate_branch
+    - candidate_head
+    - candidate_tree
+    - closeout_pr
+    - expected_merge_method
+    - merged_commit
+    - resulting_tree
+    - materials
+    - scans
+    - checks
+    - unresolved_items
+    - rollback
+    - authority
+    - audit
+  field_contracts:
+    closeout_id:
+      type: string
+      required: true
+    project_repository:
+      type: owner-slash-repository
+      required: true
+    task_id:
+      type: string
+      required: true
+    phase_freeze_id:
+      type: string-or-null
+    project_type:
+      type: enum
+      values:
+        - repository_bootstrap
+        - application
+        - design
+        - audit
+        - migration
+        - research
+        - operations
+        - other
+    status:
+      type: enum
+      values:
+        - CLOSEOUT_TRIGGERED
+        - MATERIAL_INVENTORY_CREATED
+        - CLASSIFICATION_COMPLETED
+        - SECRET_PRIVACY_LICENSE_SCAN_COMPLETED
+        - CLOSEOUT_CANDIDATE_CREATED
+        - INDEPENDENT_CLOSEOUT_AUDIT
+        - CONTROL_PLANE_MERGE_APPROVAL
+        - CLOSEOUT_BLOCKED_SECRET
+        - CLOSEOUT_BLOCKED_PRIVACY
+        - CLOSEOUT_BLOCKED_LICENSE
+        - CLOSEOUT_BLOCKED_EXTERNAL_STORAGE
+        - CLOSEOUT_INCOMPLETE_EVIDENCE
+        - CLOSEOUT_STALE_BASE
+        - CLOSEOUT_CHANGES_REQUESTED
+        - CLOSEOUT_SUPERSEDED
+        - CLOSEOUT_REVERTED
+        - INCOMPLETE_CLOSEOUT_RECORDED
+    completion_type:
+      type: enum
+      values:
+        - completed
+        - completed_with_limits
+        - incomplete
+        - blocked
+        - abandoned
+        - superseded
+        - reverted
+    generated_at:
+      type: date-time
+    default_branch:
+      type: string
+    base_commit:
+      type: full-git-sha
+    candidate_branch:
+      type: string
+    candidate_head:
+      type: full-git-sha
+    candidate_tree:
+      type: full-git-sha
+    closeout_pr:
+      type: repository-pr-number-or-url
+    expected_merge_method:
+      type: enum
+      values: [squash, merge, rebase]
+    candidate_manifest_blob_sha:
+      type: full-git-sha-or-null
+    merged_commit:
+      type: null-before-merge
+      required_value: null
+    resulting_tree:
+      type: null-before-merge
+      required_value: null
+    summary:
+      type: string-or-null
+
+materials_contract:
+  type: array
+  item_required_fields:
+    - logical_name
+    - class
+    - inclusion
+    - required
+    - status
+  item_fields:
+    logical_name: string
+    repository_path: string-or-null
+    source_location: string-or-null
+    class:
+      type: enum
+      values:
+        - GIT_TEXT
+        - GIT_BINARY_APPROVED
+        - EXTERNAL_BINARY
+        - EXCLUDED_SECRET
+        - EXCLUDED_PRIVACY
+        - EXCLUDED_LICENSE
+        - EPHEMERAL
+        - MISSING_REQUIRED
+    inclusion:
+      type: enum
+      values: [IN_GIT, EXTERNAL_REFERENCE, EXCLUDED, MISSING]
+    required: boolean
+    status:
+      type: enum
+      values: [VERIFIED, BLOCKED, NOT_APPLICABLE, MISSING]
+    size_bytes: non-negative-integer-or-null
+    git_blob_sha: full-git-sha-or-null
+    sha256: sha256-or-null
+    provenance: string-or-null
+    privacy_status:
+      type: enum
+      values: [CLEAR, REDACTED, BLOCKED, UNKNOWN, NOT_APPLICABLE]
+    license_status:
+      type: enum
+      values: [APPROVED, RESTRICTED, BLOCKED, UNKNOWN, NOT_APPLICABLE]
+    secret_scan_status:
+      type: enum
+      values: [PASS, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+    omission_reason: string-or-null
+    notes: string-or-null
+
+scans_contract:
+  required_keys: [secret, privacy, license]
+  result_fields:
+    status:
+      type: enum
+      values: [PASS, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+    findings_count: non-negative-integer
+    method: string-or-null
+    safe_summary: string-or-null
+    evidence_path: string-or-null
+  completion_state: SECRET_PRIVACY_LICENSE_SCAN_COMPLETED
+
+checks_contract:
+  type: array
+  item_fields:
+    name: string
+    status:
+      type: enum
+      values: [PASS, FAIL, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+    command_or_method: string-or-null
+    evidence_path: string-or-null
+    notes: string-or-null
+
+external_binaries_contract:
+  type: array
+  item_fields:
+    logical_name: string
+    size_bytes: non-negative-integer
+    sha256: sha256-or-null
+    media_type: string
+    storage_class: string
+    location_identifier: stable-identifier-without-access-material
+    provenance: string-or-null
+    availability_status:
+      type: enum
+      values: [AVAILABLE, UNAVAILABLE, PENDING_UPLOAD, DELETED_BY_AUTHORITY]
+    owner: string
+    privacy_status:
+      type: enum
+      values: [CLEAR, REDACTED, BLOCKED, NOT_APPLICABLE]
+    license_status:
+      type: enum
+      values: [APPROVED, RESTRICTED, BLOCKED, UNKNOWN, NOT_APPLICABLE]
+    recovery_instructions: string-or-null
+
+unresolved_items_contract:
+  type: array
+  item_fields:
+    id: string
+    status:
+      type: enum
+      values: [OPEN, BLOCKED, ACCEPTED_LIMIT, SUPERSEDED]
+    description: string
+    owner: string
+    next_action: string
+
+rollback_contract:
+  required_values:
+    reset_forbidden: true
+    force_push_forbidden: true
+    history_deletion_forbidden: true
+  fields:
+    strategy: string
+    revert_branch_pattern: string-or-null
+    target_commit: full-git-sha-or-null
+
+authority_contract:
+  required_values:
+    auto_prepare_and_push: ALLOWED_ONLY_WITH_VALID_AUTHORIZATION
+    auto_create_closeout_pr: ALLOWED_ONLY_WITH_VALID_AUTHORIZATION
+    auto_merge: FORBIDDEN
+    self_acceptance: FORBIDDEN
+    irreversible_external_action: REQUIRES_EXPLICIT_APPROVAL
+  valid_authorization_bases:
+    - TASK_FREEZE
+    - ROLE_ASSIGNMENT
+    - CONTROL_LEASE
+    - EXPLICIT_CONTROL_PLANE_AUTHORIZATION
+  required_fields:
+    - authorization_basis
+    - authorization_id
+    - authorization_source
+    - authorized_repository
+    - authorized_branch_or_task
+    - authorized_base
+    - authorized_current_head_or_null
+    - exact_scope
+    - maker
+  fields:
+    authorization_basis:
+      type: enum
+      values:
+        - TASK_FREEZE
+        - ROLE_ASSIGNMENT
+        - CONTROL_LEASE
+        - EXPLICIT_CONTROL_PLANE_AUTHORIZATION
+    authorization_id: string
+    authorization_source: string
+    authorized_repository: owner-slash-repository
+    authorized_branch_or_task: string
+    authorized_base: full-git-sha
+    authorized_current_head_or_null: full-git-sha-or-null
+    exact_scope: array-of-paths-or-actions
+    maker: string
+    checker: string-or-null
+  ambient_permission: false
+
+audit_contract:
+  required_fields:
+    - required
+    - checker_independent
+    - decision
+    - accepted
+    - audit_record_url
+    - control_plane_merge_approved
+  fields:
+    required:
+      required_value: true
+    checker_independent: boolean-or-null
+    decision:
+      type: enum
+      values:
+        - PENDING
+        - CLOSEOUT_ACCEPTED
+        - CLOSEOUT_ACCEPTED_WITH_RECORDED_LIMITS
+        - CHANGES_REQUESTED
+        - BLOCKED
+        - SUPERSEDED
+    accepted: boolean
+    audit_record_url: string-or-null
+    control_plane_merge_approved: boolean
+    control_plane_authorization_id: string-or-null
+
+post_merge_attestation:
+  record_heading: POST_MERGE_CLOSEOUT_ATTESTATION
+  default_location: original-closeout-pr-top-level-comment
+  belongs_to_original_transaction: true
+  required_fields:
+    - closeout_id
+    - task_id
+    - project_repository
+    - original_closeout_pr
+    - candidate_manifest_blob_sha
+    - candidate_head
+    - candidate_tree
+    - actual_merged_commit
+    - resulting_tree
+    - actual_merge_method
+    - independent_audit_decision
+    - audit_record_url
+    - control_plane_merge_authorization_id
+    - recorded_at
+    - recorder
+  fields:
+    closeout_id: string
+    task_id: string
+    project_repository: owner-slash-repository
+    original_closeout_pr: repository-pr-number-or-url
+    candidate_manifest_blob_sha: full-git-sha
+    candidate_head: full-git-sha
+    candidate_tree: full-git-sha
+    actual_merged_commit: full-git-sha
+    resulting_tree: full-git-sha
+    actual_merge_method:
+      type: enum
+      values: [squash, merge, rebase]
+    independent_audit_decision:
+      type: enum
+      values:
+        - CLOSEOUT_ACCEPTED
+        - CLOSEOUT_ACCEPTED_WITH_RECORDED_LIMITS
+    audit_record_url: string
+    control_plane_merge_authorization_id: string
+    recorded_at: date-time
+    recorder: string
+  resulting_state: POST_MERGE_ATTESTATION_RECORDED
+  recursive_closeout_exemption:
+    allowed_only_when:
+      - task_id is unchanged
+      - closeout_id is unchanged
+      - no deliverable change is introduced
+      - no source change is introduced
+      - no governance change is introduced
+      - no external operational change is introduced
+      - the record only attests facts created by the original closeout merge
+    wider_change_result: NEW_NORMAL_WORK_LINE_REQUIRED
+
+field_contract_conformance_rules:
+  - canonical state names must be identical to the protocol
+  - all Git commit, tree, and Blob identifiers use full 40-character lowercase SHA values
+  - all SHA-256 values use 64 lowercase hexadecimal characters
+  - a Candidate Manifest is created before merge and keeps merged_commit and resulting_tree null
+  - a Candidate Manifest records candidate head, candidate tree, PR, and expected merge method
+  - a Candidate Manifest must not claim the final repository state
+  - CANDIDATE_MERGED requires the actual closeout PR to be merged
+  - POST_MERGE_ATTESTATION_RECORDED requires all post_merge_attestation required fields
+  - CLOSED requires CANDIDATE_MERGED and POST_MERGE_ATTESTATION_RECORDED
+  - blocked materials cannot be omitted from the inventory
+  - external references cannot contain access material
+  - Maker and final Checker must be independent
+  - auto_merge and self_acceptance remain FORBIDDEN
+  - prepare, push, and PR creation require a currently valid authority record
+  - field-contract conformance is presently reviewed, not executed by a standard validator

@@ -1,0 +1,241 @@
+title: Project Closeout Manifest
+status: PROPOSAL_CANDIDATE
+schema_version: 1
+implementation: NOT_IMPLEMENTED
+
+required_fields:
+  - manifest_id
+  - project_repository
+  - task_id
+  - project_type
+  - status
+  - completion_type
+  - generated_at
+  - default_branch
+  - base_commit
+  - candidate_branch
+  - candidate_head
+  - materials
+  - scans
+  - checks
+  - unresolved_items
+  - rollback
+  - authority
+  - audit
+
+field_contracts:
+  manifest_id:
+    type: string
+    required: true
+  project_repository:
+    type: owner-slash-repository
+    required: true
+  task_id:
+    type: string
+    required: true
+  phase_freeze_id:
+    type: string-or-null
+  project_type:
+    type: enum
+    values:
+      - repository_bootstrap
+      - application
+      - design
+      - audit
+      - migration
+      - research
+      - operations
+      - other
+  status:
+    type: enum
+    values:
+      - CLOSEOUT_TRIGGERED
+      - MATERIAL_INVENTORY_CREATED
+      - CLASSIFICATION_COMPLETED
+      - SCAN_COMPLETED
+      - CLOSEOUT_MANIFEST_CREATED
+      - CLOSEOUT_BRANCH_PUSHED
+      - CLOSEOUT_PR_OPEN
+      - INDEPENDENT_CLOSEOUT_AUDIT
+      - CONTROL_PLANE_MERGE_APPROVAL
+      - CLOSED
+      - CLOSEOUT_BLOCKED_SECRET
+      - CLOSEOUT_BLOCKED_PRIVACY
+      - CLOSEOUT_BLOCKED_LICENSE
+      - CLOSEOUT_BLOCKED_EXTERNAL_STORAGE
+      - CLOSEOUT_INCOMPLETE_EVIDENCE
+      - CLOSEOUT_STALE_BASE
+      - CLOSEOUT_CHANGES_REQUESTED
+      - CLOSEOUT_SUPERSEDED
+      - CLOSEOUT_REVERTED
+      - INCOMPLETE_CLOSEOUT_RECORDED
+  completion_type:
+    type: enum
+    values:
+      - completed
+      - completed_with_limits
+      - incomplete
+      - blocked
+      - abandoned
+      - superseded
+      - reverted
+  generated_at:
+    type: date-time
+  default_branch:
+    type: string
+  base_commit:
+    type: full-git-sha
+  candidate_branch:
+    type: string
+  candidate_head:
+    type: full-git-sha
+  merged_commit:
+    type: full-git-sha-or-null
+  tree_sha:
+    type: full-git-sha-or-null
+  summary:
+    type: string-or-null
+  materials:
+    type: array
+    item_required_fields:
+      - logical_name
+      - class
+      - inclusion
+      - required
+      - status
+    item_contract:
+      logical_name: string
+      repository_path: string-or-null
+      source_location: string-or-null
+      class:
+        type: enum
+        values:
+          - GIT_TEXT
+          - GIT_BINARY_APPROVED
+          - EXTERNAL_BINARY
+          - EXCLUDED_SECRET
+          - EXCLUDED_PRIVACY
+          - EXCLUDED_LICENSE
+          - EPHEMERAL
+          - MISSING_REQUIRED
+      inclusion:
+        type: enum
+        values: [IN_GIT, EXTERNAL_REFERENCE, EXCLUDED, MISSING]
+      required: boolean
+      status:
+        type: enum
+        values: [VERIFIED, BLOCKED, NOT_APPLICABLE, MISSING]
+      size_bytes: integer-or-null
+      git_blob_sha: full-git-sha-or-null
+      sha256: sha256-or-null
+      provenance: string-or-null
+      privacy_status:
+        type: enum
+        values: [CLEAR, REDACTED, BLOCKED, UNKNOWN, NOT_APPLICABLE]
+      license_status:
+        type: enum
+        values: [APPROVED, RESTRICTED, BLOCKED, UNKNOWN, NOT_APPLICABLE]
+      secret_scan_status:
+        type: enum
+        values: [PASS, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+      omission_reason: string-or-null
+      notes: string-or-null
+  scans:
+    type: object
+    required_keys: [secret, privacy, license]
+    result_contract:
+      status:
+        type: enum
+        values: [PASS, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+      findings_count: non-negative-integer
+      method: string-or-null
+      safe_summary: string-or-null
+      evidence_path: string-or-null
+  checks:
+    type: array
+    item_contract:
+      name: string
+      status:
+        type: enum
+        values: [PASS, FAIL, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+      command_or_method: string-or-null
+      evidence_path: string-or-null
+      notes: string-or-null
+  external_binaries:
+    type: array
+    item_contract:
+      logical_name: string
+      size_bytes: non-negative-integer
+      sha256: sha256-or-null
+      media_type: string
+      storage_class: string
+      location_identifier: stable-identifier-without-access-material
+      provenance: string-or-null
+      availability_status:
+        type: enum
+        values: [AVAILABLE, UNAVAILABLE, PENDING_UPLOAD, DELETED_BY_AUTHORITY]
+      owner: string
+      privacy_status:
+        type: enum
+        values: [CLEAR, REDACTED, BLOCKED, NOT_APPLICABLE]
+      license_status:
+        type: enum
+        values: [APPROVED, RESTRICTED, BLOCKED, UNKNOWN, NOT_APPLICABLE]
+      recovery_instructions: string-or-null
+  unresolved_items:
+    type: array
+    item_contract:
+      id: string
+      status:
+        type: enum
+        values: [OPEN, BLOCKED, ACCEPTED_LIMIT, SUPERSEDED]
+      description: string
+      owner: string
+      next_action: string
+  rollback:
+    type: object
+    required_values:
+      reset_forbidden: true
+      force_push_forbidden: true
+      history_deletion_forbidden: true
+    fields:
+      strategy: string
+      revert_branch_pattern: string-or-null
+      target_commit: full-git-sha-or-null
+  authority:
+    type: object
+    required_values:
+      auto_prepare_and_push: ALLOWED
+      auto_create_closeout_pr: ALLOWED
+      auto_merge: FORBIDDEN
+      self_acceptance: FORBIDDEN
+      irreversible_external_action: REQUIRES_EXPLICIT_APPROVAL
+    fields:
+      maker: string
+      checker: string-or-null
+  audit:
+    type: object
+    fields:
+      required: true
+      checker_independent: boolean-or-null
+      decision:
+        type: enum
+        values:
+          - PENDING
+          - CLOSEOUT_ACCEPTED
+          - CLOSEOUT_ACCEPTED_WITH_RECORDED_LIMITS
+          - CHANGES_REQUESTED
+          - BLOCKED
+          - SUPERSEDED
+      accepted: boolean
+      audit_record_url: string-or-null
+      control_plane_merge_approved: boolean
+
+validation_rules:
+  - all Git commit and tree identifiers must use full 40-character lowercase SHA values
+  - all SHA-256 values must use 64 lowercase hexadecimal characters
+  - CLOSED requires an independent accepted audit and Control Plane merge approval
+  - blocked materials cannot be omitted from the inventory
+  - external references cannot contain access material
+  - maker and final checker must be independent
+  - auto_merge and self_acceptance must remain FORBIDDEN

@@ -1,6 +1,8 @@
 # Multimodal Evidence Acceptance Gate
 
-> Status: `CANDIDATE_FOR_INDEPENDENT_REVIEW`  
+> Status: `ACTIVE`  
+> Adopted by PR: `6`  
+> Adoption main SHA: `c911df097632f4ba9496601fa618d267cf562182`  
 > Authorization: `ADT-MULTIMODAL-EVIDENCE-GATE-R1-20260715-001`  
 > Base: `79da69258056e059a07f35a9d1d32f2c698b473e`
 
@@ -274,6 +276,15 @@ The package handoff and workflow correction are independent gates. Neither estab
 ## 11. Governance
 
 ```text
+PROTOCOL_STATUS:
+ACTIVE
+
+ADOPTED_BY_PR:
+6
+
+ADOPTION_MAIN_SHA:
+c911df097632f4ba9496601fa618d267cf562182
+
 SELF_ACCEPTANCE:
 FORBIDDEN
 
@@ -283,9 +294,9 @@ FORBIDDEN
 HISTORY_REWRITE:
 FORBIDDEN
 
-MERGE_ALLOWED:
-NO
+PR_6_MERGE_AUTHORITY:
+CONSUMED
 
-NEXT_GATE:
-INDEPENDENT_MULTIMODAL_EVIDENCE_GATE_AUDIT
+DOCUMENT_GATE:
+CLOSED
 ```

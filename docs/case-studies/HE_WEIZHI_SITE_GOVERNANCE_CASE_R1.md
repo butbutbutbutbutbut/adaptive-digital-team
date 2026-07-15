@@ -1,12 +1,14 @@
 # He Weizhi Site Governance Case Study
 
 > Version: R1  
-> Transport revision: R2  
-> Status: `CANDIDATE_FOR_INDEPENDENT_REVIEW`  
+> Amendment: `R2_MULTIMODAL_FACT_CORRECTION`  
+> Baseline case merge: `79da69258056e059a07f35a9d1d32f2c698b473e`  
+> Original frozen source HEAD: `ae5b105742da41cd1d8954dc5c6f487a95de7687`  
+> Current post-acceptance source state: `2dc081feda06aac5df43d08c582d3098e643adec`  
+> Current document state: `CANDIDATE_FOR_INDEPENDENT_MULTIMODAL_EVIDENCE_GATE_R2_AUDIT`  
 > Evidence class: `PROJECT_LEVEL_GOVERNANCE_CASE`  
 > Source repository: `butbutbutbutbutbut/he-weizhi-site`  
-> Frozen source HEAD: `ae5b105742da41cd1d8954dc5c6f487a95de7687`  
-> Target repository base: `a8661ca6934aa21980d9439dd055bcb239aceb15`
+> Target repository base: `79da69258056e059a07f35a9d1d32f2c698b473e`
 
 ## 1. Purpose
 
@@ -68,17 +70,29 @@ The source case is the private repository:
 butbutbutbutbutbut/he-weizhi-site
 ```
 
-The frozen evidence boundary for this report is:
+The original case and the post-acceptance R2 amendment use separate fixed evidence boundaries:
 
 ```text
-SOURCE_HEAD:
+ORIGINAL_CASE_EVIDENCE_BOUNDARY:
 ae5b105742da41cd1d8954dc5c6f487a95de7687
 
-SOURCE_HEAD_MESSAGE:
+ORIGINAL_CASE_CLAIMS:
+LIMITED_TO_OR_BEFORE_ORIGINAL_BOUNDARY
+
+ORIGINAL_SOURCE_HEAD_MESSAGE:
 docs: integrate accepted Patagon R1S reference audit
+
+POST_ACCEPTANCE_ARCHIVE_BOUNDARY:
+4349c0c905eb9c7f32bfc6c96ed61b0cee3744c8
+
+POST_ACCEPTANCE_CORRECTION_BOUNDARY:
+2dc081feda06aac5df43d08c582d3098e643adec
+
+R2_AMENDMENT_CLAIMS:
+LIMITED_TO_THE_FIXED_POST_ACCEPTANCE_COMMITS_ABOVE
 ```
 
-All claims in this report are limited to repository facts at or before that commit.
+The original boundary remains the boundary for the baseline case. The later fixed commits apply only to the R2 multimodal fact-correction amendment.
 
 The case covers project governance behavior. It does not claim that the website repository already implements the complete organization-level Adaptive Digital Team runtime.
 
@@ -216,6 +230,270 @@ authority records, branch history, evidence, and the active gate.
 
 The He Weizhi Site repository therefore serves as provenance for the later proposal that a project repository should encode enough state and protocol to restart work deterministically.
 
+## Post-acceptance governance defect discovered
+
+After the case report was accepted and merged, a governance workflow defect was discovered in the Monad R1S evidence path.
+
+This is not proof that the governance system had already succeeded completely. The repositories preserved commits, manifests, ledgers, filenames, hashes, review history, and rollback-safe forward history, but the workflow did not require a separate actual-modality review gate before semantic evidence acceptance.
+
+The gap was found through human supervision. The initial Control Plane review verified repository and metadata integrity but had not opened the 53 actual PNG files. The original semantic acceptance was therefore premature.
+
+A later full review of all 53 stills recorded:
+
+```text
+PACKAGE_INTEGRITY:
+PASS
+
+ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+REVIEW_SCOPE:
+FULL_53_STILLS
+
+SEMANTIC_CONTRADICTION_FOUND:
+YES
+
+UNSUPPORTED_TEMPORAL_CLAIMS_FOUND:
+YES
+
+SEMANTIC_SUPPORT_AUDIT:
+FAIL
+
+EVIDENCE_ACCEPTANCE:
+BLOCKED
+
+PREVIOUS_ACCEPTANCE:
+PREMATURE
+
+CORRECTION_METHOD:
+FORWARD_ONLY
+```
+
+The review contradicted the earlier claim that all refresh points returned to the initial hero state. The images instead supported preservation or restoration of the current scroll position. TITLE-NAV-SYNC and STATIC-READING were not supported by the available stills; other temporal claims were reduced to partial support because static screenshots could not establish complete timing, smoothness, or Reduced Motion behavior. A persistent Cookie dialog also obstructed content.
+
+The correction uses a forward protocol patch and separate correction candidates. It does not delete, reset, amend, rebase, force-push, or conceal the earlier history.
+
+Monad's final visual conclusion remains pending remediation and independent re-audit:
+
+```text
+REPOSITORY_INTEGRITY:
+PASS
+
+METADATA_INTEGRITY:
+PASS
+
+VISUAL_EVIDENCE_AUDIT:
+COMPLETED
+
+SEMANTIC_SUPPORT_AUDIT:
+FAIL
+
+EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
+
+MONAD_USAGE_AS_ACCEPTED_VISUAL_REFERENCE:
+BLOCKED
+```
+
+### R2 retrospective multimodal fact correction
+
+This section supersedes the temporary Sui and Patagon suspension states and records the final cross-repository facts verified under the superseding authorization.
+
+```text
+AUTHORIZATION_ID:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-FACT-CORRECTION-20260715-002
+
+SUPERSEDES_AUTHORIZATION:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-FACT-CORRECTION-20260715-001
+
+AFFECTED_PRIOR_ACCEPTANCES:
+- SUI_R1S
+- PATAGON_R1S
+- MONAD_R1S
+
+COMMON_DEFECT:
+ACTUAL_MODAL_REVIEW_NOT_REQUIRED_BEFORE_SEMANTIC_ACCEPTANCE
+
+RETROSPECTIVE_MODAL_REVIEW:
+COMPLETED_FOR_ALL_THREE
+```
+
+#### Primary evidence archive
+
+```text
+PRIMARY_EVIDENCE_ARCHIVE:
+COMPLETE
+
+ARCHIVED_PNG_COUNT:
+113
+
+SUI_PNG:
+23
+
+PATAGON_PNG:
+37
+
+MONAD_PNG:
+53
+
+ARCHIVE_MERGED_MAIN_SHA:
+4349c0c905eb9c7f32bfc6c96ed61b0cee3744c8
+
+CURRENT_HE_WEIZHI_MAIN_SHA:
+2dc081feda06aac5df43d08c582d3098e643adec
+
+MANIFEST_TO_BINARY_MAPPING:
+PASS
+
+BINARY_ARCHIVE_COMPLETENESS_DOES_NOT_ESTABLISH_SEMANTIC_ACCEPTANCE:
+YES
+```
+
+The archive commit and the current corrected source-project main are distinct facts. Binary archival completeness does not establish semantic acceptance.
+
+#### Sui retrospective result
+
+```text
+SUI_BINARY_IDENTITY:
+VERIFIED_23_OF_23
+
+SUI_ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+SUI_REVIEW_SCOPE:
+FULL_23_STILLS
+
+SUI_SEMANTIC_SUPPORT:
+PARTIAL_PASS
+
+SUI_UNRECORDED_ADVERSE_OUTPUT:
+CT01_AFTER_BACK_BLANK
+
+SUI_EVIDENCE_ACCEPTANCE:
+CHANGES_REQUIRED_BEFORE_RESTORATION
+```
+
+The following Sui items are supported by logs, concern external content that was not captured, or cannot be independently distinguished from static stills:
+
+```text
+CT01_POPUP
+CT02_HOME
+CT03_EXTERNAL_GATE
+CT06_TIMEOUT
+CT07_EXTERNAL_GATE
+CT08_EXTERNAL_GATE
+CT09_EXTERNAL_GATE
+```
+
+Sui is not recorded as a full semantic pass.
+
+#### Patagon retrospective result
+
+```text
+PATAGON_BINARY_IDENTITY:
+VERIFIED_37_OF_37
+
+PATAGON_ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+PATAGON_REVIEW_SCOPE:
+FULL_37_STILLS
+
+PATAGON_SEMANTIC_SUPPORT:
+PASS_WITH_RECORDED_LIMITS
+
+PATAGON_DIRECT_CONTRADICTION_FOUND:
+NO
+
+PATAGON_EVIDENCE_ACCEPTANCE:
+FINAL_WITH_RECORDED_LIMITS
+
+STATIC_STILL_LIMIT:
+Static screenshots do not independently establish temporal continuity,
+transition smoothness, or motion timing.
+```
+
+#### Monad final correction facts
+
+He Weizhi Site PR #19 was merged into main as `2dc081feda06aac5df43d08c582d3098e643adec`. PR #17 was closed without merge and superseded by PR #19. The correction entered main; Monad evidence acceptance did not become a pass.
+
+```text
+MONAD_BINARY_IDENTITY:
+VERIFIED_53_OF_53
+
+MONAD_ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+MONAD_REVIEW_SCOPE:
+FULL_53_STILLS
+
+MONAD_CORRECTION_PR:
+19
+
+MONAD_CORRECTION_MAIN_SHA:
+2dc081feda06aac5df43d08c582d3098e643adec
+
+MONAD_SEMANTIC_SUPPORT_AUDIT:
+FAIL
+
+MONAD_SEMANTIC_CONTRADICTION_FOUND:
+YES
+
+MONAD_EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
+
+REFRESH_CORRECTED_INTERPRETATION:
+Refresh preserved or restored the current scroll position.
+
+PR_17_STATUS:
+CLOSED_WITHOUT_MERGE
+
+PR_17_SUPERSEDED_BY:
+19
+```
+
+The nine Monad results remain:
+
+```text
+MON-FULL-FORWARD:
+PARTIAL_SUPPORT
+
+MON-FULL-REVERSE:
+PARTIAL_SUPPORT
+
+MON-SECTION-BOUNDARY:
+PARTIAL_SUPPORT
+
+MON-TITLE-NAV-SYNC:
+NOT_SUPPORTED
+
+MON-STRONG-TO-READING:
+PARTIAL_SUPPORT
+
+MON-BURST-ORDER:
+PARTIAL_SUPPORT
+
+MON-STATIC-READING:
+NOT_SUPPORTED
+
+MON-REFRESH-RECOVERY:
+CONTRADICTED
+
+MON-REDUCE:
+PARTIAL_SUPPORT
+```
+
+```text
+RESULT:
+- Sui requires documentation or remediation before acceptance restoration
+- Patagon is final with recorded limits
+- Monad remains blocked pending remediation
+```
+
+The three affected references did not all pass.
+
+The incident must not be presented as a promotional self-evolution success story. It is evidence that preserved history and human authority enabled detection and forward correction of a real governance failure.
+
 ## 7. What the case demonstrates
 
 At project level, the evidence supports the following claims:
@@ -246,8 +524,26 @@ This report must not be used to claim any of the following:
 ## 9. Case status
 
 ```text
-CASE_STATUS:
+BASELINE_CASE_STATUS:
+MERGED_ACCEPTED
+
+BASELINE_CASE_MAIN_SHA:
+79da69258056e059a07f35a9d1d32f2c698b473e
+
+CURRENT_R2_AMENDMENT_STATUS:
 CANDIDATE_FOR_INDEPENDENT_REVIEW
+
+ORGANIZATION_LEVEL_VALIDATION:
+NOT_ESTABLISHED
+
+SUI_EVIDENCE_ACCEPTANCE:
+CHANGES_REQUIRED_BEFORE_RESTORATION
+
+PATAGON_EVIDENCE_ACCEPTANCE:
+FINAL_WITH_RECORDED_LIMITS
+
+MONAD_EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
 
 SOURCE_METHOD_STATUS:
 VALIDATED_IN_PROJECT
@@ -255,11 +551,8 @@ VALIDATED_IN_PROJECT
 SOURCE_METHOD_COMMIT:
 bff061181faff8e44c977e88339693e8248bbde1
 
-SOURCE_CASE_HEAD:
+ORIGINAL_CASE_EVIDENCE_BOUNDARY:
 ae5b105742da41cd1d8954dc5c6f487a95de7687
-
-ORGANIZATION_LEVEL_VALIDATION:
-NOT_ESTABLISHED
 
 PROJECT_BINDING:
 NOT_CREATED
@@ -277,22 +570,21 @@ BINARY_EVIDENCE_COPIED:
 NO
 ```
 
-## 10. Independent audit request
+## 10. Original Case Migration Audit Record
 
-The independent Checker should verify:
+This historical audit record applied to the PR #5 baseline case migration. It is not the current PR #6 audit request.
 
-1. the target branch begins from `a8661ca6934aa21980d9439dd055bcb239aceb15`;
-2. this report is the only changed file;
-3. the source repository is fixed at `ae5b105742da41cd1d8954dc5c6f487a95de7687`;
-4. every referenced PR and merged commit pair is accurate;
-5. the accidental-main incident and forward revert are represented accurately;
-6. the Sui CT06 limitation and external-domain stops are preserved;
-7. `VALIDATED_IN_PROJECT` is not upgraded to organization-level acceptance;
-8. no application source, binary evidence, runtime, binding, lease, protocol, schema, or automation is introduced;
-9. the report distinguishes governance evidence from promotional claims;
-10. the candidate remains unmerged until independent review and explicit Control Plane approval.
+```text
+APPLIED_TO:
+PR_5_BASELINE_CASE_MIGRATION
 
-Allowed audit decisions:
+CURRENT_GATE:
+NO
+```
+
+The independent Checker verified that the migration branch began from `a8661ca6934aa21980d9439dd055bcb239aceb15`, that the baseline report was the only changed file in that migration candidate, and that source claims were bounded by `ae5b105742da41cd1d8954dc5c6f487a95de7687`. The historical audit also checked referenced PR/commit pairs, the forward revert record, Sui CT06 and external-domain limits, the project-level validation boundary, absence of application/runtime/schema changes, and the prohibition on self-merge.
+
+Historical allowed decisions were:
 
 ```text
 CASE_STUDY_ACCEPTED
@@ -302,7 +594,40 @@ BLOCKED
 SUPERSEDED
 ```
 
-## 11. Gate
+## 11. Current R2 Audit Request
+
+```text
+DOCUMENT_STATE_CORRECTION_AUTHORIZATION_ID:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-DOCUMENT-STATE-CORRECTION-20260715-003
+
+CURRENT_PR:
+6
+
+CURRENT_BASE:
+79da69258056e059a07f35a9d1d32f2c698b473e
+
+EXPECTED_PRE_AUDIT_HEAD:
+THIS_FORWARD_CORRECTION_COMMIT
+
+EXPECTED_COMMITS:
+3
+
+CUMULATIVE_CHANGED_FILES:
+4
+
+CURRENT_AUDIT_SCOPE:
+- AGENTS multimodal fail-closed rule
+- MULTIMODAL_EVIDENCE_ACCEPTANCE_GATE protocol
+- Monad incident record
+- He Weizhi governance case R2 amendment
+- Sui / Patagon / Monad retrospective facts
+- 113-PNG primary evidence archive references
+- forward-only correction history
+```
+
+`EXPECTED_PRE_AUDIT_HEAD` means the immutable commit containing this request; the Checker must resolve its concrete SHA from PR #6 before audit.
+
+## 12. Gate
 
 ```text
 IMPLEMENTATION:
@@ -321,5 +646,5 @@ MERGE_ALLOWED:
 NO
 
 NEXT_GATE:
-INDEPENDENT_HE_WEIZHI_GOVERNANCE_CASE_AUDIT
+INDEPENDENT_MULTIMODAL_EVIDENCE_GATE_R2_AUDIT
 ```

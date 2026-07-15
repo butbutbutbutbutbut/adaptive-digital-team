@@ -19,3 +19,17 @@ evidence modality before acceptance or merge authorization.
 
 Missing binary access or unperformed modal review fails closed and
 cannot be downgraded to a recorded limitation.
+
+## Instruction routing and authority
+
+All cross-Agent, cross-window, cross-repository, repository-write,
+audit, and merge instructions must follow
+`protocols/INSTRUCTION_ROUTING_AND_AUTHORITY.md`.
+
+Missing or conflicting FROM, TO, EXECUTOR, CHECKER, REPOSITORY, or
+AUTHORIZATION_ID fields fail closed.
+
+CC status grants no execution, acceptance, audit, or merge authority.
+
+Maker, Checker, PR-creation authority, evidence acceptance, and merge
+authority must remain distinct.

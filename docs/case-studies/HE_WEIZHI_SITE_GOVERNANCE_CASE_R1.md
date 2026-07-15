@@ -281,6 +281,203 @@ MONAD_USAGE_AS_ACCEPTED_VISUAL_REFERENCE:
 BLOCKED
 ```
 
+### R2 retrospective multimodal fact correction
+
+This section supersedes the temporary Sui and Patagon suspension states and records the final cross-repository facts verified under the superseding authorization.
+
+```text
+AUTHORIZATION_ID:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-FACT-CORRECTION-20260715-002
+
+SUPERSEDES_AUTHORIZATION:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-FACT-CORRECTION-20260715-001
+
+AFFECTED_PRIOR_ACCEPTANCES:
+- SUI_R1S
+- PATAGON_R1S
+- MONAD_R1S
+
+COMMON_DEFECT:
+ACTUAL_MODAL_REVIEW_NOT_REQUIRED_BEFORE_SEMANTIC_ACCEPTANCE
+
+RETROSPECTIVE_MODAL_REVIEW:
+COMPLETED_FOR_ALL_THREE
+```
+
+#### Primary evidence archive
+
+```text
+PRIMARY_EVIDENCE_ARCHIVE:
+COMPLETE
+
+ARCHIVED_PNG_COUNT:
+113
+
+SUI_PNG:
+23
+
+PATAGON_PNG:
+37
+
+MONAD_PNG:
+53
+
+ARCHIVE_MERGED_MAIN_SHA:
+4349c0c905eb9c7f32bfc6c96ed61b0cee3744c8
+
+CURRENT_HE_WEIZHI_MAIN_SHA:
+2dc081feda06aac5df43d08c582d3098e643adec
+
+MANIFEST_TO_BINARY_MAPPING:
+PASS
+
+BINARY_ARCHIVE_COMPLETENESS_DOES_NOT_ESTABLISH_SEMANTIC_ACCEPTANCE:
+YES
+```
+
+The archive commit and the current corrected source-project main are distinct facts. Binary archival completeness does not establish semantic acceptance.
+
+#### Sui retrospective result
+
+```text
+SUI_BINARY_IDENTITY:
+VERIFIED_23_OF_23
+
+SUI_ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+SUI_REVIEW_SCOPE:
+FULL_23_STILLS
+
+SUI_SEMANTIC_SUPPORT:
+PARTIAL_PASS
+
+SUI_UNRECORDED_ADVERSE_OUTPUT:
+CT01_AFTER_BACK_BLANK
+
+SUI_EVIDENCE_ACCEPTANCE:
+CHANGES_REQUIRED_BEFORE_RESTORATION
+```
+
+The following Sui items are supported by logs, concern external content that was not captured, or cannot be independently distinguished from static stills:
+
+```text
+CT01_POPUP
+CT02_HOME
+CT03_EXTERNAL_GATE
+CT06_TIMEOUT
+CT07_EXTERNAL_GATE
+CT08_EXTERNAL_GATE
+CT09_EXTERNAL_GATE
+```
+
+Sui is not recorded as a full semantic pass.
+
+#### Patagon retrospective result
+
+```text
+PATAGON_BINARY_IDENTITY:
+VERIFIED_37_OF_37
+
+PATAGON_ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+PATAGON_REVIEW_SCOPE:
+FULL_37_STILLS
+
+PATAGON_SEMANTIC_SUPPORT:
+PASS_WITH_RECORDED_LIMITS
+
+PATAGON_DIRECT_CONTRADICTION_FOUND:
+NO
+
+PATAGON_EVIDENCE_ACCEPTANCE:
+FINAL_WITH_RECORDED_LIMITS
+
+STATIC_STILL_LIMIT:
+Static screenshots do not independently establish temporal continuity,
+transition smoothness, or motion timing.
+```
+
+#### Monad final correction facts
+
+He Weizhi Site PR #19 was merged into main as `2dc081feda06aac5df43d08c582d3098e643adec`. PR #17 was closed without merge and superseded by PR #19. The correction entered main; Monad evidence acceptance did not become a pass.
+
+```text
+MONAD_BINARY_IDENTITY:
+VERIFIED_53_OF_53
+
+MONAD_ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+MONAD_REVIEW_SCOPE:
+FULL_53_STILLS
+
+MONAD_CORRECTION_PR:
+19
+
+MONAD_CORRECTION_MAIN_SHA:
+2dc081feda06aac5df43d08c582d3098e643adec
+
+MONAD_SEMANTIC_SUPPORT_AUDIT:
+FAIL
+
+MONAD_SEMANTIC_CONTRADICTION_FOUND:
+YES
+
+MONAD_EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
+
+REFRESH_CORRECTED_INTERPRETATION:
+Refresh preserved or restored the current scroll position.
+
+PR_17_STATUS:
+CLOSED_WITHOUT_MERGE
+
+PR_17_SUPERSEDED_BY:
+19
+```
+
+The nine Monad results remain:
+
+```text
+MON-FULL-FORWARD:
+PARTIAL_SUPPORT
+
+MON-FULL-REVERSE:
+PARTIAL_SUPPORT
+
+MON-SECTION-BOUNDARY:
+PARTIAL_SUPPORT
+
+MON-TITLE-NAV-SYNC:
+NOT_SUPPORTED
+
+MON-STRONG-TO-READING:
+PARTIAL_SUPPORT
+
+MON-BURST-ORDER:
+PARTIAL_SUPPORT
+
+MON-STATIC-READING:
+NOT_SUPPORTED
+
+MON-REFRESH-RECOVERY:
+CONTRADICTED
+
+MON-REDUCE:
+PARTIAL_SUPPORT
+```
+
+```text
+RESULT:
+- Sui requires documentation or remediation before acceptance restoration
+- Patagon is final with recorded limits
+- Monad remains blocked pending remediation
+```
+
+The three affected references did not all pass.
+
 The incident must not be presented as a promotional self-evolution success story. It is evidence that preserved history and human authority enabled detection and forward correction of a real governance failure.
 
 ## 7. What the case demonstrates

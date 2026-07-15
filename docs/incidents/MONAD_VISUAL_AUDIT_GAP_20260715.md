@@ -173,13 +173,19 @@ Manifest, ledger, filenames, and SHA records remain valid as metadata facts. The
 
 ## 7. Forward correction and remediation
 
-Hermes is authorized under:
+Hermes was authorized under:
 
 ```text
 HE-WEIZHI-MONAD-VISUAL-AUDIT-CORRECTION-20260715-001
 ```
 
-to correct only the authorized semantic observation and submission records and to add a visual-audit correction record. Original evidence, manifests, ledgers, filenames, and hashes must remain unchanged.
+The correction was completed through PR #19 and merged as:
+
+```text
+2dc081feda06aac5df43d08c582d3098e643adec
+```
+
+PR #17 was closed without merge and superseded by PR #19. Original evidence, manifests, ledgers, filenames, and hashes remained unchanged.
 
 Remediation evidence must:
 
@@ -324,7 +330,7 @@ transition smoothness, or motion timing.
 
 ### Monad final correction facts
 
-He Weizhi Site PR #19 was merged into main as `2dc081feda06aac5df43d08c582d3098e643adec`. The correction record entered main; Monad evidence acceptance did not become a pass.
+He Weizhi Site PR #19 was merged into main as `2dc081feda06aac5df43d08c582d3098e643adec`. PR #17 was closed without merge and superseded by PR #19. The correction entered main; Monad evidence acceptance did not become a pass.
 
 ```text
 MONAD_BINARY_IDENTITY:
@@ -405,6 +411,11 @@ The three affected references did not all pass.
 
 ## 10. Remaining gates
 
+```text
+DOCUMENT_STATE_CORRECTION_AUTHORIZATION_ID:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-DOCUMENT-STATE-CORRECTION-20260715-003
+```
+
 Two independent tracks remain:
 
 ```text
@@ -416,6 +427,9 @@ The evidence package handoff does not equal workflow repair. Workflow repair doe
 
 ```text
 SELF_ACCEPTANCE:
+FORBIDDEN
+
+AUTO_MERGE:
 FORBIDDEN
 
 MERGE_ALLOWED:

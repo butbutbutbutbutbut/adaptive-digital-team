@@ -1,12 +1,14 @@
 # He Weizhi Site Governance Case Study
 
 > Version: R1  
-> Transport revision: R2  
-> Status: `CANDIDATE_FOR_INDEPENDENT_REVIEW`  
+> Amendment: `R2_MULTIMODAL_FACT_CORRECTION`  
+> Baseline case merge: `79da69258056e059a07f35a9d1d32f2c698b473e`  
+> Original frozen source HEAD: `ae5b105742da41cd1d8954dc5c6f487a95de7687`  
+> Current post-acceptance source state: `2dc081feda06aac5df43d08c582d3098e643adec`  
+> Current document state: `CANDIDATE_FOR_INDEPENDENT_MULTIMODAL_EVIDENCE_GATE_R2_AUDIT`  
 > Evidence class: `PROJECT_LEVEL_GOVERNANCE_CASE`  
 > Source repository: `butbutbutbutbutbut/he-weizhi-site`  
-> Frozen source HEAD: `ae5b105742da41cd1d8954dc5c6f487a95de7687`  
-> Target repository base: `a8661ca6934aa21980d9439dd055bcb239aceb15`
+> Target repository base: `79da69258056e059a07f35a9d1d32f2c698b473e`
 
 ## 1. Purpose
 
@@ -68,17 +70,29 @@ The source case is the private repository:
 butbutbutbutbutbut/he-weizhi-site
 ```
 
-The frozen evidence boundary for this report is:
+The original case and the post-acceptance R2 amendment use separate fixed evidence boundaries:
 
 ```text
-SOURCE_HEAD:
+ORIGINAL_CASE_EVIDENCE_BOUNDARY:
 ae5b105742da41cd1d8954dc5c6f487a95de7687
 
-SOURCE_HEAD_MESSAGE:
+ORIGINAL_CASE_CLAIMS:
+LIMITED_TO_OR_BEFORE_ORIGINAL_BOUNDARY
+
+ORIGINAL_SOURCE_HEAD_MESSAGE:
 docs: integrate accepted Patagon R1S reference audit
+
+POST_ACCEPTANCE_ARCHIVE_BOUNDARY:
+4349c0c905eb9c7f32bfc6c96ed61b0cee3744c8
+
+POST_ACCEPTANCE_CORRECTION_BOUNDARY:
+2dc081feda06aac5df43d08c582d3098e643adec
+
+R2_AMENDMENT_CLAIMS:
+LIMITED_TO_THE_FIXED_POST_ACCEPTANCE_COMMITS_ABOVE
 ```
 
-All claims in this report are limited to repository facts at or before that commit.
+The original boundary remains the boundary for the baseline case. The later fixed commits apply only to the R2 multimodal fact-correction amendment.
 
 The case covers project governance behavior. It does not claim that the website repository already implements the complete organization-level Adaptive Digital Team runtime.
 
@@ -510,8 +524,26 @@ This report must not be used to claim any of the following:
 ## 9. Case status
 
 ```text
-CASE_STATUS:
+BASELINE_CASE_STATUS:
+MERGED_ACCEPTED
+
+BASELINE_CASE_MAIN_SHA:
+79da69258056e059a07f35a9d1d32f2c698b473e
+
+CURRENT_R2_AMENDMENT_STATUS:
 CANDIDATE_FOR_INDEPENDENT_REVIEW
+
+ORGANIZATION_LEVEL_VALIDATION:
+NOT_ESTABLISHED
+
+SUI_EVIDENCE_ACCEPTANCE:
+CHANGES_REQUIRED_BEFORE_RESTORATION
+
+PATAGON_EVIDENCE_ACCEPTANCE:
+FINAL_WITH_RECORDED_LIMITS
+
+MONAD_EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
 
 SOURCE_METHOD_STATUS:
 VALIDATED_IN_PROJECT
@@ -519,11 +551,8 @@ VALIDATED_IN_PROJECT
 SOURCE_METHOD_COMMIT:
 bff061181faff8e44c977e88339693e8248bbde1
 
-SOURCE_CASE_HEAD:
+ORIGINAL_CASE_EVIDENCE_BOUNDARY:
 ae5b105742da41cd1d8954dc5c6f487a95de7687
-
-ORGANIZATION_LEVEL_VALIDATION:
-NOT_ESTABLISHED
 
 PROJECT_BINDING:
 NOT_CREATED
@@ -541,22 +570,21 @@ BINARY_EVIDENCE_COPIED:
 NO
 ```
 
-## 10. Independent audit request
+## 10. Original Case Migration Audit Record
 
-The independent Checker should verify:
+This historical audit record applied to the PR #5 baseline case migration. It is not the current PR #6 audit request.
 
-1. the target branch begins from `a8661ca6934aa21980d9439dd055bcb239aceb15`;
-2. this report is the only changed file;
-3. the source repository is fixed at `ae5b105742da41cd1d8954dc5c6f487a95de7687`;
-4. every referenced PR and merged commit pair is accurate;
-5. the accidental-main incident and forward revert are represented accurately;
-6. the Sui CT06 limitation and external-domain stops are preserved;
-7. `VALIDATED_IN_PROJECT` is not upgraded to organization-level acceptance;
-8. no application source, binary evidence, runtime, binding, lease, protocol, schema, or automation is introduced;
-9. the report distinguishes governance evidence from promotional claims;
-10. the candidate remains unmerged until independent review and explicit Control Plane approval.
+```text
+APPLIED_TO:
+PR_5_BASELINE_CASE_MIGRATION
 
-Allowed audit decisions:
+CURRENT_GATE:
+NO
+```
+
+The independent Checker verified that the migration branch began from `a8661ca6934aa21980d9439dd055bcb239aceb15`, that the baseline report was the only changed file in that migration candidate, and that source claims were bounded by `ae5b105742da41cd1d8954dc5c6f487a95de7687`. The historical audit also checked referenced PR/commit pairs, the forward revert record, Sui CT06 and external-domain limits, the project-level validation boundary, absence of application/runtime/schema changes, and the prohibition on self-merge.
+
+Historical allowed decisions were:
 
 ```text
 CASE_STUDY_ACCEPTED
@@ -566,7 +594,40 @@ BLOCKED
 SUPERSEDED
 ```
 
-## 11. Gate
+## 11. Current R2 Audit Request
+
+```text
+DOCUMENT_STATE_CORRECTION_AUTHORIZATION_ID:
+ADT-MULTIMODAL-EVIDENCE-GATE-R2-DOCUMENT-STATE-CORRECTION-20260715-003
+
+CURRENT_PR:
+6
+
+CURRENT_BASE:
+79da69258056e059a07f35a9d1d32f2c698b473e
+
+EXPECTED_PRE_AUDIT_HEAD:
+THIS_FORWARD_CORRECTION_COMMIT
+
+EXPECTED_COMMITS:
+3
+
+CUMULATIVE_CHANGED_FILES:
+4
+
+CURRENT_AUDIT_SCOPE:
+- AGENTS multimodal fail-closed rule
+- MULTIMODAL_EVIDENCE_ACCEPTANCE_GATE protocol
+- Monad incident record
+- He Weizhi governance case R2 amendment
+- Sui / Patagon / Monad retrospective facts
+- 113-PNG primary evidence archive references
+- forward-only correction history
+```
+
+`EXPECTED_PRE_AUDIT_HEAD` means the immutable commit containing this request; the Checker must resolve its concrete SHA from PR #6 before audit.
+
+## 12. Gate
 
 ```text
 IMPLEMENTATION:
@@ -585,5 +646,5 @@ MERGE_ALLOWED:
 NO
 
 NEXT_GATE:
-INDEPENDENT_HE_WEIZHI_GOVERNANCE_CASE_AUDIT
+INDEPENDENT_MULTIMODAL_EVIDENCE_GATE_R2_AUDIT
 ```

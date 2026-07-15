@@ -62,7 +62,7 @@ Missing, inaccessible, corrupted, substituted, renamed, transcoded, regenerated,
 
 ### 3.3 Actual modal review
 
-`ACTUAL_MODAL_REVIEW_PERFORMED: YES` means the independent Checker actually inspected the evidence through the modality required to evaluate the claim.
+`ACTUAL_MODAL_REVIEW_PERFORMED: YES` means the independent Checker actually inspected the evidence using the modality required to evaluate the claim.
 
 Examples include:
 

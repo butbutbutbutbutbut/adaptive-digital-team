@@ -199,7 +199,21 @@ Remediation evidence must:
 
 ## 8. Workflow correction
 
-This repository adds `protocols/MULTIMODAL_EVIDENCE_ACCEPTANCE_GATE.md` and an AGENTS rule separating:
+```text
+WORKFLOW_REPAIR_STATUS:
+MERGED
+
+MULTIMODAL_PROTOCOL_STATUS:
+ACTIVE
+
+WORKFLOW_REPAIR_PR:
+6
+
+WORKFLOW_REPAIR_MAIN_SHA:
+c911df097632f4ba9496601fa618d267cf562182
+```
+
+PR #6 added `protocols/MULTIMODAL_EVIDENCE_ACCEPTANCE_GATE.md` and an AGENTS rule separating:
 
 - metadata audit;
 - binary availability;
@@ -409,32 +423,20 @@ RESULT:
 
 The three affected references did not all pass.
 
-## 10. Remaining gates
+## 10. Remaining evidence gate
 
 ```text
-DOCUMENT_STATE_CORRECTION_AUTHORIZATION_ID:
-ADT-MULTIMODAL-EVIDENCE-GATE-R2-DOCUMENT-STATE-CORRECTION-20260715-003
-```
+REMAINING_EVIDENCE_GATE:
+MONAD_REMEDIATION_EVIDENCE_AND_INDEPENDENT_VISUAL_REAUDIT
 
-Two independent tracks remain:
+R2_MULTIMODAL_GOVERNANCE_AUDIT:
+COMPLETED_PASS
 
-```text
-1. Monad remediation evidence and independent visual re-audit after the merged correction record
-2. Independent R2 audit of the ADT multimodal evidence acceptance gate
+INCIDENT_DOCUMENT_GATE:
+CLOSED
+
+MONAD_EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
 ```
 
 The evidence package handoff does not equal workflow repair. Workflow repair does not equal Monad visual evidence acceptance.
-
-```text
-SELF_ACCEPTANCE:
-FORBIDDEN
-
-AUTO_MERGE:
-FORBIDDEN
-
-MERGE_ALLOWED:
-NO
-
-NEXT_GATE:
-INDEPENDENT_MULTIMODAL_EVIDENCE_GATE_R2_AUDIT
-```

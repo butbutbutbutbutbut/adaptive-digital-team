@@ -216,6 +216,73 @@ authority records, branch history, evidence, and the active gate.
 
 The He Weizhi Site repository therefore serves as provenance for the later proposal that a project repository should encode enough state and protocol to restart work deterministically.
 
+## Post-acceptance governance defect discovered
+
+After the case report was accepted and merged, a governance workflow defect was discovered in the Monad R1S evidence path.
+
+This is not proof that the governance system had already succeeded completely. The repositories preserved commits, manifests, ledgers, filenames, hashes, review history, and rollback-safe forward history, but the workflow did not require a separate actual-modality review gate before semantic evidence acceptance.
+
+The gap was found through human supervision. The initial Control Plane review verified repository and metadata integrity but had not opened the 53 actual PNG files. The original semantic acceptance was therefore premature.
+
+A later full review of all 53 stills recorded:
+
+```text
+PACKAGE_INTEGRITY:
+PASS
+
+ACTUAL_MODAL_REVIEW:
+COMPLETED
+
+REVIEW_SCOPE:
+FULL_53_STILLS
+
+SEMANTIC_CONTRADICTION_FOUND:
+YES
+
+UNSUPPORTED_TEMPORAL_CLAIMS_FOUND:
+YES
+
+SEMANTIC_SUPPORT_AUDIT:
+FAIL
+
+EVIDENCE_ACCEPTANCE:
+BLOCKED
+
+PREVIOUS_ACCEPTANCE:
+PREMATURE
+
+CORRECTION_METHOD:
+FORWARD_ONLY
+```
+
+The review contradicted the earlier claim that all refresh points returned to the initial hero state. The images instead supported preservation or restoration of the current scroll position. TITLE-NAV-SYNC and STATIC-READING were not supported by the available stills; other temporal claims were reduced to partial support because static screenshots could not establish complete timing, smoothness, or Reduced Motion behavior. A persistent Cookie dialog also obstructed content.
+
+The correction uses a forward protocol patch and separate correction candidates. It does not delete, reset, amend, rebase, force-push, or conceal the earlier history.
+
+Monad's final visual conclusion remains pending remediation and independent re-audit:
+
+```text
+REPOSITORY_INTEGRITY:
+PASS
+
+METADATA_INTEGRITY:
+PASS
+
+VISUAL_EVIDENCE_AUDIT:
+COMPLETED
+
+SEMANTIC_SUPPORT_AUDIT:
+FAIL
+
+EVIDENCE_ACCEPTANCE:
+BLOCKED_PENDING_REMEDIATION
+
+MONAD_USAGE_AS_ACCEPTED_VISUAL_REFERENCE:
+BLOCKED
+```
+
+The incident must not be presented as a promotional self-evolution success story. It is evidence that preserved history and human authority enabled detection and forward correction of a real governance failure.
+
 ## 7. What the case demonstrates
 
 At project level, the evidence supports the following claims:

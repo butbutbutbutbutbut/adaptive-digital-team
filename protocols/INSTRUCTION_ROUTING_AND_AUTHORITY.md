@@ -1,7 +1,16 @@
 # Instruction Routing and Authority
 
 Status:
-CANDIDATE_FOR_INDEPENDENT_REVIEW
+ACTIVE
+
+Adopted by PR:
+8
+
+Audited Head:
+72eb623ea00719e2eb13ec38291f4c8de6ff2e28
+
+Adoption main SHA:
+e3ea278163714f107afc3defcad8b5a2bab7b401
 
 Authorization:
 ADT-INSTRUCTION-ROUTING-AND-AUTHORITY-R1-20260715-001
@@ -153,9 +162,27 @@ A vague result must not replace the actual repository or governance state.
 - Unconsumed authority must not be transferred to another Executor.
 - Consumed authority must not be reused.
 
-## 8. Candidate gate
+## 8. Adoption record
 
 ```text
+PROTOCOL_STATUS:
+ACTIVE
+
+ADOPTED_BY_PR:
+8
+
+AUDITED_HEAD:
+72eb623ea00719e2eb13ec38291f4c8de6ff2e28
+
+ADOPTION_MAIN_SHA:
+e3ea278163714f107afc3defcad8b5a2bab7b401
+
+INDEPENDENT_AUDIT:
+PASS
+
+PR_8_MERGE_AUTHORITY:
+CONSUMED
+
 SELF_ACCEPTANCE:
 FORBIDDEN
 
@@ -165,12 +192,9 @@ FORBIDDEN
 HISTORY_REWRITE:
 FORBIDDEN
 
-PR_CREATION_AUTHORITY:
-AUTHORIZED
-
-MERGE_AUTHORITY:
-NOT_AUTHORIZED
+DOCUMENT_GATE:
+CLOSED
 
 NEXT_GATE:
-INDEPENDENT_INSTRUCTION_ROUTING_PROTOCOL_AUDIT
+NONE_FOR_THIS_PROTOCOL_ADOPTION
 ```

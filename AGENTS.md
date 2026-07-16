@@ -33,3 +33,20 @@ CC status grants no execution, acceptance, audit, or merge authority.
 
 Maker, Checker, PR-creation authority, evidence acceptance, and merge
 authority must remain distinct.
+
+## Persistent Holder adopted governance specification
+
+`protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` is a
+`ADOPTED_GOVERNANCE_SPECIFICATION`. The Persistent Holder is the resident
+control-plane interface and Task Router, not a third Maker. Makers and
+Checkers are temporary task roles; the Holder may be Checker only when the
+independence test in that protocol passes.
+
+The Holder routes publication but does not Push directly. A task-scoped
+Publish Lease cannot expand its parent authorization. Ready, Merge, branch
+deletion, final acceptance, and final visual or engineering acceptance are
+Human-only. PR10 is a read-only source candidate and must not be merged,
+cherry-picked, updated, closed, or deleted.
+
+Persistent Holder runtime, Hermes R1, and automatic scheduling remain
+unimplemented and unauthorized.

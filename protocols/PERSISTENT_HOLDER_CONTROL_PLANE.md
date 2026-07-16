@@ -124,6 +124,12 @@ The Holder reports stale non-permission metadata as `RECORDED_LIMIT` when it
 does not affect authority, scope, Base, Head, Merge safety, or the Runtime
 boundary. Those authority and safety failures remain fail-closed.
 
+Repository merge settings (enabled merge methods, protection rules, required
+status checks) are live control-plane facts. They are not durable repository
+state and must be re-read at each merge-capability gate. The merge method
+capability preflight rules in `AGENTS.md` govern how these live facts are
+verified, presented, and bound to merge authorization.
+
 ## Canonical Task State Card
 
 The Task State Card is a live control-plane receipt, not a durable project

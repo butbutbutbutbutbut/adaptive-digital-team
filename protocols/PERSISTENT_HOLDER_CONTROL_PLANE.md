@@ -52,6 +52,16 @@ STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
 
 `MAKER_SELF_PUBLISH_UNDER_TASK_SCOPED_LEASE` permits a Maker to prepare and, only when explicitly granted, publish its own task result. The Holder only routes publication; it does not Push directly. A Publish Lease inherits the parent repository, Base, scope, branch, Head binding, file limits, and gate. It cannot expand parent authorization or grant Ready, Merge, acceptance, or branch-deletion authority.
 
+### Publish Lease validity and invalidation
+
+A Lease is valid only while all of these bindings remain exact: its parent authorization is active and unchanged; its repository, allowed actions, scope, expiry, executor, branch, fixed Base, Starting Head, Head Binding Mode, `CURRENT_GATE`, and `NEXT_GATE` match the authorization. A Lease is immediately invalidated when the parent authorization is revoked, expires, is consumed, or is superseded, or when its repository, scope, actions, expiry, or executor changes.
+
+The actual Base must equal the Lease's fixed Base. Any Base mismatch invalidates the Lease. Files, repository, actions, term, or executor outside the authorization are scope changes and invalidate it. The current branch must equal the authorized branch; a branch change invalidates the Lease.
+
+The Lease must bind an explicit Starting Head and Head Binding Mode. Any Head drift invalidates it except the one append-only commit expressly authorized by this Lease. After that commit, the evidence, Progress Receipt, and Lease consumption state must bind the new complete Head SHA. A changed `CURRENT_GATE` or `NEXT_GATE` invalidates the Lease and an old Lease cannot cross a new audit or Human-only gate. An expired Lease cannot be executed or resumed.
+
+If the Lease conflicts with its parent authorization, repository rules, a Checker decision, or a Human-only gate, the stricter rule controls and execution stops. On any invalidation, fail closed: do not Push, create or update a PR, or rebind Base, Head, branch, scope, or gate. Return `LEASE_INVALIDATED`, record the reason and last verified facts, obtain new Human authorization and a new Lease, and never reuse or resume the old Lease. A child Lease never grants Ready, Merge, branch deletion, final acceptance, or history rewrite authority.
+
 ## Progress Receipt
 
 ```text

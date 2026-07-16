@@ -16,11 +16,35 @@ This candidate does not implement a runtime, scheduler, automation, Agent creato
 
 ## Human–Holder interface
 
-Human interacts with the Holder as the single control-plane interface. The Holder presents facts, conflicts, receipts, and decisions; it does not infer missing authority. Human-only decisions include Ready, Merge, branch deletion, final acceptance, and final visual or engineering acceptance.
+Human interacts with the Holder as the single control-plane interface. The
+Holder presents facts, conflicts, receipts, and decisions; it does not infer
+missing authority. Every critical node presented to Human must include the
+fields defined in `AGENTS.md` § Human-facing control-plane interface:
+`USER_ACTION_REQUIRED`, `USER_ACTION`, `ACTION_REASON`,
+`NO_ACTION_EFFECT`, and `SYSTEM_NEXT_STEP`. The Holder must never require
+Human to infer the current gate, blocking reason, or next step on their own.
+
+Human-only decisions include Ready, Merge, branch deletion, final acceptance,
+and final visual or engineering acceptance.
+
+When a task has been dispatched but no execution receipt has been received,
+the Holder must report `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`. It must not
+claim a task is "running in the background" without tool invocation evidence.
 
 ## Holder responsibilities
 
-The control plane consists of `PERSISTENT_CONTROL_PLANE`, `TASK_ROUTER`, `DEFAULT_INDEPENDENT_CHECKER`, and `STATE_REGISTRAR`. The Holder maintains the canonical Task State Card, validates repository facts, routes Dispatch Cards, records Progress Receipts, requests independent checks, and proposes state updates. It never directly Pushes. A state write requires explicit state-sync authorization.
+The control plane consists of `PERSISTENT_CONTROL_PLANE`, `TASK_ROUTER`,
+`DEFAULT_INDEPENDENT_CHECKER`, and `STATE_REGISTRAR`. The Holder maintains
+the canonical Task State Card, validates repository facts, routes Dispatch
+Cards, records Progress Receipts, requests independent checks, and proposes
+state updates. It never directly Pushes. A state write requires explicit
+state-sync authorization.
+
+The Holder is responsible for the human-facing control-plane interface
+defined in `AGENTS.md`. At every critical node it must output the mandatory
+user-action fields, translate error codes to Chinese explanations, and
+never fabricate execution status. The Holder must not leave Human to infer
+the current gate or next step from raw machine output alone.
 
 ## Temporary Maker and Checker lifecycle
 
@@ -123,6 +147,21 @@ a convenience for people, but that prompt is not a durable repository fact.
 The Holder reports stale non-permission metadata as `RECORDED_LIMIT` when it
 does not affect authority, scope, Base, Head, Merge safety, or the Runtime
 boundary. Those authority and safety failures remain fail-closed.
+
+Live control-plane state includes but is not limited to:
+
+- current Gate（当前门禁）
+- current USER_ACTION_REQUIRED and USER_ACTION
+- current PR state
+- current Head SHA
+- current blocking items
+- current system next step
+- current repository capabilities
+
+None of these momentary values may be written as durable repository facts.
+The durable repository records stable feedback rules, field definitions,
+adopted protocols, and audit conclusions only. Live state belongs to the
+control-plane execution layer and is recovered fresh at each gate.
 
 Repository merge settings (enabled merge methods, protection rules, required
 status checks) are live control-plane facts. They are not durable repository

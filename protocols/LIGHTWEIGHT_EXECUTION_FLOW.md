@@ -164,3 +164,60 @@ This protocol is an `ADOPTED_GOVERNANCE_SPECIFICATION` recorded as a durable
 repository governance fact. Adoption records routing, receipt, and validation
 rules only; it does not activate a Runtime, Hermes R1, automatic scheduling,
 or any scheduler, and it grants no execution authority by itself.
+
+## Human-facing interface integration
+
+Every gate defined in this protocol must include the human-facing fields
+specified in `AGENTS.md` § Human-facing control-plane interface.
+
+### Gate-specific user action requirements
+
+**Dispatch（分派）**: `USER_ACTION_REQUIRED: NO`. The Holder dispatches to
+Maker; Human is notified but need not act. `USER_ACTION: NONE`.
+
+**Progress Receipt（进度回执）**: `USER_ACTION_REQUIRED: NO`. Maker has
+completed; Checker begins. `USER_ACTION: NONE`.
+
+**Target-Fact Validation（目标事实核验）**: `USER_ACTION_REQUIRED: NO`
+when facts match. `USER_ACTION_REQUIRED: YES` on mismatch — system stops
+and requires Human to rebind facts. Must output `INVALID_AUDIT_RECEIPT`
+with Chinese explanation.
+
+**Audit Receipt（审计回执）**: `USER_ACTION_REQUIRED: NO`. Valid audit
+registers conclusion. `USER_ACTION: NONE`.
+
+**Blocking Finding（阻塞发现）**: `USER_ACTION_REQUIRED: YES` if repair
+budget remains and Human must authorize incremental repair.
+`USER_ACTION_REQUIRED: NO` if repair budget exhausted — system routes to
+`NEW_HUMAN_AUTHORIZATION_REQUIRED` without asking user to decide.
+
+**Incremental Repair（增量修复）**: `USER_ACTION_REQUIRED: NO`. Maker
+executes within authorized scope. `USER_ACTION: NONE`.
+
+**Ready Decision（就绪决定）**: `USER_ACTION_REQUIRED: YES`. Human-only
+gate. Authorization must bind repository, PR, exact Head SHA, and scope.
+
+**Merge Capability Preflight（合并能力预检）**: `USER_ACTION_REQUIRED: NO`
+when capability verified. `USER_ACTION_REQUIRED: YES` on
+`MERGE_METHOD_CAPABILITY_MISMATCH` — Human selects different enabled method.
+`USER_ACTION_REQUIRED: NO` on `CAPABILITY_UNKNOWN` — system stops, no user
+action can resolve.
+
+**Merge Decision（合并决定）**: `USER_ACTION_REQUIRED: YES`. Human-only.
+Must bind repository, PR, exact Head SHA, exact merge method, and branch
+deletion decision.
+
+**Merge Result（合并结果）**: `USER_ACTION_REQUIRED: NO` on success.
+`USER_ACTION_REQUIRED: YES` on failure requiring Human diagnosis.
+
+**Branch Deletion Decision（分支删除决定）**: `USER_ACTION_REQUIRED: YES`.
+Human-only gate.
+
+**Task Completion（任务完成）**: `USER_ACTION_REQUIRED: NO`. System
+records completion; no further action.
+
+### No-action default
+
+When `USER_ACTION_REQUIRED: NO`, `USER_ACTION` must be exactly `NONE`.
+Never leave `USER_ACTION` empty, implied, or to-be-determined. The field
+is mandatory at every critical node.

@@ -67,3 +67,20 @@ defaults to one Maker, one independent Checker, and one final Human decision.
 Non-blocking metadata must be recorded as a limit and must not create a new
 commit loop. Human-only Ready, Merge, branch deletion, final acceptance, and
 runtime activation remain unchanged.
+
+## Audit receipt validation
+
+Audit receipts must be validated against the exact target facts (`TASK_ID`,
+`AUTHORIZATION_ID`, repository, PR, exact Base, exact Head, Checker
+identity, current PR state) before any state registration, per
+`protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` and
+`protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`.
+
+A target-fact mismatch is `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH`:
+the receipt is rejected without changing candidate state, consuming audit or
+repair budget, triggering repository repair or a full audit rerun, or moving
+any gate. Checker input errors are receipt defects, not candidate defects.
+A corrected receipt is a receipt retry within the same gate, not a new full
+audit, and non-permission receipt errors do not require new Human
+authorization. Authority, scope, Base/Head drift, Checker conflict, Runtime,
+and history-rewrite violations remain fail-closed.

@@ -1,6 +1,6 @@
 # Lightweight Holder Execution Flow
 
-Status: `CANDIDATE_FOR_INDEPENDENT_REVIEW`
+Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
 ## Purpose
 
@@ -73,6 +73,28 @@ does not change authority, scope, Base, Head, Merge safety, or Runtime
 boundaries. Record it in the receipt and continue only if the Checker and
 Human gate accept the limit.
 
+## Audit receipt validation
+
+Before an audit receipt is registered, the Holder must verify that the
+receipt binds the exact target facts: `TASK_ID`, `AUTHORIZATION_ID`,
+repository, PR, exact Base SHA, exact Head SHA, Checker identity, and the
+current PR state. If any target fact does not match, the receipt is
+classified `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH` and rejected
+before any state transition.
+
+An invalid audit receipt must not change candidate state, consume the audit
+budget, consume the repair budget, trigger a repository repair, trigger a
+full audit rerun, or advance or roll back any gate. A Checker input error is
+a receipt defect, not a candidate defect; the candidate remains in its
+current state and is not treated as failed.
+
+Only a valid independent receipt bound to the exact Head SHA may register an
+audit conclusion. A corrected receipt for the same gate is a receipt retry,
+not a new full audit round. Non-permission receipt errors do not require new
+Human authorization. Missing or conflicting authority, scope violation, Base
+or Head drift on the candidate itself, Checker conflict, Runtime activation,
+and history rewrite remain fail-closed blockers.
+
 ## Holder routing contract
 
 Before dispatch, the Holder verifies Base, scope, risk, independent Checker,
@@ -95,8 +117,9 @@ product code, destructive external actions, and history rewrites are not L0
 work. They require their own authorization and risk treatment. Hermes R1 and
 automatic scheduling remain `NOT_AUTHORIZED`.
 
-## Candidate gate
+## Adoption gate
 
-This protocol is `CANDIDATE_FOR_INDEPENDENT_REVIEW`. The next review is an
-independent lightweight execution-flow audit; this document does not activate
-Runtime or create a scheduler.
+This protocol is an `ADOPTED_GOVERNANCE_SPECIFICATION` recorded as a durable
+repository governance fact. Adoption records routing, receipt, and validation
+rules only; it does not activate a Runtime, Hermes R1, automatic scheduling,
+or any scheduler, and it grants no execution authority by itself.

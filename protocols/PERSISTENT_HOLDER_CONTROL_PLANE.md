@@ -82,6 +82,30 @@ STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
 LIVE_NEXT_GATE_PROMPT:
 ```
 
+## Audit receipt validation
+
+The State Registrar validates every audit receipt before registration. A
+receipt is registrable only if it matches the live target facts exactly:
+`TASK_ID`, `AUTHORIZATION_ID`, repository, PR, exact Base SHA, exact Head
+SHA, Checker identity, and the current PR state. Any target-fact mismatch
+classifies the receipt as `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH`
+and rejects it before any state transition.
+
+An invalid receipt is rejected without side effects. It must not change
+candidate state, consume audit budget, consume repair budget, trigger a
+repository repair, trigger a full audit rerun, or advance or roll back any
+gate. A Checker input error is a receipt defect recorded against the
+Checker's submission, kept separate from candidate defects; it does not mark
+the candidate as failed or defective.
+
+Only a valid independent audit receipt bound to the exact Head SHA may
+register an audit conclusion. A corrected receipt for the same gate is a
+receipt retry within that gate, not a new full audit round. A non-permission
+receipt error does not require new Human authorization. Missing or
+conflicting authority, scope violation, Base or Head drift of the candidate,
+Checker independence conflict, Runtime boundary violation, and history
+rewrite remain fail-closed.
+
 ## Durable Repository State
 
 The repository records durable governance facts only: adopted protocols and

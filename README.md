@@ -38,5 +38,5 @@ PROJECT_BINDING_COUNT: 1
 - ADT Bootstrap has passed independent audit.
 - Project-side binding is established.
 - This state closure does NOT authorize any product implementation.
-- R2.1, Content migration, and Typography remain independently authorized by the project repository.
+- R2.1, Content migration, and Typography remain subject to separate authorization in the project repository.
 - This README is a candidate until merged to ADT main.

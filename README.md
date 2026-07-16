@@ -16,4 +16,15 @@ Automation, scheduling, Agent creation, product implementation, Ready, Merge,
 and final acceptance remain unimplemented or Human-only. Protocol adoption
 does not mean runtime activation or real project takeover.
 
-See `PROJECT_STATE.md` for the current state and next gate.
+## Lightweight Holder Execution Flow
+
+The lightweight execution protocol is documented at
+`protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`. It defines bounded L0/L1/L2
+routing, one Maker, one independent Checker, and incremental repair limits.
+
+`PROJECT_STATE.md` records durable governance facts only. Live PR and branch
+facts come from GitHub metadata; live authorization comes from explicit Human
+authorization; live audit and gate state come from the Holder registry and
+Head-bound audit receipts.
+
+See `PROJECT_STATE.md` for durable repository facts.

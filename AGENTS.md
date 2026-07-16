@@ -50,3 +50,20 @@ cherry-picked, updated, closed, or deleted.
 
 Persistent Holder runtime, Hermes R1, and automatic scheduling remain
 unimplemented and unauthorized.
+
+## Human-facing governance communication
+
+- Key fields use `English field（中文解释）` when addressing Human.
+- Preserve the original machine values for Authorization ID, Lease ID, SHA,
+  branch, repository, file path, and fixed state values.
+- Chinese explanations may clarify but must not change authority, scope,
+  state, gate, or restriction. Mark only key fields and high-risk actions.
+- If a Chinese explanation conflicts with a machine value, fail closed.
+
+## Lightweight execution routing
+
+Use `protocols/LIGHTWEIGHT_EXECUTION_FLOW.md` for L0/L1/L2 routing. L0
+defaults to one Maker, one independent Checker, and one final Human decision.
+Non-blocking metadata must be recorded as a limit and must not create a new
+commit loop. Human-only Ready, Merge, branch deletion, final acceptance, and
+runtime activation remain unchanged.

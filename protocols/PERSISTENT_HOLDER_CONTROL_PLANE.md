@@ -48,7 +48,7 @@ BASE_SHA:
 HEAD_BINDING_MODE: BASE_FIXED | APPEND_ONLY_FROM_HEAD | PR_HEAD_FIXED
 ALLOWED_FILES:
 FORBIDDEN_ACTIONS:
-NEXT_GATE:
+LIVE_NEXT_GATE_PROMPT:
 STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
 ```
 
@@ -79,12 +79,38 @@ CHANGED_FILES:
 VALIDATION:
 UNEXPECTED_CHANGES:
 STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
-NEXT_GATE:
+LIVE_NEXT_GATE_PROMPT:
 ```
+
+## Durable Repository State
+
+The repository records durable governance facts only: adopted protocols and
+audit conclusions, runtime implementation and authorization boundaries,
+stable project bindings, and stable governance boundaries. It does not record
+the current PR Head, PR state, current authorization, current gate, next gate,
+temporary Executor or Checker, or one-time Lease state.
+
+## Live Control-Plane State
+
+Live state is recovered at execution time from GitHub PR and branch metadata,
+the explicit Human authorization, the Head-bound independent audit receipt,
+and the Persistent Holder State Registry. A PR body may repeat a live gate as
+a convenience for people, but that prompt is not a durable repository fact.
+The Holder reports stale non-permission metadata as `RECORDED_LIMIT` when it
+does not affect authority, scope, Base, Head, Merge safety, or the Runtime
+boundary. Those authority and safety failures remain fail-closed.
 
 ## Canonical Task State Card
 
-Durable state belongs in the repository and is authoritative over runtime observations. Each card records `TASK_ID`, `AUTHORIZATION_ID`, `REPOSITORY`, `BASE_SHA`, `HEAD_SHA`, `BRANCH`, `PR`, `EXECUTOR`, `CHECKER`, `CURRENT_GATE`, `STATUS`, `LAST_VERIFIED_AT`, and `SUPERSEDES`. Local runtime state is a non-authoritative cache and is never committed as a substitute.
+The Task State Card is a live control-plane receipt, not a durable project
+state file. It records `TASK_ID`, `AUTHORIZATION_ID`, `REPOSITORY`, `BASE_SHA`,
+`HEAD_SHA`, `BRANCH`, `PR`, `EXECUTOR`, `CHECKER`, `CURRENT_GATE`, `STATUS`,
+`LAST_VERIFIED_AT`, and `SUPERSEDES` only in the Holder State Registry or an
+execution receipt. Local runtime state is a non-authoritative cache and is
+never committed as a substitute.
+
+The lightweight routing and receipt rules are defined in
+`protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`.
 
 ## Authority inheritance and consumption
 
@@ -129,5 +155,3 @@ Do not treat the Holder as a third Maker, use private memory as durable truth, l
 Protocol adoption records the governance specification only. It does not
 activate a Persistent Holder runtime, Hermes R1, automation, scheduling, or
 real project takeover. Those remain unauthorized until separately approved.
-
-NEXT_GATE: `INDEPENDENT_PERSISTENT_HOLDER_STATE_CLOSURE_AUDIT`

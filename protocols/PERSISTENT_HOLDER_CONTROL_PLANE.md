@@ -1,6 +1,10 @@
 # Persistent Holder Control Plane
 
-Status: `CANDIDATE_FOR_INDEPENDENT_REVIEW`
+PROTOCOL_STATUS: `ADOPTED_GOVERNANCE_SPECIFICATION`
+PROTOCOL_AUDIT: `ACCEPTED_WITH_RECORDED_LIMITS`
+RUNTIME_STATUS: `NOT_IMPLEMENTED`
+RUNTIME_ACTIVATION: `NOT_AUTHORIZED`
+HERMES_R1: `NOT_AUTHORIZED`
 
 ## Purpose
 
@@ -120,6 +124,10 @@ Do not treat the Holder as a third Maker, use private memory as durable truth, l
 | Human gates | Ready, Merge, deletion, final acceptance remain Human-only |
 | PR10 | Source candidate only; no merge, cherry-pick, update, close, or delete |
 
-## Candidate gate
+## State closure gate
 
-This document and every protocol status introduced by it are `CANDIDATE_FOR_INDEPENDENT_REVIEW`. It is not Active, Adopted, Accepted, Merged, or State Closed. The next gate is `INDEPENDENT_ADT_PERSISTENT_HOLDER_CONTROL_PLANE_AUDIT`.
+Protocol adoption records the governance specification only. It does not
+activate a Persistent Holder runtime, Hermes R1, automation, scheduling, or
+real project takeover. Those remain unauthorized until separately approved.
+
+NEXT_GATE: `INDEPENDENT_PERSISTENT_HOLDER_STATE_CLOSURE_AUDIT`

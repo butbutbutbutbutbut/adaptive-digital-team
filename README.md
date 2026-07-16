@@ -6,19 +6,37 @@ Core principle:
 
 > The repository itself is the prompt.
 
-Current phase: `PHASE_1_BOOTSTRAP_CANDIDATE`
+## Current Phase
 
-Source proposal:
+`PHASE_1_BOOTSTRAP_ACCEPTED`
 
-- Repository: `butbutbutbutbutbut/he-weizhi-site`
-- Commit: `334ee56c1c08164c6548f6825ff5c63aa6ba13de`
+## Bootstrap Audit
 
-Current boundaries:
+BOOTSTRAP_INDEPENDENT_AUDIT: PASS_WITH_STATE_CLOSURE_REQUIRED
 
-- Project bindings: none
-- Active Control Lease: none
-- Runtime assignments: none
-- Automation: none
-- Project Closeout Protocol: not implemented
+AUDIT_AUTHORIZATION: HE-WEIZHI-ADT-BOOTSTRAP-ACCEPTANCE-AUDIT-20260716-002
 
-The repository bootstrap has not yet been independently accepted.
+AUDITED_GOVERNANCE_SHA: 215143bf8e1c05fa915deb5c3816f181451a6a57
+
+## Active Project Binding
+
+ACTIVE_PROJECT_BINDING: butbutbutbutbutbut/he-weizhi-site
+
+PROJECT_BINDING_STATE_SHA: dc86f4e56024ad2905ff6be49798da5b02451b7f
+
+PROJECT_BINDING_COUNT: 1
+
+## Current Boundaries
+
+- Active Control Lease: NONE
+- Runtime assignments: NONE
+- Automation: NONE
+- Project Closeout Protocol: NOT_IMPLEMENTED
+
+## Notes
+
+- ADT Bootstrap has passed independent audit.
+- Project-side binding is established.
+- This state closure does NOT authorize any product implementation.
+- R2.1, Content migration, and Typography remain subject to separate authorization in the project repository.
+- This README is a candidate until merged to ADT main.

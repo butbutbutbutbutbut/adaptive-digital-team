@@ -20,8 +20,9 @@ Human interacts with the Holder as the single control-plane interface. The
 Holder presents facts, conflicts, receipts, and decisions; it does not infer
 missing authority. Every critical node presented to Human must include the
 fields defined in `AGENTS.md` § Human-facing control-plane interface:
-`USER_ACTION_REQUIRED`, `USER_ACTION`, `ACTION_REASON`,
-`NO_ACTION_EFFECT`, and `SYSTEM_NEXT_STEP`. The Holder must never require
+`TASK_PROGRESS`, `CURRENT_STAGE_PROGRESS`, `PROGRESS_BASIS`,
+`PROGRESS_BLOCKER`, `USER_ACTION_REQUIRED`, `USER_ACTION`,
+`ACTION_REASON`, `NO_ACTION_EFFECT`, and `SYSTEM_NEXT_STEP`. The Holder must never require
 Human to infer the current gate, blocking reason, or next step on their own.
 
 `USER_ACTION_REQUIRED` must be decided based on the actual tools,
@@ -55,6 +56,15 @@ user-action fields, translate error codes to Chinese explanations, and
 never fabricate execution status. The Holder must not leave Human to infer
 the current gate or next step from raw machine output alone.
 
+The Holder is responsible for progress plan binding and recalculation. It
+must bind `PROGRESS_PLAN` and `CURRENT_STAGE_PLAN` before any numeric
+percentage is displayed, compute percentages using the equal-weight floor
+rule in `AGENTS.md`, freeze progress during wait, and recalculate with
+explicit `PROGRESS_RECALCULATED` and `RECALCULATION_REASON` when scope or
+facts change. The Holder must never present a percentage based on
+estimation, elapsed time, token consumption, or imagined background
+execution.
+
 Before presenting a `USER_ACTION_REQUIRED: YES` for new authorization,
 the Holder must first prepare a precise authorization packet binding
 repository, PR, exact Head, scope, action, and risk boundary. The Human
@@ -87,6 +97,8 @@ BASE_SHA:
 HEAD_BINDING_MODE: BASE_FIXED | APPEND_ONLY_FROM_HEAD | PR_HEAD_FIXED
 ALLOWED_FILES:
 FORBIDDEN_ACTIONS:
+PROGRESS_PLAN:
+CURRENT_STAGE_PLAN:
 LIVE_NEXT_GATE_PROMPT:
 STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
 ```
@@ -117,6 +129,10 @@ HEAD_SHA:
 CHANGED_FILES:
 VALIDATION:
 UNEXPECTED_CHANGES:
+TASK_PROGRESS:
+CURRENT_STAGE_PROGRESS:
+PROGRESS_BASIS:
+PROGRESS_BLOCKER:
 STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
 LIVE_NEXT_GATE_PROMPT:
 ```
@@ -172,6 +188,9 @@ Live control-plane state includes but is not limited to:
 - current blocking items
 - current system next step
 - current repository capabilities
+- current TASK_PROGRESS percentage and basis
+- current CURRENT_STAGE_PROGRESS percentage and basis
+- current PROGRESS_PLAN and CURRENT_STAGE_PLAN completion state
 
 None of these momentary values may be written as durable repository facts.
 The durable repository records stable feedback rules, field definitions,
@@ -205,9 +224,10 @@ durable bindings.
 The Task State Card is a live control-plane receipt, not a durable project
 state file. It records `TASK_ID`, `AUTHORIZATION_ID`, `REPOSITORY`, `BASE_SHA`,
 `HEAD_SHA`, `BRANCH`, `PR`, `EXECUTOR`, `CHECKER`, `CURRENT_GATE`, `STATUS`,
-`LAST_VERIFIED_AT`, and `SUPERSEDES` only in the Holder State Registry or an
-execution receipt. Local runtime state is a non-authoritative cache and is
-never committed as a substitute.
+`LAST_VERIFIED_AT`, `SUPERSEDES`, `TASK_PROGRESS`, `CURRENT_STAGE_PROGRESS`,
+`PROGRESS_BASIS`, `PROGRESS_BLOCKER`, `PROGRESS_PLAN`, and `CURRENT_STAGE_PLAN`
+only in the Holder State Registry or an execution receipt. Local runtime
+state is a non-authoritative cache and is never committed as a substitute.
 
 The lightweight routing and receipt rules are defined in
 `protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`.
@@ -226,7 +246,7 @@ Stop with no side effects on missing authority, ambiguous roles, dirty worktree,
 
 ## Recovery and supersession
 
-A new Holder recovers from the repository Task State Card, receipts, branch and PR facts, and explicit Human decisions. Account loss or window change does not erase durable state. If a fact or authorization changes, record a new candidate transition that references `SUPERSEDES`; do not rewrite history or silently continue from stale runtime state.
+A new Holder recovers from the repository Task State Card, receipts, branch and PR facts, and explicit Human decisions. Account loss or window change does not erase durable state. If a fact or authorization changes, record a new candidate transition that references `SUPERSEDES`; do not rewrite history or silently continue from stale runtime state. On recovery, live progress percentages and PROGRESS_BASIS must be recalculated from current bound facts; cached percentages must not be trusted as current. If PROGRESS_PLAN or CURRENT_STAGE_PLAN is not fully recoverable, progress must be set to UNKNOWN until re-bound.
 
 ## Human-only gates
 

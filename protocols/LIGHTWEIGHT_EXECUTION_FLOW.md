@@ -37,6 +37,95 @@ registration, or audit behavior and requires an explicit independent audit.
 dependencies, Workflows, product changes, destructive actions, or Merge
 execution; it is never treated as L0.
 
+## Verifiable Progress Accounting
+
+All L0, L1, and L2 tasks must maintain verifiable dual-layer progress per
+`AGENTS.md` § Verifiable task progress.
+
+### Equal-weight floor calculation
+
+Progress uses equal-weight verification units. The percentage is
+`floor(verified_units * 100 / total_bound_units)`. Ten-block bars use
+`floor(percentage / 10)` filled blocks.
+
+### UNKNOWN before binding
+
+Before `PROGRESS_PLAN` and `CURRENT_STAGE_PLAN` are bound, both
+`TASK_PROGRESS` and `CURRENT_STAGE_PROGRESS` are `UNKNOWN`.
+The denominator must not be guessed.
+
+### Freeze during wait
+
+While waiting on GitHub, CI, Maker, Checker, or Human, progress stays
+frozen. Elapsed time, token consumption, or background-execution claims
+do not increase progress.
+
+### Recalculation on scope or fact change
+
+When Human expands scope, Base/Head facts are validly rebound, a new
+authorized gate is added, or a valid audit requires fix + re-review,
+progress is recalculated. The old and new percentages and the reason
+must be output. Silent modification of the denominator or percentage
+is forbidden.
+
+Authority drift, unauthorized scope change, and state drift fail closed
+and are not absorbed by progress recalculation.
+
+### Incremental repair stage binding
+
+An audit finding that requires fix + re-review is a blocker, not a
+completion. The Audit stage denominator is frozen at its pre-audit value
+and must not be retroactively modified.
+
+Before any repair action is taken, the following must occur in order:
+
+1. Human explicitly authorizes the repair scope.
+2. A new repair / re-review stage is created.
+3. A finite, ordered `CURRENT_STAGE_PLAN` is bound for the new stage.
+4. If the repair adds a new authorized gate, `PROGRESS_PLAN` is extended
+   and explained.
+5. Before any file change, output:
+
+   ```
+   PROGRESS_RECALCULATED: <old>% -> <new>%
+   RECALCULATION_REASON: VALID_AUDIT_REQUIRED_AUTHORIZED_REPAIR_AND_RE_REVIEW
+   ```
+
+Repair and incremental re-review units count toward progress only after
+they are pre-bound in the new stage. They must not be appended to the
+denominator after the repair is complete.
+
+Forbidden:
+
+- appending units to a denominator after repair completion
+- retroactively modifying an old Audit stage denominator
+- adding task gates without Human authorization
+- using recalculation to absorb authority drift, scope drift, or state
+  drift
+
+### Audit rejection and blocker routing
+
+Audit rejection:
+
+- does not count as completion
+- does not automatically change the original task denominator
+- freezes the original task progress at its pre-audit value
+- routes to the `HUMAN_REPAIR_AUTHORIZATION` gate as a blocker
+
+After Human authorizes repair, the new repair / re-review stage is a
+legitimate `PROGRESS_PLAN` extension. The extension must be registered
+and the recalculation output before any repair file changes.
+
+### State drift
+
+State drift fails closed. Neither task nor stage progress advances.
+
+### No change to existing gates
+
+Verifiable progress accounting is informational. It does not alter any
+existing Human-only, fail-closed, Ready, Merge, branch deletion, or
+final-acceptance gate.
+
 ## L0 standard flow
 
 ```text

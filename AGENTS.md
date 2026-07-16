@@ -51,14 +51,267 @@ cherry-picked, updated, closed, or deleted.
 Persistent Holder runtime, Hermes R1, and automatic scheduling remain
 unimplemented and unauthorized.
 
-## Human-facing governance communication
+## Human-facing control-plane interface
 
-- Key fields use `English field（中文解释）` when addressing Human.
-- Preserve the original machine values for Authorization ID, Lease ID, SHA,
-  branch, repository, file path, and fixed state values.
-- Chinese explanations may clarify but must not change authority, scope,
-  state, gate, or restriction. Mark only key fields and high-risk actions.
-- If a Chinese explanation conflicts with a machine value, fail closed.
+### Purpose
+
+All control-plane feedback directed at Human must satisfy five requirements:
+
+1. Preserve exact machine fields, status values, SHAs, and authorization IDs.
+2. Provide readable explanation in the user's current language.
+3. This project defaults to Simplified Chinese（简体中文）annotations.
+4. Make explicit whether the user must act right now.
+5. Never require the user to infer gates, blocks, or next steps on their own.
+
+### Context-sensitive priority（上下文敏感判定优先级）
+
+`USER_ACTION_REQUIRED` must be decided based on actual tools, permissions,
+connectors, received receipts, and recovery paths available in the current
+execution environment. No gate may have an unconditional YES or NO.
+
+Gate-specific defaults in protocol files are conditional starting points
+only. Actual tool availability, received evidence, permissions, and
+recovery paths override any node default. When the environment cannot be
+determined, the system must diagnose before making a user-action claim.
+
+### Evidence-before-status（证据先于状态）
+
+Execution status claims require evidence:
+
+- `PLANNED`: action is intended but not yet dispatched.
+- `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`: task sent to executor but no
+  receipt, tool result, or connector confirmation has been received.
+- `RECEIPT_RECEIVED`: a receipt has been returned but its content has not
+  yet been independently verified.
+- `EXECUTION_VERIFIED`: the receipt content has been independently
+  confirmed against live facts.
+- `COMPLETED`: verified execution with final result registered.
+
+Without tool invocation, connector result, or receipt evidence, the system
+must not claim: Maker begins, Checker begins, system continues
+automatically, or task is running in background. SYSTEM_NEXT_STEP
+describing a future plan must use future semantics and must not be
+written as a fact already in progress.
+
+### Per-round repair statement（本轮修复）
+
+The title "本轮修复" is fixed. It describes the current governance gap,
+fact uncertainty, process issue, or candidate defect being resolved. It
+does not automatically imply that candidate files are being modified.
+
+At the start of each new governance round, action phase, or gate phase,
+the system must first output a repair statement covering four items:
+
+- 正在修什么（what is being fixed）
+- 为什么要修（why it needs fixing）
+- 修完后解决什么风险（what risk is resolved after repair）
+- 本轮不处理什么（what this round does NOT handle）
+
+None of the four items may be omitted. Content must be specific to the
+current round — generic templates are not acceptable. "本轮不处理什么" must
+prevent the user from mistakenly assuming that related tasks are also in
+progress. This statement applies before GitHub write operations, Human-only
+gates, audits, repairs, and block handling.
+
+During audit, fact-verification, Ready, Merge, and result-registration
+phases where no verified new commit exists, the statement must explicitly
+include: "候选内容未修改". Only when a verified commit or Head change is
+present may the statement claim candidate content has been modified.
+
+ACTION and RESULT fields must distinguish:
+
+- planned action（计划动作）
+- executed action（已执行动作）
+- verified result（已验证结果）
+
+An action that has been planned but not yet executed must not be reported
+as a result.
+
+### Key-node Chinese annotation format（关键节点中文注释）
+
+The following nodes are critical and must include both machine fields and
+Chinese explanation:
+
+- Dispatch（分派）
+- Progress Receipt（进度回执）
+- Target-Fact Validation（目标事实核验）
+- Audit Receipt（审计回执）
+- Invalid Audit Receipt（无效审计回执）
+- Blocking Finding（阻塞发现）
+- Incremental Repair（增量修复）
+- Ready Decision（就绪决定）
+- Merge Capability Preflight（合并能力预检）
+- Merge Decision（合并决定）
+- Merge Result（合并结果）
+- Branch Deletion Decision（分支删除决定）
+- Task Completion（任务完成）
+- Fail-Closed / Capability Unknown / State Drift（失败关闭 / 能力未知 / 状态漂移）
+
+Recommended format for each critical node:
+
+```
+FACT（事实）
+AUTHORITY（授权边界）
+ACTION（当前动作）
+RESULT（结果）
+CURRENT_GATE（当前门禁）
+USER_ACTION_REQUIRED（用户是否需要操作）
+USER_ACTION（用户现在需要操作）
+ACTION_REASON（为什么需要操作）
+NO_ACTION_EFFECT（不操作会怎样）
+SYSTEM_NEXT_STEP（系统下一步）
+```
+
+### USER_ACTION_REQUIRED（mandatory field）
+
+Every critical node must output:
+
+```
+USER_ACTION_REQUIRED: YES | NO
+USER_ACTION: <precise action; must be NONE when not required>
+ACTION_REASON: <the Human-only gate, authorization gap, or external
+               resource requirement behind this action>
+NO_ACTION_EFFECT: <the actual state if the user takes no action>
+SYSTEM_NEXT_STEP: <what the Holder, Maker, Checker, or system does next>
+```
+
+Never output only `NEXT_GATE` and leave the user to infer the rest.
+
+### USER_ACTION_REQUIRED decision rules
+
+Set to YES only when:
+
+- Human-only Ready（就绪）
+- Human-only Merge（合并）
+- branch deletion（分支删除）
+- final visual / engineering acceptance（最终验收）
+- scope, authority, or high-risk action authorization（范围/授权/高风险动作）
+- an external action that must be performed manually by the user
+- the current system lacks tools or permissions and the action is genuinely
+  necessary
+
+Set to NO when:
+
+- Maker is executing an already-authorized task
+- Checker is performing read-only audit
+- Holder is performing live fact verification
+- waiting on GitHub status or CI
+- the system already has authority to continue a non-risky action
+- the user does not need to provide new judgment or new authorization
+
+Never present "waiting" as a user action.
+
+### Executable user actions（可直接执行）
+
+Prohibited vague expressions:
+
+- "请确认"（please confirm）
+- "请处理"（please handle）
+- "下一步需要授权"（next step requires authorization）
+- "请选择是否继续"（please choose whether to continue）
+
+Authorization requests must bind the relevant facts precisely:
+
+- repository
+- PR
+- exact Head SHA
+- exact action
+- exact merge method
+- branch deletion decision
+- scope or risk boundary
+
+The user must be able to copy the authorization or reply with an explicit
+yes/no to a precisely-scoped request.
+
+### Real executable options only（真实可执行选项）
+
+Before presenting Merge method, Ready, branch deletion, or other
+capability options:
+
+- verify target facts and capabilities live
+- do not present options the repository does not currently enable or
+  cannot currently execute
+- when capability cannot be read:
+  `CAPABILITY_UNKNOWN / FAIL_CLOSED`
+  with Chinese blocking reason and user action status
+
+### Error and block human-readable translation（错误阻塞翻译）
+
+Never output only an error code. Distinguish:
+
+- `INVALID_AUDIT_RECEIPT`
+  中文：审计目标或 Checker 身份无效，不代表候选实现失败。
+
+- `CANDIDATE_FAILURE`
+  中文：候选实现本身存在阻塞问题。
+
+- `MERGE_METHOD_CAPABILITY_MISMATCH`
+  中文：仓库拒绝了指定合并方式，但候选和有效审计未失效。
+
+- `STATE_DRIFT`
+  中文：Base、Head、PR 状态、范围或检查条件已变化，旧授权不能继续使用。
+
+- `CAPABILITY_UNKNOWN`
+  中文：无法可靠读取当前仓库能力，流程停止且不猜测。
+
+### Information density control（信息密度）
+
+The chat window retains only:
+
+- current conclusion
+- exact SHAs, PR, state
+- blocking items
+- user action
+- system next step
+
+Long logs, full patches, repeated evidence, and process details go into:
+
+- Progress Receipt
+- Audit Receipt
+- PR body
+- repository documents
+- traceable evidence files
+
+Do not bury the current gate and user action under long logs.
+
+### No fabricated background execution（不得虚构后台执行）
+
+The protocol must be explicit:
+
+- when no tool has been called and no execution receipt has been received,
+  do not claim a task is "running in the background"
+- when a task has been dispatched but no evidence has been received, write:
+  `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`
+- user action required status must reflect this accurately
+
+### Durable vs live state separation
+
+Stable feedback rules and field definitions are recorded in the repository.
+
+The following are live control-plane state and must never have their
+momentary values written as durable facts:
+
+- current Gate
+- current USER_ACTION
+- current PR state
+- current Head
+- current blocking items
+- current system next step
+- current repository capabilities
+
+### Existing authority and safety boundary preservation
+
+This interface section must not:
+
+- expand Holder, Maker, or Checker authority
+- permit Maker self-acceptance
+- permit Checker write operations
+- lower Human-only Ready / Merge / branch deletion
+- activate Runtime
+- authorize Hermes R1
+- enable automatic scheduling
+- enable automatic merge
+- modify existing merge capability preflight safety rules
 
 ## Lightweight execution routing
 

@@ -63,7 +63,41 @@ All control-plane feedback directed at Human must satisfy five requirements:
 4. Make explicit whether the user must act right now.
 5. Never require the user to infer gates, blocks, or next steps on their own.
 
+### Context-sensitive priority（上下文敏感判定优先级）
+
+`USER_ACTION_REQUIRED` must be decided based on actual tools, permissions,
+connectors, received receipts, and recovery paths available in the current
+execution environment. No gate may have an unconditional YES or NO.
+
+Gate-specific defaults in protocol files are conditional starting points
+only. Actual tool availability, received evidence, permissions, and
+recovery paths override any node default. When the environment cannot be
+determined, the system must diagnose before making a user-action claim.
+
+### Evidence-before-status（证据先于状态）
+
+Execution status claims require evidence:
+
+- `PLANNED`: action is intended but not yet dispatched.
+- `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`: task sent to executor but no
+  receipt, tool result, or connector confirmation has been received.
+- `RECEIPT_RECEIVED`: a receipt has been returned but its content has not
+  yet been independently verified.
+- `EXECUTION_VERIFIED`: the receipt content has been independently
+  confirmed against live facts.
+- `COMPLETED`: verified execution with final result registered.
+
+Without tool invocation, connector result, or receipt evidence, the system
+must not claim: Maker begins, Checker begins, system continues
+automatically, or task is running in background. SYSTEM_NEXT_STEP
+describing a future plan must use future semantics and must not be
+written as a fact already in progress.
+
 ### Per-round repair statement（本轮修复）
+
+The title "本轮修复" is fixed. It describes the current governance gap,
+fact uncertainty, process issue, or candidate defect being resolved. It
+does not automatically imply that candidate files are being modified.
 
 At the start of each new governance round, action phase, or gate phase,
 the system must first output a repair statement covering four items:
@@ -78,6 +112,20 @@ current round — generic templates are not acceptable. "本轮不处理什么" 
 prevent the user from mistakenly assuming that related tasks are also in
 progress. This statement applies before GitHub write operations, Human-only
 gates, audits, repairs, and block handling.
+
+During audit, fact-verification, Ready, Merge, and result-registration
+phases where no verified new commit exists, the statement must explicitly
+include: "候选内容未修改". Only when a verified commit or Head change is
+present may the statement claim candidate content has been modified.
+
+ACTION and RESULT fields must distinguish:
+
+- planned action（计划动作）
+- executed action（已执行动作）
+- verified result（已验证结果）
+
+An action that has been planned but not yet executed must not be reported
+as a result.
 
 ### Key-node Chinese annotation format（关键节点中文注释）
 

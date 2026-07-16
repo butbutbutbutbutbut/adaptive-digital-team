@@ -24,12 +24,21 @@ fields defined in `AGENTS.md` § Human-facing control-plane interface:
 `NO_ACTION_EFFECT`, and `SYSTEM_NEXT_STEP`. The Holder must never require
 Human to infer the current gate, blocking reason, or next step on their own.
 
+`USER_ACTION_REQUIRED` must be decided based on the actual tools,
+permissions, connectors, received receipts, and recovery paths available in
+the current execution environment. No gate may have an unconditional YES or
+NO. Gate-specific defaults are conditional starting points; actual
+environment facts override any default.
+
 Human-only decisions include Ready, Merge, branch deletion, final acceptance,
 and final visual or engineering acceptance.
 
 When a task has been dispatched but no execution receipt has been received,
 the Holder must report `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`. It must not
 claim a task is "running in the background" without tool invocation evidence.
+The Holder must distinguish planned, dispatched, receipt-received,
+execution-verified, and completed status; it must not register a planned
+state as an executed fact.
 
 ## Holder responsibilities
 
@@ -45,6 +54,12 @@ defined in `AGENTS.md`. At every critical node it must output the mandatory
 user-action fields, translate error codes to Chinese explanations, and
 never fabricate execution status. The Holder must not leave Human to infer
 the current gate or next step from raw machine output alone.
+
+Before presenting a `USER_ACTION_REQUIRED: YES` for new authorization,
+the Holder must first prepare a precise authorization packet binding
+repository, PR, exact Head, scope, action, and risk boundary. The Human
+must not be asked to design the authorization content. The Holder must
+not present an authorization gate with an empty or template USER_ACTION.
 
 ## Temporary Maker and Checker lifecycle
 

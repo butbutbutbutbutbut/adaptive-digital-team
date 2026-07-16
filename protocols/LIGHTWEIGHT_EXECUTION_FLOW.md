@@ -168,53 +168,153 @@ or any scheduler, and it grants no execution authority by itself.
 ## Human-facing interface integration
 
 Every gate defined in this protocol must include the human-facing fields
-specified in `AGENTS.md` § Human-facing control-plane interface.
+specified in `AGENTS.md` § Human-facing control-plane interface. All
+`USER_ACTION_REQUIRED` values below are conditional defaults. Actual
+tool availability, received evidence, permissions, and recovery paths in
+the current execution environment override any default.
 
 ### Gate-specific user action requirements
 
-**Dispatch（分派）**: `USER_ACTION_REQUIRED: NO`. The Holder dispatches to
-Maker; Human is notified but need not act. `USER_ACTION: NONE`.
+**Dispatch（分派）**
 
-**Progress Receipt（进度回执）**: `USER_ACTION_REQUIRED: NO`. Maker has
-completed; Checker begins. `USER_ACTION: NONE`.
+- Normal default: `USER_ACTION_REQUIRED: NO`, `USER_ACTION: NONE`.
+- Override to YES when: the current system has no Maker scheduling
+  capability; the user must manually deliver the exact Dispatch Card to
+  a Maker. The user action must specify the recipient and the exact Packet.
+- Required evidence for NO: the Holder has completed a real dispatch and
+  has confirmation (tool result, connector ACK, or receipt).
+- Without confirmation: status is `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`;
+  do not claim the Maker has started.
 
-**Target-Fact Validation（目标事实核验）**: `USER_ACTION_REQUIRED: NO`
-when facts match. `USER_ACTION_REQUIRED: YES` on mismatch — system stops
-and requires Human to rebind facts. Must output `INVALID_AUDIT_RECEIPT`
-with Chinese explanation.
+**Progress Receipt（进度回执）**
 
-**Audit Receipt（审计回执）**: `USER_ACTION_REQUIRED: NO`. Valid audit
-registers conclusion. `USER_ACTION: NONE`.
+- Normal default: `USER_ACTION_REQUIRED: NO`, `USER_ACTION: NONE`.
+- Override to YES when: the system cannot directly invoke a Checker; the
+  user must manually create an independent Checker session and forward the
+  exact Audit Request with target facts bound.
+- Required evidence for NO: the system has directly invoked a Checker or
+  has confirmation the Checker received the audit target.
+- Without confirmation: do not claim "Checker begins". Status is
+  `DISPATCHED / EXECUTION_NOT_YET_VERIFIED` for the audit step.
+- The Progress Receipt proves only that the Maker submitted a receipt.
+  It does not prove the Checker has started.
 
-**Blocking Finding（阻塞发现）**: `USER_ACTION_REQUIRED: YES` if repair
-budget remains and Human must authorize incremental repair.
-`USER_ACTION_REQUIRED: NO` if repair budget exhausted — system routes to
-`NEW_HUMAN_AUTHORIZATION_REQUIRED` without asking user to decide.
+**Target-Fact Validation（目标事实核验）**
 
-**Incremental Repair（增量修复）**: `USER_ACTION_REQUIRED: NO`. Maker
-executes within authorized scope. `USER_ACTION: NONE`.
+Two distinct mismatch paths:
 
-**Ready Decision（就绪决定）**: `USER_ACTION_REQUIRED: YES`. Human-only
-gate. Authorization must bind repository, PR, exact Head SHA, and scope.
+A. `RECEIPT_METADATA_ERROR / TARGET_TRANSCRIPTION_ERROR` — e.g. wrong PR
+   number, mis-transcribed Base/Head, stale non-permission field, but the
+   real GitHub candidate has no authority, scope, or content drift.
 
-**Merge Capability Preflight（合并能力预检）**: `USER_ACTION_REQUIRED: NO`
-when capability verified. `USER_ACTION_REQUIRED: YES` on
-`MERGE_METHOD_CAPABILITY_MISMATCH` — Human selects different enabled method.
-`USER_ACTION_REQUIRED: NO` on `CAPABILITY_UNKNOWN` — system stops, no user
-action can resolve.
+   - `USER_ACTION_REQUIRED: NO`.
+   - Output `INVALID_AUDIT_RECEIPT` with Chinese explanation.
+   - Holder corrects the target within the same gate.
+   - Does not consume audit budget, repair budget, or new Human
+     authorization. Does not mark candidate as failed.
 
-**Merge Decision（合并决定）**: `USER_ACTION_REQUIRED: YES`. Human-only.
-Must bind repository, PR, exact Head SHA, exact merge method, and branch
-deletion decision.
+B. `REAL_STATE_OR_AUTHORITY_DRIFT` — real repository, PR, Base, Head,
+   scope, candidate content, authority, or high-risk condition change.
 
-**Merge Result（合并结果）**: `USER_ACTION_REQUIRED: NO` on success.
-`USER_ACTION_REQUIRED: YES` on failure requiring Human diagnosis.
+   - `STATE_DRIFT / FAIL_CLOSED`.
+   - `USER_ACTION_REQUIRED: YES` only when Human rebinding is genuinely
+     required. Must provide a precise rebind / reauthorization request
+     binding the changed facts.
+   - `USER_ACTION_REQUIRED: NO` when the system can diagnose without
+     Human action (e.g. transient mismatch that resolves on re-read).
 
-**Branch Deletion Decision（分支删除决定）**: `USER_ACTION_REQUIRED: YES`.
-Human-only gate.
+**Audit Receipt（审计回执）**
 
-**Task Completion（任务完成）**: `USER_ACTION_REQUIRED: NO`. System
-records completion; no further action.
+- Normal default: `USER_ACTION_REQUIRED: NO`, `USER_ACTION: NONE`.
+- Valid audit registers conclusion within the current gate.
+
+**Blocking Finding（阻塞发现）**
+
+- Normal default: `USER_ACTION_REQUIRED: YES` if repair budget remains.
+  The user authorizes one incremental repair at the exact scope.
+- Override to NO when: the system can autonomously prepare the repair
+  authorization and the user has pre-authorized the repair scope.
+
+**Repair Budget Exhausted（修复预算耗尽）**
+
+Two sequential stages. Do not output `USER_ACTION_REQUIRED: NO` and
+`NEW_HUMAN_AUTHORIZATION_REQUIRED` simultaneously.
+
+Stage A — Authorization Request Preparation:
+  - `USER_ACTION_REQUIRED: NO`.
+  - `CURRENT_GATE`: not `NEW_HUMAN_AUTHORIZATION_REQUIRED`.
+  - `SYSTEM_NEXT_STEP`: Holder prepares a precise new authorization
+    packet binding repository, PR, exact Head, scope, action, and risk
+    boundary.
+
+Stage B — New Human Authorization Required:
+  - `USER_ACTION_REQUIRED: YES`.
+  - `USER_ACTION`: the exact authorization packet prepared in Stage A.
+    The user must not be asked to design the authorization content.
+  - `CURRENT_GATE`: `NEW_HUMAN_AUTHORIZATION_REQUIRED`.
+
+**Incremental Repair（增量修复）**
+
+- Normal default: `USER_ACTION_REQUIRED: NO`, `USER_ACTION: NONE`.
+- Maker executes within authorized scope.
+
+**Ready Decision（就绪决定）**
+
+- `USER_ACTION_REQUIRED: YES`. Human-only gate.
+- Authorization must bind repository, PR, exact Head SHA, and scope.
+
+**Merge Capability Preflight（合并能力预检）**
+
+- Normal default: `USER_ACTION_REQUIRED: NO` when capability verified.
+- `MERGE_METHOD_CAPABILITY_MISMATCH`: `USER_ACTION_REQUIRED: YES`.
+  Human selects a different enabled method.
+- `CAPABILITY_UNKNOWN` — classify cause first:
+  - Transient API failure / system can retry: `USER_ACTION_REQUIRED: NO`.
+    `SYSTEM_NEXT_STEP` is retry or further read-only verification.
+  - Permission or access gap Human can resolve: `USER_ACTION_REQUIRED: YES`.
+    Provide precise permission authorization or external verification action.
+  - No user-remediable path: `USER_ACTION_REQUIRED: NO`. `FAIL_CLOSED`.
+    State explicitly that user action cannot resolve this block.
+  - Cause not yet known: `USER_ACTION_REQUIRED: NO`. System diagnoses
+    first. Do not present a vague action to the user.
+
+**Merge Decision（合并决定）**
+
+- `USER_ACTION_REQUIRED: YES`. Human-only.
+- Must bind repository, PR, exact Head SHA, exact merge method, and
+  branch deletion decision.
+
+**Merge Result（合并结果）**
+
+- Success: `USER_ACTION_REQUIRED: NO`, `USER_ACTION: NONE`.
+- Failure: system must classify the failure before requesting user action:
+  - method capability mismatch
+  - state drift
+  - permission failure
+  - required-check failure
+  - transient API failure
+  - unknown failure
+- `USER_ACTION_REQUIRED: NO` when the system can continue diagnosis or
+  safely retry without new authorization.
+- `USER_ACTION_REQUIRED: YES` only when a precise new authorization,
+  permission change, or external manual action is required. `USER_ACTION`
+  must be directly executable — never "Human diagnosis."
+
+**Branch Deletion（分支删除）**
+
+- If the final Merge authorization already bound a branch deletion
+  decision (DELETE / RETAIN) and that decision has not changed, the
+  merge result executes or retains the authorized decision. Do not
+  open a separate Human YES gate.
+- If no prior binding exists, or Human requests a change to the bound
+  decision: re-verify live state, obtain precise new authorization
+  binding the changed decision. `USER_ACTION_REQUIRED: YES` only in
+  this case.
+
+**Task Completion（任务完成）**
+
+- Normal default: `USER_ACTION_REQUIRED: NO`, `USER_ACTION: NONE`.
+- System records completion; no further action.
 
 ### No-action default
 

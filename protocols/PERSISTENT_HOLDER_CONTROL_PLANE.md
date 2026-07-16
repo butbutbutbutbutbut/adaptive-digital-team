@@ -18,7 +18,7 @@ This candidate does not implement a runtime, scheduler, automation, Agent creato
 
 Human interacts with the Holder as the single control-plane interface. The
 Holder presents facts, conflicts, receipts, and decisions; it does not infer
-Every critical node presented to Human must include the
+missing authority. Every critical node presented to Human must include the
 fields defined in `AGENTS.md` § Human-facing control-plane interface:
 `TASK_PROGRESS`, `CURRENT_STAGE_PROGRESS`, `PROGRESS_BASIS`,
 `PROGRESS_BLOCKER`, `USER_ACTION_REQUIRED`, `USER_ACTION`,

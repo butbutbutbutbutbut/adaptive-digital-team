@@ -71,15 +71,54 @@ is forbidden.
 Authority drift, unauthorized scope change, and state drift fail closed
 and are not absorbed by progress recalculation.
 
-### Denominator impact of repairs and rejections
+### Incremental repair stage binding
 
-- **Incremental repair**: the repair adds one verification unit to the
-  current stage denominator. The stage percentage is recalculated; the
-  task denominator is not changed unless a new gate is authorized.
-- **Audit rejection**: rejection does not change the denominator.
-  Progress stays frozen at the pre-audit value. The rejection is a
-  blocker, not a completion.
-- **State drift**: fail closed. Neither task nor stage progress advances.
+An audit finding that requires fix + re-review is a blocker, not a
+completion. The Audit stage denominator is frozen at its pre-audit value
+and must not be retroactively modified.
+
+Before any repair action is taken, the following must occur in order:
+
+1. Human explicitly authorizes the repair scope.
+2. A new repair / re-review stage is created.
+3. A finite, ordered `CURRENT_STAGE_PLAN` is bound for the new stage.
+4. If the repair adds a new authorized gate, `PROGRESS_PLAN` is extended
+   and explained.
+5. Before any file change, output:
+
+   ```
+   PROGRESS_RECALCULATED: <old>% -> <new>%
+   RECALCULATION_REASON: VALID_AUDIT_REQUIRED_AUTHORIZED_REPAIR_AND_RE_REVIEW
+   ```
+
+Repair and incremental re-review units count toward progress only after
+they are pre-bound in the new stage. They must not be appended to the
+denominator after the repair is complete.
+
+Forbidden:
+
+- appending units to a denominator after repair completion
+- retroactively modifying an old Audit stage denominator
+- adding task gates without Human authorization
+- using recalculation to absorb authority drift, scope drift, or state
+  drift
+
+### Audit rejection and blocker routing
+
+Audit rejection:
+
+- does not count as completion
+- does not automatically change the original task denominator
+- freezes the original task progress at its pre-audit value
+- routes to the `HUMAN_REPAIR_AUTHORIZATION` gate as a blocker
+
+After Human authorizes repair, the new repair / re-review stage is a
+legitimate `PROGRESS_PLAN` extension. The extension must be registered
+and the recalculation output before any repair file changes.
+
+### State drift
+
+State drift fails closed. Neither task nor stage progress advances.
 
 ### No change to existing gates
 

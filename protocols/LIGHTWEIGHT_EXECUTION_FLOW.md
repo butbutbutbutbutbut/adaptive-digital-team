@@ -37,6 +37,56 @@ registration, or audit behavior and requires an explicit independent audit.
 dependencies, Workflows, product changes, destructive actions, or Merge
 execution; it is never treated as L0.
 
+## Verifiable Progress Accounting
+
+All L0, L1, and L2 tasks must maintain verifiable dual-layer progress per
+`AGENTS.md` § Verifiable task progress.
+
+### Equal-weight floor calculation
+
+Progress uses equal-weight verification units. The percentage is
+`floor(verified_units * 100 / total_bound_units)`. Ten-block bars use
+`floor(percentage / 10)` filled blocks.
+
+### UNKNOWN before binding
+
+Before `PROGRESS_PLAN` and `CURRENT_STAGE_PLAN` are bound, both
+`TASK_PROGRESS` and `CURRENT_STAGE_PROGRESS` are `UNKNOWN`.
+The denominator must not be guessed.
+
+### Freeze during wait
+
+While waiting on GitHub, CI, Maker, Checker, or Human, progress stays
+frozen. Elapsed time, token consumption, or background-execution claims
+do not increase progress.
+
+### Recalculation on scope or fact change
+
+When Human expands scope, Base/Head facts are validly rebound, a new
+authorized gate is added, or a valid audit requires fix + re-review,
+progress is recalculated. The old and new percentages and the reason
+must be output. Silent modification of the denominator or percentage
+is forbidden.
+
+Authority drift, unauthorized scope change, and state drift fail closed
+and are not absorbed by progress recalculation.
+
+### Denominator impact of repairs and rejections
+
+- **Incremental repair**: the repair adds one verification unit to the
+  current stage denominator. The stage percentage is recalculated; the
+  task denominator is not changed unless a new gate is authorized.
+- **Audit rejection**: rejection does not change the denominator.
+  Progress stays frozen at the pre-audit value. The rejection is a
+  blocker, not a completion.
+- **State drift**: fail closed. Neither task nor stage progress advances.
+
+### No change to existing gates
+
+Verifiable progress accounting is informational. It does not alter any
+existing Human-only, fail-closed, Ready, Merge, branch deletion, or
+final-acceptance gate.
+
 ## L0 standard flow
 
 ```text

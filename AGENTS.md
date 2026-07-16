@@ -154,6 +154,10 @@ FACT（事实）
 AUTHORITY（授权边界）
 ACTION（当前动作）
 RESULT（结果）
+TASK_PROGRESS（任务进度）
+CURRENT_STAGE_PROGRESS（当前环节进度）
+PROGRESS_BASIS（进度依据）
+PROGRESS_BLOCKER（阻塞项）
 CURRENT_GATE（当前门禁）
 USER_ACTION_REQUIRED（用户是否需要操作）
 USER_ACTION（用户现在需要操作）
@@ -298,6 +302,142 @@ momentary values written as durable facts:
 - current blocking items
 - current system next step
 - current repository capabilities
+- current TASK_PROGRESS percentage
+- current CURRENT_STAGE_PROGRESS percentage
+- current PROGRESS_BASIS
+- current PROGRESS_BLOCKER
+- current PROGRESS_PLAN and CURRENT_STAGE_PLAN completion state
+
+### Verifiable task progress（可核验任务进度）
+
+All Human-facing critical nodes must output verifiable dual-layer progress
+with the four fields listed above.
+
+#### Progress plan binding（进度计划先绑定）
+
+Before a numeric percentage can appear, finite, explicit, ordered
+`PROGRESS_PLAN` and `CURRENT_STAGE_PLAN` must exist. These are live
+control-plane state and may be recorded in the Dispatch Card, Task
+State Card, or execution receipt.
+
+If total gates or current-stage verification units are not yet bound:
+
+```
+TASK_PROGRESS: UNKNOWN
+CURRENT_STAGE_PROGRESS: UNKNOWN
+```
+
+The denominator must not be guessed.
+
+#### Calculation rules（计算规则）
+
+Numeric progress is computed as:
+
+- Only units confirmed by tools, connectors, valid receipts, or
+  independent verification count as complete.
+- `PLANNED` does not count as complete.
+- `DISPATCHED / EXECUTION_NOT_YET_VERIFIED` does not count as complete.
+- `RECEIPT_RECEIVED` but not yet verified does not count as complete.
+- Only `EXECUTION_VERIFIED` or formally registered Human decisions count.
+- Equal-weight verification units are used.
+- Percentage: `floor(verified_units * 100 / total_bound_units)`
+- Ten-block bar filled blocks: `floor(percentage / 10)`
+- 100% may be shown only after every in-task gate is complete and Task
+  Completion is registered.
+
+Do not self-weight to make progress "appear closer to done."
+
+#### Current-stage progress（当前环节进度）
+
+`CURRENT_STAGE_PROGRESS` uses pre-bound verification units internal to
+the current gate.
+
+Example gates and their pre-bound units (ILLUSTRATIVE_ONLY):
+
+- Dispatch stage: Packet prepared, Dispatch confirmed
+- Audit stage: Checker independence verified, target facts verified,
+  file scope verified, decision registered
+
+Units must be bound before the stage begins, not reverse-selected after
+completion.
+
+#### Waiting does not auto-increment（等待不会自动增长）
+
+While waiting on GitHub, CI, Maker, Checker, or Human:
+
+- Progress stays frozen.
+- Do not increment by elapsed time.
+- Do not claim "processing in background."
+- `PROGRESS_BLOCKER` may record `WAITING_ON_*`.
+- `WAITING_ON_*` is not `CANDIDATE_FAILURE`.
+- `USER_ACTION_REQUIRED` is decided by existing context-sensitive rules.
+
+#### Progress may decrease, but must explain（进度允许下降但必须解释）
+
+Recalculation and decrease are permitted when:
+
+- Human explicitly expands scope.
+- Base / Head or target facts undergo valid rebinding.
+- A newly authorized gate is added.
+- A valid audit finding requires fix + re-review stages.
+
+Output required:
+
+```
+PROGRESS_RECALCULATED: <old>% -> <new>%
+RECALCULATION_REASON: <exact reason>
+```
+
+Do not silently modify the denominator or percentage.
+
+Authority drift, unauthorized scope change, or state drift must still
+fail closed and must not be absorbed through progress recalculation.
+
+#### PROGRESS_BASIS anti-black-box（进度依据防黑箱）
+
+`PROGRESS_BASIS` must not contain only:
+
+- `estimated`
+- `nearly complete`
+- `most work done`
+- `almost finished`
+
+It must include at minimum:
+
+- verified units numerator
+- bound total denominator
+- completed gate/unit names
+- pending gate/unit names
+
+Long lists may go to the Receipt or PR body, but the chat must retain
+the numeric basis and current blocker.
+
+#### Progress visualization（进度可视化）
+
+Each progress field must include both the machine-readable value and a
+Simplified Chinese explanation with a ten-block visual bar. Example
+(ILLUSTRATIVE_ONLY):
+
+```
+TASK_PROGRESS: 80%
+CURRENT_STAGE_PROGRESS: 0%
+
+当前任务  [████████░░] 80% — 4/5 个门禁已验证
+当前环节  [░░░░░░░░░░] 0%  — 等待独立审计回执
+```
+
+The machine field and Chinese display must not contradict each other.
+
+#### Progress and existing gates（进度与现有门禁）
+
+Progress percentages are informational. They must not be treated as:
+
+- substitutes for acceptance
+- substitutes for audit pass
+- substitutes for Ready
+- substitutes for Merge
+
+All existing Human-only and fail-closed gates remain unchanged.
 
 ### Existing authority and safety boundary preservation
 

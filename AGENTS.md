@@ -89,10 +89,23 @@ and history-rewrite violations remain fail-closed.
 
 ### Branch sync vs. final merge
 
-`BRANCH_SYNC_METHOD` and `PR_FINAL_MERGE_METHOD` are distinct. The branch
-sync method (rebase, merge, squash used during development and branch
-updates) has narrower authority than the final PR merge method, which is a
-Human-only gate. Do not conflate them.
+`BRANCH_SYNC_METHOD` and `PR_FINAL_MERGE_METHOD` are distinct.
+
+`allow_merge_commit`, `allow_squash_merge`, and `allow_rebase_merge` are
+GitHub Pull Request final merge method settings. They control how GitHub
+merges a PR into the target branch via the PR Merge API. They do not control
+ordinary git operations on the feature branch.
+
+`allow_merge_commit=false` means GitHub will not offer or execute a merge
+commit when merging the PR. It does not forbid a developer from running
+`git merge <target>` on the feature branch to produce an ordinary merge
+commit for branch synchronization.
+
+`BRANCH_SYNC_METHOD` must not be treated as `PR_FINAL_MERGE_METHOD`, and
+vice versa. Branch sync operations (bringing target changes into the feature
+branch during development) and PR final merge (closing the PR into the
+target branch) are separate action classes. They must be separately
+authorized and separately verified.
 
 ### Pre-authorization verification
 
@@ -136,42 +149,88 @@ Any drift in these bindings between authorization and execution fails closed.
 
 ### Pre-execution re-verification
 
-Immediately before merge execution, re-verify:
+Immediately before calling the PR Merge API, re-verify live facts:
 
-- exact Head SHA matches the authorization
-- merge capability (enabled methods) has not changed
+- repository identity
+- PR identity
+- exact Base SHA
+- exact Head SHA
+- PR state
+- mergeability
+- the authorized merge method is still enabled in repository settings
+- applicable required checks
+- applicable branch-protection and permission facts (when accessible)
 
-If Head or merge capability has changed since authorization, stop and fail
-closed.
+If any authorized binding fact has changed since authorization, stop and
+fail closed. Do not proceed to merge.
 
 ### Merge method capability mismatch
 
-If an authorized merge method is rejected by repository policy but the
-candidate has not drifted (same Head, same Base, same scope, same PR state,
-same mergeability):
+`MERGE_METHOD_CAPABILITY_MISMATCH` applies only when ALL of the following
+facts remain unchanged since authorization:
 
-`MERGE_METHOD_CAPABILITY_MISMATCH`
+- repository identity
+- PR identity
+- Base SHA
+- Head SHA
+- scope (files and actions in authorization)
+- candidate files and their content
+- PR state
+- mergeability
+- a valid independent audit conclusion bound to the exact Head SHA
 
-This does not:
-- invalidate the audit
-- consume audit or repair budget
-- trigger code repair or a full re-audit
+When repository policy rejects the authorized merge method but all the
+above facts are unchanged:
 
-It enters `HUMAN_MERGE_METHOD_REAUTHORIZATION` only. The Human selects a
-different enabled method; no other gate is reopened.
+- candidate state is unchanged
+- valid independent audit conclusion remains valid
+- audit budget is not consumed
+- repair budget is not consumed
+- repository repair is not triggered
+- a full audit rerun is not triggered
+- the candidate does not enter a failure gate
 
-### Scope or state drift
+The situation routes to `HUMAN_MERGE_METHOD_REAUTHORIZATION` only. The
+new authorization may only replace the exact merge method with a different
+enabled method. It must not expand any other permission, scope, or gate.
 
-If Base, Head, scope, PR state, or mergeability has changed since
-authorization, fail closed. Return to the appropriate Human gate; do not
-silently rebind or widen scope.
+### Drift (not eligible for lightweight re-authorization)
+
+The following changes are genuine drift. None of them may use
+`HUMAN_MERGE_METHOD_REAUTHORIZATION` or any lightweight path:
+
+- repository change
+- PR identity change
+- Base drift (Base SHA differs from authorization)
+- Head drift (Head SHA differs from authorization)
+- scope change (files or actions outside authorization)
+- candidate file change or candidate content change
+- PR state change (e.g. CLOSED, MERGED, converted from Draft)
+- mergeability change
+- permission change
+- required-check change
+- branch-protection change
+
+When any of the above occurs, stop. Do not silently rebind the old
+authorization. Return to the appropriate fact-verification, audit, or
+Human gate for the changed fact.
 
 ### Merge settings as live facts
 
-Repository merge settings (enabled methods, protection rules, required
-checks) are live control-plane facts. They are not written to durable
-repository state, committed files, or the PR body as authoritative bindings.
-They must be re-read at each merge-capability gate.
+The following are live control-plane facts, read from the repository at
+execution time. They are not durable repository state and must never be
+written to committed files, the PR body, or any durable record as
+authoritative bindings:
+
+- enabled PR merge methods (`allow_merge_commit`, `allow_squash_merge`,
+  `allow_rebase_merge`)
+- PR mergeability
+- required status checks
+- branch-protection rules
+- applicable merge permissions
+
+Each merge-capability gate must re-read these facts live. Stale cached
+values are not authoritative.
 
 ### Runtime and automation boundaries
 

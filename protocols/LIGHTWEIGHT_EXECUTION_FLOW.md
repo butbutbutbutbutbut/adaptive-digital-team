@@ -122,12 +122,41 @@ automatic scheduling remain `NOT_AUTHORIZED`.
 ## Merge capability preflight
 
 The merge method capability preflight defined in `AGENTS.md` applies at
-every final Human merge gate. Before presenting merge options or requesting
-Human merge authorization, live repository merge settings must be verified.
-`MERGE_CAPABILITY_UNKNOWN` blocks the gate. `MERGE_METHOD_CAPABILITY_MISMATCH`
-does not consume audit or repair budget and routes to
-`HUMAN_MERGE_METHOD_REAUTHORIZATION`. Base, Head, scope, PR state, or
-mergeability drift remains fail-closed.
+every final Human merge gate.
+
+### Pre-gate verification
+
+Before presenting merge options or requesting Human merge authorization,
+live repository merge settings must be verified. `MERGE_CAPABILITY_UNKNOWN`
+blocks the gate and fails closed.
+
+### MERGE_METHOD_CAPABILITY_MISMATCH (no-side-effect recovery)
+
+`MERGE_METHOD_CAPABILITY_MISMATCH` is valid only when repository identity,
+PR identity, Base SHA, Head SHA, scope, candidate files and content, PR
+state, mergeability, and the independent audit conclusion are all unchanged.
+When triggered:
+
+- candidate state does not change
+- valid audit conclusion remains valid
+- audit budget is not consumed
+- repair budget is not consumed
+- repository repair is not triggered
+- full audit rerun is not triggered
+- candidate does not enter a failure gate
+- routes to `HUMAN_MERGE_METHOD_REAUTHORIZATION` only
+
+The new authorization replaces only the exact merge method; it must not
+expand any other permission, scope, or gate.
+
+### Drift (fail-closed)
+
+The following are genuine drift and must not use lightweight re-authorization:
+repository change, PR identity change, Base drift, Head drift, scope change,
+candidate file or content change, PR state change, mergeability change,
+permission change, required-check change, branch-protection change. Any drift
+returns to the appropriate fact-verification, audit, or Human gate. No silent
+rebinding of old authorization is permitted.
 
 ## Adoption gate
 

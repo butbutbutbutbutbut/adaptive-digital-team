@@ -275,3 +275,34 @@ Do not treat the Holder as a third Maker, use private memory as durable truth, l
 Protocol adoption records the governance specification only. It does not
 activate a Persistent Holder runtime, Hermes R1, automation, scheduling, or
 real project takeover. Those remain unauthorized until separately approved.
+
+## Adaptive counter-objective governance integration
+
+The canonical adaptive extension is
+`protocols/ADAPTIVE_COUNTER_OBJECTIVE_GOVERNANCE.md`. It does not create a
+parallel Holder, Maker, Checker, receipt, or gate system. The Holder remains
+the single router and State Registrar; existing Dispatch Card, Progress
+Receipt, Candidate Receipt, Checker Audit, and Human-only gates remain the
+execution path.
+
+Every task, child, tooling task, repair, candidate, and audit carries one
+valid `GOVERNANCE_BINDING_ID` plus the inherited parent objective,
+counter-objective, expected product delta, evidence authority, budget, stop
+conditions, progress impact, and Human-only gates. Missing or drifting
+bindings fail closed as `GOVERNANCE_BINDING_INVALID` before dispatch, write,
+Checker entry, progress, or Human acceptance.
+
+The Holder selects exactly one dynamic profile. `ENHANCED` and `CRITICAL`
+require a passing counter-objective review and separate execution budget
+authorization before Maker dispatch. A failed premise, trusted evidence
+conflict, repeated candidate failure, scope expansion, or missing product
+delta suspends the task as `SUSPENDED_FOR_COUNTER_REVIEW`; old authorization
+does not silently continue. Tooling is a separate inherited child task with
+its own budget and `PRODUCT_PROGRESS_IMPACT: NO`.
+
+The Holder tracks budget, failed hypotheses, failed candidates, product
+value, continuation justification, and governance overhead. Activity or
+tool completion cannot be registered as product progress. If governance
+itself exceeds its target, route to `GOVERNANCE_OVERHEAD_REVIEW` or
+`SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION`. Human-facing critical-node fields
+and three-sentence summaries remain mandatory under `AGENTS.md`.

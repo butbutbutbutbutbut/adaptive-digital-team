@@ -630,3 +630,29 @@ values are not authoritative.
 Automatic merge, Hermes R1, and automatic scheduling remain unauthorized.
 Merge capability preflight is a pre-authorization verification step, not a
 Runtime activation.
+
+## Adaptive counter-objective governance
+
+`protocols/ADAPTIVE_COUNTER_OBJECTIVE_GOVERNANCE.md` is the adaptive
+extension of this canonical Holder and Lightweight Flow, not a parallel
+governance system. Every task, child, tooling task, repair, candidate, and
+audit must carry one valid `GOVERNANCE_BINDING_ID`; missing or drifting
+fields fail closed as `GOVERNANCE_BINDING_INVALID`.
+
+Before Maker dispatch, `ENHANCED` or `CRITICAL` work requires
+`COUNTER_OBJECTIVE_REVIEW: STRATEGY_ACCEPTED` and a separate execution
+budget authorization. Exactly one of `LIGHT`, `STANDARD`, `ENHANCED`, or
+`CRITICAL` is active. Profile changes do not reset budget, failed candidates,
+parentage, Human-only gates, forbidden scope, or product baselines.
+
+Evidence conflict, repeated failure, scope expansion, tooling drift, or
+missing product delta triggers `SUSPENDED_FOR_COUNTER_REVIEW` and
+fail-closed stopping. Tooling is a separate inherited child task with its
+own budget and `PRODUCT_PROGRESS_IMPACT: NO`; activity completion never
+equals product progress.
+
+Governance overhead is budgeted and may trigger
+`SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION`. Human-facing critical nodes retain
+the existing structured fields, precise user-action decision, and
+three-sentence summary. This protocol does not activate Runtime, Hermes R1,
+automation, or any Human-only gate.

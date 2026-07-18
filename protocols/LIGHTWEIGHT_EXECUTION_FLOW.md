@@ -410,3 +410,36 @@ Stage B — New Human Authorization Required:
 When `USER_ACTION_REQUIRED: NO`, `USER_ACTION` must be exactly `NONE`.
 Never leave `USER_ACTION` empty, implied, or to-be-determined. The field
 is mandatory at every critical node.
+
+## Adaptive governance integration
+
+The canonical adaptive extension is
+`protocols/ADAPTIVE_COUNTER_OBJECTIVE_GOVERNANCE.md`. It does not create a
+second dispatch or audit chain. Existing Holder Dispatch, Maker Receipt,
+Candidate Receipt, Checker Audit, live-state, progress, and Human-only gates
+remain the execution path.
+
+Every dispatch carries a valid `GOVERNANCE_BINDING_ID` and inherited
+`PARENT_TASK_ID`, `PRIMARY_OBJECTIVE`, `COUNTER_OBJECTIVE`,
+`EXPECTED_PRODUCT_DELTA`, `EVIDENCE_AUTHORITY`, `BUDGET_CLASS`,
+`STOP_CONDITIONS`, `PRODUCT_PROGRESS_IMPACT`, and `HUMAN_ONLY_GATES`.
+`ENHANCED` and `CRITICAL` work cannot enter Maker execution until the
+counter-objective review is `STRATEGY_ACCEPTED` and the execution budget is
+`AUTHORIZED_TO_RUN`.
+
+Exactly one profile is active: `LIGHT`, `STANDARD`, `ENHANCED`, or
+`CRITICAL`. Upgrades invalidate the old execution authorization; downgrades
+require independent premise confirmation, narrower scope, resolved evidence
+conflict, Human strategy acceptance, and rebound limits. Neither resets
+consumed budget, failed candidates, parentage, forbidden scope, or
+Human-only gates.
+
+`SUSPENDED_FOR_COUNTER_REVIEW` blocks new candidates, automatic strategy
+switching, scope expansion, tooling, Checker entry, and next-stage budget.
+Tooling and child tasks inherit the binding and parent restrictions, use a
+separate budget, and have `PRODUCT_PROGRESS_IMPACT: NO`. Activity completion,
+tool completion, and low-authority evidence never increase product progress.
+Conflicting high-authority evidence changes the task to `EVIDENCE_VALIDATION`
+and stops product edits. Governance overhead routes to
+`GOVERNANCE_OVERHEAD_REVIEW` or
+`SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION` when its profile target is exceeded.

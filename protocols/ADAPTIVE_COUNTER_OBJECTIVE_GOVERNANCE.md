@@ -127,6 +127,16 @@ stage. Re-answer the problem, hypothesis, strategy, cheaper path, value of
 continuation, and remaining budget for the minimum result. Resume only with
 the existing binding and valid new authorization where required.
 
+`FIRST_REVIEW_THRESHOLD` triggers review and may resume under the current
+binding when the review revalidates strategy and remaining budget.
+`HARD_STOP_THRESHOLD_REACHED` applies when consumption reaches or exceeds
+`HARD_STOP_THRESHOLD`; it immediately invalidates current execution and
+budget authorization. Under that state, do not create candidates, modify
+files, use tools, consume next-stage budget, enter Checker, or derive child
+or tooling tasks. Resume only after Human provides new continuation
+authorization and a rebound budget. Child and tooling tasks stop with the
+parent and may not bypass the hard-stop state.
+
 ## Evidence authority
 
 For visual work, evidence precedence is:
@@ -214,11 +224,16 @@ HARD_STOP_THRESHOLD:
 ## Governance overhead and circuit breaker
 
 Governance overhead includes state cards, repeated protocol text, prechecks,
-audits, role changes, evidence preparation, and tooling diagnosis. Target
+audits, role changes, evidence preparation, and tooling diagnosis.
+`GOVERNANCE_OVERHEAD_BUDGET` is bound before execution, tracked separately
+from product budget, and includes state cards, protocol repetition, repeated
+fact checks, role switches, audit text, and evidence organization. Target
 ceilings are `LIGHT` minimal, `STANDARD` 10%, `ENHANCED` 20%, and `CRITICAL`
-only as justified. Exceeding the target triggers
+only as justified. Reaching the warning value triggers
 `GOVERNANCE_OVERHEAD_REVIEW` to merge steps, inherit fields, remove duplicate
-Checkers, or downgrade only if safe.
+Checkers, or downgrade only if safe. Reaching the overhead limit without
+simplification triggers `SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION`; product
+budget may not be borrowed to sustain unlimited governance work.
 
 Pause as `SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION` when state cards exceed
 candidates, protocol text dominates implementation, a fact is checked more
@@ -227,6 +242,14 @@ the task, product has no visible change for two stages, overhead exceeds
 budget, Agent judgment is replaced by waiting, or a simple task has three or
 more roles. Return `HUMAN_SUMMARY`, `CURRENT_PRODUCT_VALUE`,
 `UNNECESSARY_GOVERNANCE`, and `SIMPLIFIED_NEXT_STEP`.
+
+`GOVERNANCE_COMMUNICATION_FAILURE` applies when Human cannot quickly
+understand the task, repeatedly asks for plain language or why execution is
+continuing, the Holder cannot explain objective, reason, and next step in
+three sentences, or machine state and `HUMAN_SUMMARY` disagree. Pause new
+execution, candidates, and budget consumption; output no more than three
+sentences covering `HUMAN_SUMMARY`, current product value, and the minimum
+next step. Resume only after Human reconfirms direction.
 
 ## Human-facing minimum
 

@@ -346,7 +346,7 @@ def test_all_valid():
 
 
 if __name__ == '__main__':
-    print('Running 29 binding validation tests...\n')
+    print('Running 25 binding validation tests...\n')
 
     tests = [
         ('1.1 缺afs.type → FAIL', test_01a),

@@ -248,7 +248,13 @@ class BindingValidator:
         """Runtime-head binding: the current Head comes from git, not from
         PROJECT_STATE.md.  Validates that the checked-out commit matches the
         remote branch, that starting_head is an ancestor, and that CI event
-        SHAs are consistent."""
+        SHAs are consistent.
+
+        Event-specific behaviour:
+        - push:        checked-out HEAD must == remote HEAD == push event SHA
+        - pull_request: PR source head (from event) must == remote HEAD;
+                        merge ref is ignored for identity comparison.
+        """
         if not self.live_mode:
             return
 
@@ -256,58 +262,79 @@ class BindingValidator:
         if not active_branch or active_branch == 'NONE':
             return
 
-        # ── 8a. Runtime head vs remote branch ──
+        event_name = self._ci_event_name()
         runtime_head = self._runtime_head()
+        remote_head = self._remote_head(active_branch)
+
         if not runtime_head:
             self.warnings.append(
                 "VALIDATION-8: Cannot determine runtime HEAD"
             )
             return
 
-        remote_head = self._remote_head(active_branch)
-        if remote_head and runtime_head != remote_head:
-            self.errors.append(
-                f"VALIDATION-8: HARD_STOP — runtime HEAD "
-                f"({runtime_head[:12]}) does not match remote "
-                f"origin/{active_branch} ({remote_head[:12]}). "
-                f"Branch may have advanced since checkout."
-            )
-
-        # ── 8b. starting_head is ancestor of runtime_head ──
-        starting_head = self.get('active_candidate.starting_head', '')
-        if starting_head:
-            if not self._is_ancestor(starting_head, runtime_head):
+        # ── 8a. Push event: runtime HEAD must match remote ──
+        if event_name == 'push':
+            if remote_head and runtime_head != remote_head:
                 self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — starting_head "
-                    f"({starting_head[:12]}) is not an ancestor of "
-                    f"runtime HEAD ({runtime_head[:12]})"
+                    f"VALIDATION-8: HARD_STOP — runtime HEAD "
+                    f"({runtime_head[:12]}) does not match remote "
+                    f"origin/{active_branch} ({remote_head[:12]}). "
+                    f"Branch may have advanced since checkout."
                 )
+            # Additional: push event SHA must match both
+            event_sha = self._ci_event_sha()
+            if event_sha:
+                if runtime_head != event_sha:
+                    self.errors.append(
+                        f"VALIDATION-8: HARD_STOP — push event SHA "
+                        f"({event_sha[:12]}) does not match checked-out "
+                        f"HEAD ({runtime_head[:12]})"
+                    )
+                if remote_head and event_sha != remote_head:
+                    self.errors.append(
+                        f"VALIDATION-8: HARD_STOP — push event SHA "
+                        f"({event_sha[:12]}) does not match remote "
+                        f"origin/{active_branch} ({remote_head[:12]})"
+                    )
 
-        # ── 8c. CI event SHA consistency ──
-        event_name = self._ci_event_name()
-        event_sha = self._ci_event_sha()
-
-        if event_name == 'push' and event_sha:
-            if runtime_head != event_sha:
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — push event SHA "
-                    f"({event_sha[:12]}) does not match checked-out "
-                    f"HEAD ({runtime_head[:12]})"
-                )
-            if remote_head and event_sha != remote_head:
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — push event SHA "
-                    f"({event_sha[:12]}) does not match remote "
-                    f"origin/{active_branch} ({remote_head[:12]})"
-                )
-
-        if event_name == 'pull_request':
+        # ── 8b. Pull request event: PR head must match remote ──
+        elif event_name == 'pull_request':
             pr_head = self._pr_head_sha()
             if pr_head and remote_head and pr_head != remote_head:
                 self.errors.append(
                     f"VALIDATION-8: HARD_STOP — PR head SHA "
                     f"({pr_head[:12]}) does not match remote "
                     f"origin/{active_branch} ({remote_head[:12]})"
+                )
+            # Runtime head in PR context is the merge ref — do NOT
+            # compare it against remote for identity.  Use PR head
+            # for ancestry check below.
+            pr_head = pr_head or runtime_head  # fallback for ancestry
+
+        # ── 8c. Non-CI: runtime HEAD must match remote ──
+        else:
+            if remote_head and runtime_head != remote_head:
+                self.errors.append(
+                    f"VALIDATION-8: HARD_STOP — runtime HEAD "
+                    f"({runtime_head[:12]}) does not match remote "
+                    f"origin/{active_branch} ({remote_head[:12]}). "
+                    f"Branch may have advanced since checkout."
+                )
+
+        # ── 8d. starting_head is ancestor of effective head ──
+        #       In PR context use PR head; otherwise use runtime_head.
+        effective_head = runtime_head
+        if event_name == 'pull_request':
+            pr_head = self._pr_head_sha()
+            effective_head = pr_head or runtime_head
+
+        starting_head = self.get('active_candidate.starting_head', '')
+        if starting_head and self._commit_exists(starting_head):
+            if not self._is_ancestor(starting_head, effective_head):
+                self.errors.append(
+                    f"VALIDATION-8: HARD_STOP — starting_head "
+                    f"({starting_head[:12]}) is not an ancestor of "
+                    f"effective HEAD ({effective_head[:12]})"
                 )
 
     # ── VALIDATION-9: Active candidate field semantics ──

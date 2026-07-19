@@ -30,9 +30,14 @@ product_repository: butbutbutbutbutbut/he-weizhi-site
 
 # ── Active candidate ──
 active_candidate:
-  branch: NONE
-  resolved_head: NONE
-  status: NONE
+  branch: hermes/adt-persona-memory-credential-boundary-r1
+  resolved_head: NONE  # will be set on commit
+  status: DESIGN_CANDIDATE
+  task_id: ADT-PERSONA-MEMORY-BACKUP-AND-CREDENTIAL-BOUNDARY-R1
+  authorization_id: ADT-PERSONA-MEMORY-BACKUP-CREDENTIAL-BOUNDARY-20260720-001
+  design_status: CANDIDATE_FOR_INDEPENDENT_REVIEW
+  implementation_status: NOT_AUTHORIZED
+  next_gate: EXTERNAL_INDEPENDENT_DESIGN_AUDIT
 
 # ── Comparison candidates ──
 comparison_candidates: []
@@ -54,16 +59,30 @@ deployment_plan:
   next_stage: PERSONA_MEMORY_BACKUP_AND_PROFILE_ISOLATION_PREFLIGHT
 
 # ── Current gate ──
-current_gate: DEPLOYMENT_PLAN_ARCHITECTURE_CANDIDATE
+current_gate: EXTERNAL_INDEPENDENT_DESIGN_AUDIT
 
 # ── Visual status ──
 visual_status:
-  active_candidate: NONE
+  active_candidate: DESIGN_CANDIDATE
+
+# ── Decision register ──
+decisions:
+  D6:
+    status: CLOSED
+    result: EMPTY_PROFILE_PLUS_SKILL_ALLOWLIST
+  B4:
+    status: DESIGN_CANDIDATE
+    design_document: docs/architecture/ADT_PERSONA_MEMORY_BACKUP_AND_CREDENTIAL_BOUNDARY_R1.md
+    implementation: NOT_AUTHORIZED
+  D9:
+    status: DESIGN_CANDIDATE
+    design_document: docs/architecture/ADT_PERSONA_MEMORY_BACKUP_AND_CREDENTIAL_BOUNDARY_R1.md
+    implementation: NOT_AUTHORIZED
 
 # ── Authorized action and write scope ──
-authorized_action: "ADT deployment plan v0.2 architecture record"
+authorized_action: "ADT persona memory backup and credential boundary design R1"
 authorized_write_scope:
-  - docs/architecture/ADT_DEPLOYMENT_PLAN_V0_2.md
+  - docs/architecture/ADT_PERSONA_MEMORY_BACKUP_AND_CREDENTIAL_BOUNDARY_R1.md
   - PROJECT_STATE.md
 
 # ── Counter-objectives ──
@@ -78,22 +97,37 @@ counter_objectives:
   - "不得让系统以'处理中'隐藏当前动作"
   - "不得修改任何绑定产品仓库"
   - "不得直接修改 main、Ready、Merge 或改写历史"
+  - "不得上传或复制 state.db"
+  - "不得读取真实记忆正文"
+  - "不得创建 PAT"
+  - "不得轮换真实凭据"
+  - "不得创建四个私有仓库"
+  - "不得创建 Hermes Profile"
+  - "不得修改小禾 Profile"
+  - "不得创建安鼎人格"
+  - "不得实施备份"
+  - "不得生成正式 age 密钥"
+  - "不得接入飞书"
+  - "不得实施 Gateway 或记忆桥"
+  - "不得授予自动 Ready / Merge"
+  - "不得建立第二套状态系统"
+  - "不得把设计要求描述为已实施事实"
 
 # ── Progress ──
 progress:
-  completed: 1
-  total: 2
-  display: "[#####-----] 50%"
+  completed: 2
+  total: 3
+  display: "[######----] 66%"
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Await external independent delta audit of repaired PR #22 Head."
-last_verified_at: "2026-07-19T19:26:40Z"
+system_next_step: "Await external independent design audit of B4/D9 design candidate."
+last_verified_at: "2026-07-20T08:00:00Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1
 BOOTSTRAP_STATUS: ACCEPTED
-CURRENT_MAIN_BASE_FOR_THIS_CANDIDATE: 8d343f26dfc9f29422b448705bf85e6f0be37362
+CURRENT_MAIN_BASE_FOR_THIS_CANDIDATE: 0e9b39d57a4c5a8e306cf848dcbc6eb3f212e9f7
 ACTIVE_PROJECT_BINDING: butbutbutbutbutbut/he-weizhi-site
 PROJECT_BINDING_STATE_SHA: dc86f4e56024ad2905ff6be49798da5b02451b7f
 PROJECT_BINDING_COUNT: 1

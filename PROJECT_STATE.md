@@ -31,7 +31,7 @@ product_repository: butbutbutbutbutbut/he-weizhi-site
 # ── Active candidate ──
 active_candidate:
   branch: hermes/adt-main-push-ci-coverage-r1
-  resolved_head: 0abb079d37937bbc1a54c03dbd905727c5b9f442
+  resolved_head: 5c171fd26ac9a5e060f0958527e494a0d5f09d28
   status: GOVERNANCE_REPAIR
   task_id: ADT-MAIN-PUSH-CI-COVERAGE-R1
   authorization_id: ADT-MAIN-PUSH-CI-COVERAGE-20260720-001

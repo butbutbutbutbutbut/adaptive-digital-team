@@ -166,3 +166,13 @@ Numeric progress requires a finite pre-bound plan. Only independently verified u
 ## Human interaction and merge
 
 Human normally provides initial exact scope and final high-risk decisions. Ready, merge method, Merge, branch deletion, final acceptance, runtime activation, and destructive external action remain Human-only. Merge settings, mergeability, checks, permissions, and protection are live facts and are re-read immediately before authorization and execution.
+
+## Compatibility preservation
+
+This R1 flow is an additive narrowing of candidate topology, not permission to
+remove prior gates. Dispatch Cards, Progress Receipts, valid-vs-invalid audit
+receipt classification, finite repair handling, Human-action clarity, live
+merge-capability preflight, reviewed revert rollback, and counter-objective
+checks remain required wherever their conditions apply. The existing baseline
+regression cases remain part of the complete suite; the single-PR, fingerprint,
+and realtime-gate cases extend that suite.

@@ -201,3 +201,27 @@ Persistent Holder runtime, Hermes R1, automatic scheduling, automatic merge, Per
 ## Adaptive counter-objective governance
 
 Governance must not multiply candidates, duplicate state systems, or create formally correct but unnecessary work. When governance cost exceeds product or safety value, use the smallest safe path. Activity completion never equals product progress, and tooling work never inherits product acceptance.
+
+## R1 preservation contract
+
+Candidate Lifecycle R1 consolidates identity rules; it does not revoke existing
+adopted governance outside an explicit conflict. The following earlier controls
+remain normative and must be interpreted together with this file:
+
+- repository-as-prompt startup, fact-source rebinding, and the distinction
+  between governance Base and product truth;
+- multimodal evidence review when a claim depends on external media;
+- explicit instruction routing, role identity, authorization identity, and
+  Maker/Checker separation;
+- Human-facing evidence states, exact machine fields, executable user actions,
+  progress anti-inflation, and `BLACKBOX_STATUS: PROHIBITED`;
+- bounded Publish Lease semantics, independent receipt validation, capability
+  preflight, merge-method reauthorization limits, rollback by reviewed revert,
+  and Human-only Ready, Merge, deletion, and acceptance;
+- adaptive counter-objectives against duplicate candidates, duplicate state
+  systems, stacked repair topology, and governance work that displaces the
+  authorized task.
+
+The pre-existing regression set remains a compatibility baseline. New R1 tests
+are additive coverage; passing new identity tests cannot waive an older safety
+or authority rule.

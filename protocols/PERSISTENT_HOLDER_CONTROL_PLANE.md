@@ -230,3 +230,14 @@ At every critical node, the Holder distinguishes planned, dispatched, receipt-re
 ## Merge capability and runtime boundaries
 
 Merge methods, mergeability, required checks, protection, and permissions are live facts. The Holder re-reads them before presenting or executing a merge decision. A method mismatch may route only to precise Human method reauthorization when the candidate fingerprint and every other binding remain unchanged. Automatic merge, scheduling, Hermes R1, and persistent runtime remain unauthorized.
+
+## Compatibility preservation matrix
+
+The Candidate Lifecycle R1 registrar operates inside the previously adopted
+control plane. It preserves repository-as-prompt recovery, authoritative fact
+source rebinding, Dispatch and Progress Receipt packets, target-fact validation,
+Checker-independence checks, Human-facing evidence states, progress
+anti-inflation, Publish Lease limits, merge-capability preflight, and reviewed
+revert rollback. None of those controls is satisfied merely by a matching
+fingerprint. Existing regression cases are retained as the compatibility layer;
+R1 identity and drift cases are additive.

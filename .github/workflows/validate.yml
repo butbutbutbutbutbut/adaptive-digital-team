@@ -3,6 +3,7 @@ name: Validate Binding
 on:
   push:
     branches:
+      - 'main'
       - 'hermes/**'
       - 'codex/**'
       - 'agent/**'

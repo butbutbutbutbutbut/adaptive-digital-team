@@ -1,0 +1,52 @@
+name: Validate Binding
+
+on:
+  push:
+    branches:
+      - 'hermes/**'
+      - 'codex/**'
+      - 'agent/**'
+      - 'maker/**'
+    paths:
+      - 'PROJECT_STATE.md'
+      - 'protocols/**.md'
+      - 'scripts/validate_binding.py'
+      - 'tests/test_binding_validation.py'
+      - '.github/workflows/validate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'PROJECT_STATE.md'
+      - 'protocols/**.md'
+      - 'scripts/validate_binding.py'
+      - 'tests/test_binding_validation.py'
+      - '.github/workflows/validate.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run binding validation (static)
+        run: python scripts/validate_binding.py --file PROJECT_STATE.md
+
+      - name: Run binding validation tests
+        run: pytest tests/test_binding_validation.py -v
+
+      - name: Run binding validation (live, CI mode)
+        run: python scripts/validate_binding.py --file PROJECT_STATE.md --ci
+        # CI mode enables live git checks. May fail on PRs from forks
+        # where origin fetch is not available; non-zero exit is treated
+        # as a warning in that case, not a hard block.
+        continue-on-error: true

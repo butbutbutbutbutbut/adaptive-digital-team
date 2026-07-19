@@ -63,14 +63,8 @@ visual_status:
 # ── Authorized action and write scope ──
 authorized_action: "ADT deployment plan v0.2 architecture record"
 authorized_write_scope:
-  - AGENTS.md
+  - docs/architecture/ADT_DEPLOYMENT_PLAN_V0_2.md
   - PROJECT_STATE.md
-  - BOOTSTRAP.md
-  - protocols/*.md
-  - scripts/*.py
-  - tests/*.py
-  - .github/workflows/*.yml
-  - docs/architecture/*.md
 
 # ── Counter-objectives ──
 counter_objectives:
@@ -93,8 +87,8 @@ progress:
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Push branch; create Draft PR; request independent audit"
-last_verified_at: "2026-07-20T18:30:00Z"
+system_next_step: "Await external independent delta audit of repaired PR #22 Head."
+last_verified_at: "2026-07-19T19:26:40Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

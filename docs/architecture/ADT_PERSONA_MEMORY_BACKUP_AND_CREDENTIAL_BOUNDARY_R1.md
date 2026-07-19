@@ -306,16 +306,51 @@ human_approval_status: "PENDING"
 - 下一次快照时，带 `invalidated_at` 的记录不进入新快照
 - 旧快照中仍保留已失效记录（加密快照不可变），但 manifest 中标记 `supersedes_snapshot`
 
-### 5.4 Human 删除权
+### 5.4 Human 删除权与 Tombstone 机制
 
 ```text
 HUMAN_DELETE_RIGHT: ABSOLUTE
 HUMAN_DELETE_SCOPE: ANY_MEMORY_RECORD
 HUMAN_DELETE_EFFECT: IMMEDIATE_INVALIDATION + NEXT_SNAPSHOT_EXCLUSION
-HUMAN_UNDELETE: MANUAL_RESTORE_FROM_OLD_SNAPSHOT_WITH_NEW_RECORD
+HUMAN_DELETE_TOMBSTONE: TRUE
 ```
 
-Human 可随时要求删除任何记忆记录。删除后新快照不包含该记录，审计日志记录删除动作。
+Human 可随时要求删除任何记忆记录。删除后：
+
+- 记录标记 `invalidated_at` 和 `deletion_reason`
+- 该 `memory_id` 进入 **tombstone / invalidation 清单**
+- 新快照不包含该记录
+- Tombstone 清单随 manifest 持久化，作为恢复时的硬排除过滤器
+- 审计日志记录删除动作
+
+### 5.4.1 恢复与反删除（Undelete）
+
+任何恢复操作（包括从旧快照恢复、跨设备迁移、灾备恢复）**必须**应用 tombstone / invalidation 清单：
+
+```text
+RESTORE_MUST_APPLY_TOMBSTONE_LIST: TRUE
+RESTORE_MUST_NOT_REACTIVATE_INVALIDATED_RECORDS: TRUE
+RESTORE_MUST_NOT_REACTIVATE_DELETED_RECORDS: TRUE
+DIRECT_RESURRECTION_OF_OLD_RECORD: PROHIBITED
+```
+
+Human 反删除（undelete）必须遵循以下流程：
+
+1. **创建新 `memory_id`** — 禁止直接复活旧记录的 `memory_id`
+2. **`supersedes` 引用原记录** — 新记录的 `supersedes` 字段列出被恢复的原 `memory_id`
+3. **记录恢复理由** — `deletion_reason` 记录恢复原因和 Human 批准信息
+4. **更新 Tombstone** — 原 tombstone 条目更新，标记 `undeleted_by: {new_memory_id}`
+5. **经标准审批入快照** — 新记录经 Human 审批后进入下次快照
+
+```yaml
+# 反删除示例（结构示意）
+memory_id: "xiaohe-mem-f9e0d1c2"           # 新 memory_id
+category: "preferences"
+summary: "（恢复）用户偏好简短对话风格"       # 保留原内容摘要
+supersedes: ["xiaohe-mem-a1b2c3d4"]        # 引用被恢复的原记录
+deletion_reason: "UNDELETED_BY_HUMAN — 原始删除原因已过时，Human 批准恢复"
+human_approved: true
+```
 
 ### 5.5 第三方隐私删除
 
@@ -667,6 +702,26 @@ STEP_9: INDEPENDENT_CHECKER_AUDIT
 | Token 租约到期 | 强制卸载，任务挂起 |
 | 任务被 Human 撤销 | 立即卸载 Token，清理分支 |
 | CI 失败 | Token 保持已卸载，等待修复授权 |
+| Token 泄露 | **HARD_STOP**：立即卸载凭据；立即撤销或轮换泄露的 Token；终止所有关联任务 Session；审计泄露时间窗内所有操作；通知 Human；未经新 Human 授权不得重新挂载任何凭据 |
+
+### 9.3 Token 泄露应急程序
+
+```text
+TOKEN_LEAK_DETECTED:
+  STEP_1: HARD_STOP — 暂停所有使用该凭据的进行中任务
+  STEP_2: IMMEDIATE_UNMOUNT — 从所有 Agent 环境移除泄露凭据
+  STEP_3: IMMEDIATE_REVOKE_OR_ROTATE — 撤销或轮换泄露的 Token
+  STEP_4: TERMINATE_AFFECTED_SESSIONS — 终止与被泄露凭据关联的所有任务 Session
+  STEP_5: AUDIT_EXPOSURE_WINDOW — 审计从疑似泄露时间点到卸载之间的所有操作
+  STEP_6: NOTIFY_HUMAN — 通知 Human，提供泄露范围、受影响资源和审计结果
+  STEP_7: RE_AUTHORIZATION_REQUIRED — 未经新 Human 授权不得重新挂载任何凭据
+
+TOKEN_LEAK_PREVENTION:
+  TOKEN_NEVER_IN_LOG: TRUE
+  TOKEN_NEVER_IN_OUTPUT: TRUE
+  TOKEN_NEVER_IN_MEMORY: TRUE
+  TOKEN_NEVER_IN_ENV_FILE_COMMITTED: TRUE
+```
 
 ---
 

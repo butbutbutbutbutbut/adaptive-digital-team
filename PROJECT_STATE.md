@@ -31,13 +31,13 @@ product_repository: butbutbutbutbutbut/he-weizhi-site
 # ── Active candidate ──
 active_candidate:
   branch: hermes/adt-persona-memory-credential-boundary-r1
-  resolved_head: NONE  # will be set on commit
+  resolved_head: be2560b0372653ae19f93744f427c8f683f2b064
   status: DESIGN_CANDIDATE
   task_id: ADT-PERSONA-MEMORY-BACKUP-AND-CREDENTIAL-BOUNDARY-R1
   authorization_id: ADT-PERSONA-MEMORY-BACKUP-CREDENTIAL-BOUNDARY-20260720-001
   design_status: CANDIDATE_FOR_INDEPENDENT_REVIEW
   implementation_status: NOT_AUTHORIZED
-  next_gate: EXTERNAL_INDEPENDENT_DESIGN_AUDIT
+  next_gate: EXTERNAL_INDEPENDENT_INCREMENTAL_DELTA_AUDIT
 
 # ── Comparison candidates ──
 comparison_candidates: []
@@ -59,7 +59,7 @@ deployment_plan:
   next_stage: PERSONA_MEMORY_BACKUP_AND_PROFILE_ISOLATION_PREFLIGHT
 
 # ── Current gate ──
-current_gate: EXTERNAL_INDEPENDENT_DESIGN_AUDIT
+current_gate: EXTERNAL_INDEPENDENT_INCREMENTAL_DELTA_AUDIT
 
 # ── Visual status ──
 visual_status:
@@ -121,8 +121,8 @@ progress:
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Await external independent design audit of B4/D9 design candidate."
-last_verified_at: "2026-07-20T08:00:00Z"
+system_next_step: "Await external independent incremental delta audit of repair commit."
+last_verified_at: "2026-07-19T20:25:16Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

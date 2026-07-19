@@ -363,55 +363,107 @@ def test_15b():
         else: _os.environ.pop('GITHUB_REF', None)
 
 def test_15c():
-    """Missing GITHUB_REF → None."""
+    """Missing GITHUB_REF + push event → HARD_STOP."""
     import os as _os
-    v = BindingValidator('', live_mode=False)
+    b = make_binding()
+    v = BindingValidator(b, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
     old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
     try:
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
         _os.environ.pop('GITHUB_REF', None)
-        assert v._push_ref_branch() is None
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF is missing' in e
+                   for e in v.errors), f'Errors: {v.errors}'
     finally:
         if old: _os.environ['GITHUB_REF'] = old
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
 
 def test_15d():
-    """GITHUB_REF=refs/tags/v1 → None."""
+    """GITHUB_REF=refs/tags/v1 + push event → HARD_STOP."""
     import os as _os
-    v = BindingValidator('', live_mode=False)
+    b = make_binding()
+    v = BindingValidator(b, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
     old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
     try:
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
         _os.environ['GITHUB_REF'] = 'refs/tags/v1.0'
-        assert v._push_ref_branch() is None
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF' in e
+                   for e in v.errors), f'Errors: {v.errors}'
     finally:
         if old: _os.environ['GITHUB_REF'] = old
         else: _os.environ.pop('GITHUB_REF', None)
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
 
 def test_15e():
-    """GITHUB_REF='' → None."""
+    """GITHUB_REF=refs/notes/example + push event → HARD_STOP."""
     import os as _os
-    v = BindingValidator('', live_mode=False)
+    b = make_binding()
+    v = BindingValidator(b, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
     old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
     try:
-        _os.environ['GITHUB_REF'] = ''
-        assert v._push_ref_branch() is None
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
+        _os.environ['GITHUB_REF'] = 'refs/notes/commits'
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF' in e
+                   for e in v.errors), f'Errors: {v.errors}'
     finally:
         if old: _os.environ['GITHUB_REF'] = old
         else: _os.environ.pop('GITHUB_REF', None)
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
 
 def test_15f():
+    """GITHUB_REF='' + push event → HARD_STOP."""
+    import os as _os
+    b = make_binding()
+    v = BindingValidator(b, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
+    old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
+    try:
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
+        _os.environ['GITHUB_REF'] = ''
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF' in e
+                   for e in v.errors), f'Errors: {v.errors}'
+    finally:
+        if old: _os.environ['GITHUB_REF'] = old
+        else: _os.environ.pop('GITHUB_REF', None)
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
+
+def test_15g():
     """Static mode unaffected by push_ref changes."""
     b = make_binding()
     v = BindingValidator(b, live_mode=False)
     v.validate()
     assert not any('VALIDATION-8' in e for e in v.errors), f'Errors: {v.errors}'
 
-def test_15g():
+def test_15h():
     """PR merge ref not used for candidate identity."""
     b = make_binding()
     v = BindingValidator(b)
     v.validate()
     assert not any('merge' in e.lower() for e in v.errors), f'Errors: {v.errors}'
 
-def test_15h():
+def test_15i():
     """resolved_head stays historical anchor."""
     b = make_binding(**{'active_candidate.resolved_head': 'h' * 40})
     v = BindingValidator(b)
@@ -429,7 +481,7 @@ def test_all_valid():
 
 
 if __name__ == '__main__':
-    print('Running 33 binding validation tests...\n')
+    print('Running 34 binding validation tests...\n')
 
     tests = [
         ('1.1 缺afs.type → FAIL', test_01a),
@@ -460,12 +512,13 @@ if __name__ == '__main__':
         # ── New: Push ref branch binding ──
         ('15a GITHUB_REF=main → main', test_15a),
         ('15b GITHUB_REF=hermes/… → hermes/…', test_15b),
-        ('15c GITHUB_REF缺失 → None', test_15c),
-        ('15d GITHUB_REF=refs/tags/* → None', test_15d),
-        ('15e GITHUB_REF=空 → None', test_15e),
-        ('15f static不受push_ref影响', test_15f),
-        ('15g PR merge ref不用于身份', test_15g),
-        ('15h resolved_head保持历史锚点', test_15h),
+        ('15c GITHUB_REF缺失 → HARD_STOP', test_15c),
+        ('15d GITHUB_REF=refs/tags/* → HARD_STOP', test_15d),
+        ('15e GITHUB_REF=refs/notes/* → HARD_STOP', test_15e),
+        ('15f GITHUB_REF=空 → HARD_STOP', test_15f),
+        ('15g static不受push_ref影响', test_15g),
+        ('15h PR merge ref不用于身份', test_15h),
+        ('15i resolved_head保持历史锚点', test_15i),
         ('ALL  完整有效绑定全通过', test_all_valid),
     ]
 

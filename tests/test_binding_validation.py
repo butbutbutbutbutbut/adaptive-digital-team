@@ -489,50 +489,99 @@ def test_15b_push_ref_branch_parses_hermes():
         else:
             _os.environ.pop('GITHUB_REF', None)
 
-def test_15c_push_ref_branch_missing_returns_none():
-    """_push_ref_branch with no GITHUB_REF → None."""
+def test_15c_push_ref_branch_missing_causes_hard_stop():
+    """Missing GITHUB_REF + push event → VALIDATION-8 HARD_STOP."""
     import os as _os
-    v = BindingValidator('', live_mode=False)
+    binding = make_binding()
+    v = BindingValidator(binding, live_mode=True)
+    # Mock git methods to return controlled values
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
     old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
     try:
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
         _os.environ.pop('GITHUB_REF', None)
-        assert v._push_ref_branch() is None, \
-            "Missing GITHUB_REF should return None"
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF is missing' in e
+                   for e in v.errors), \
+            f"Missing GITHUB_REF should HARD_STOP. Errors: {v.errors}"
     finally:
-        if old:
-            _os.environ['GITHUB_REF'] = old
+        if old: _os.environ['GITHUB_REF'] = old
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
 
-def test_15d_push_ref_branch_non_head_ref_returns_none():
-    """_push_ref_branch with GITHUB_REF=refs/tags/v1 → None."""
+def test_15d_push_ref_branch_tags_ref_causes_hard_stop():
+    """GITHUB_REF=refs/tags/v1 + push event → HARD_STOP."""
     import os as _os
-    v = BindingValidator('', live_mode=False)
+    binding = make_binding()
+    v = BindingValidator(binding, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
     old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
     try:
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
         _os.environ['GITHUB_REF'] = 'refs/tags/v1.0'
-        assert v._push_ref_branch() is None, \
-            "Non refs/heads/* should return None"
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF' in e
+                   for e in v.errors), \
+            f"refs/tags/* should HARD_STOP. Errors: {v.errors}"
     finally:
-        if old:
-            _os.environ['GITHUB_REF'] = old
-        else:
-            _os.environ.pop('GITHUB_REF', None)
+        if old: _os.environ['GITHUB_REF'] = old
+        else: _os.environ.pop('GITHUB_REF', None)
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
 
-def test_15e_push_ref_branch_empty_string_returns_none():
-    """_push_ref_branch with GITHUB_REF='' → None."""
+def test_15e_push_ref_branch_notes_ref_causes_hard_stop():
+    """GITHUB_REF=refs/notes/example + push event → HARD_STOP."""
     import os as _os
-    v = BindingValidator('', live_mode=False)
+    binding = make_binding()
+    v = BindingValidator(binding, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
     old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
     try:
-        _os.environ['GITHUB_REF'] = ''
-        assert v._push_ref_branch() is None, \
-            "Empty GITHUB_REF should return None"
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
+        _os.environ['GITHUB_REF'] = 'refs/notes/commits'
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF' in e
+                   for e in v.errors), \
+            f"refs/notes/* should HARD_STOP. Errors: {v.errors}"
     finally:
-        if old:
-            _os.environ['GITHUB_REF'] = old
-        else:
-            _os.environ.pop('GITHUB_REF', None)
+        if old: _os.environ['GITHUB_REF'] = old
+        else: _os.environ.pop('GITHUB_REF', None)
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
 
-def test_15f_overall_validator_preserves_non_push_behavior():
+def test_15f_push_ref_branch_empty_string_causes_hard_stop():
+    """GITHUB_REF='' + push event → HARD_STOP."""
+    import os as _os
+    binding = make_binding()
+    v = BindingValidator(binding, live_mode=True)
+    v._runtime_head = lambda: 'a' * 40
+    v._remote_head = lambda b: 'a' * 40
+    v._commit_exists = lambda s: True
+    old = _os.environ.get('GITHUB_REF', '')
+    old_event = _os.environ.get('GITHUB_EVENT_NAME', '')
+    try:
+        _os.environ['GITHUB_EVENT_NAME'] = 'push'
+        _os.environ['GITHUB_REF'] = ''
+        v.validate()
+        assert any('VALIDATION-8' in e and 'GITHUB_REF' in e
+                   for e in v.errors), \
+            f"Empty GITHUB_REF should HARD_STOP. Errors: {v.errors}"
+    finally:
+        if old: _os.environ['GITHUB_REF'] = old
+        else: _os.environ.pop('GITHUB_REF', None)
+        if old_event: _os.environ['GITHUB_EVENT_NAME'] = old_event
+        else: _os.environ.pop('GITHUB_EVENT_NAME', None)
+
+def test_15g_overall_validator_preserves_non_push_behavior():
     """Non-push events are unaffected by push_ref changes.
     Static mode should still pass all checks."""
     binding = make_binding()
@@ -541,7 +590,7 @@ def test_15f_overall_validator_preserves_non_push_behavior():
     assert not any('VALIDATION-8' in e for e in v.errors), \
         f"Static mode: no push branch errors. Errors: {v.errors}"
 
-def test_15g_merge_ref_not_used_for_pr_identity():
+def test_15h_merge_ref_not_used_for_pr_identity():
     """PR event must NOT use merge ref for candidate identity.
     Verified via existing test_8 (live check skipped in non-live)
     and production CI (PR #24 CI passed)."""
@@ -554,7 +603,7 @@ def test_15g_merge_ref_not_used_for_pr_identity():
     assert not any('merge' in e.lower() for e in v.errors), \
         f"Merge ref must not appear in errors. Errors: {v.errors}"
 
-def test_15h_resolved_head_stays_historical():
+def test_15i_resolved_head_stays_historical():
     """resolved_head remains a historical anchor, not affected by
     push ref binding changes."""
     binding = make_binding(

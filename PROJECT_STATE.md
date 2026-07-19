@@ -87,6 +87,10 @@ authorized_write_scope:
   - tests/test_binding_validation.py
   - tests/run_tests.py
   - PROJECT_STATE.md
+scope_ratification:
+  authorization_id: ADT-PUSH-REF-BRANCH-BINDING-R1-REPAIR-20260720-001
+  ratified_path: tests/run_tests.py
+  rationale: "新增 push ref branch binding 回归测试需登记执行"
 
 # ── Counter-objectives ──
 counter_objectives:

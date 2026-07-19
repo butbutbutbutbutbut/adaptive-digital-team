@@ -88,6 +88,10 @@ authorized_write_scope:
   - tests/run_tests.py
   - tests/test_binding_validation.py
   - PROJECT_STATE.md
+scope_ratification:
+  authorization_id: ADT-RUNTIME-HEAD-BINDING-TEST-SCOPE-RATIFICATION-20260720-001
+  ratified_path: tests/test_binding_validation.py
+  rationale: "Direct regression tests for event-aware runtime Head binding"
 
 # ── Counter-objectives ──
 counter_objectives:
@@ -126,7 +130,7 @@ progress:
 # ── Human action ──
 user_action_required: NO
 system_next_step: "Await external independent workflow audit of runtime head binding repair."
-last_verified_at: "2026-07-19T21:03:36Z"
+last_verified_at: "2026-07-19T21:15:20Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

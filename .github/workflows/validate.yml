@@ -36,7 +36,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pytest
+        run: pip install pytest pyyaml
 
       - name: Run binding validation (static)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md

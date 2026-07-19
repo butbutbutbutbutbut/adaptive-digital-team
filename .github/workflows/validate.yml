@@ -3,6 +3,7 @@ name: Validate Binding
 on:
   push:
     branches:
+      - 'main'
       - 'hermes/**'
       - 'codex/**'
       - 'agent/**'
@@ -46,7 +47,3 @@ jobs:
 
       - name: Run binding validation (live, CI mode)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md --ci
-        # CI mode enables live git checks. May fail on PRs from forks
-        # where origin fetch is not available; non-zero exit is treated
-        # as a warning in that case, not a hard block.
-        continue-on-error: true

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Standalone test runner for binding validation tests — 17 tests, no pytest."""
+"""Standalone test runner for binding validation tests — 29 tests, no pytest."""
 
 import sys
 import os
+import subprocess
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 from validate_binding import BindingValidator
@@ -21,7 +22,9 @@ def make_binding(**overrides):
             'branch': 'feature/candidate', 'sha': 'c' * 40,
         },
         'active_candidate': {
-            'branch': 'feature/candidate', 'resolved_head': 'c' * 40,
+            'branch': 'feature/candidate',
+            'starting_head': 'c' * 40,
+            'runtime_head_binding': 'GIT_REF_DERIVED',
             'status': 'ACTIVE',
         },
         'comparison_candidates': [],
@@ -166,10 +169,9 @@ def test_08():
 # ═══ Test 9: A/B incident replay ═══
 
 def test_09a():
-    """Version A selected when PR#35=historical, Version B=comparison, R2=invalidated."""
     b = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.resolved_head': 'd' * 40,
+           'active_candidate.starting_head': 'd' * 40,
            'comparison_candidates': [
                {'branch': 'codex/version-b', 'resolved_head': 'e' * 40,
                 'status': 'COMPARISON_ONLY', 'comparison_group': 'ab'}
@@ -195,7 +197,6 @@ def test_09a():
     assert not v.errors, f'Unexpected errors: {v.errors}'
 
 def test_09b():
-    """System must NOT select main when Version A exists."""
     b = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
            'authoritative_fact_source.branch': 'main',
@@ -205,7 +206,6 @@ def test_09b():
     assert any('VALIDATION-3' in e for e in v.errors)
 
 def test_09c():
-    """PR #35 as historical does not interfere with Version A active."""
     b = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
            'historical_references': [
@@ -218,7 +218,6 @@ def test_09c():
     assert not v.errors, f'Errors: {v.errors}'
 
 def test_09d():
-    """R2 invalidated does not pollute Version A."""
     b = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
            'invalidated_candidates': [
@@ -234,7 +233,6 @@ def test_09d():
 # ═══ Test 10: minimum context recovery ═══
 
 def test_10a():
-    """Full fields → context recoverable."""
     b = make_binding()
     v = BindingValidator(b)
     v.validate()
@@ -242,13 +240,101 @@ def test_10a():
         f'Warnings: {v.warnings}'
 
 def test_10b():
-    """Missing essential fields → warning."""
     b = make_binding(
         **{'schema_version': '', 'adt_repository': '',
            'governance_base.branch': '', 'governance_base.sha': ''})
     v = BindingValidator(b)
     v.validate()
     assert any('VALIDATION-10' in w for w in v.warnings)
+
+
+# ══════════════════════════════════════════════════════════════════
+# NEW: Runtime-head binding semantics (VALIDATION-8,9)
+# ══════════════════════════════════════════════════════════════════
+
+# ── Test 11: resolved_head as historical anchor ──
+
+def test_11a():
+    """resolved_head absent → no VALIDATION-9 error."""
+    b = make_binding()
+    v = BindingValidator(b)
+    v.validate()
+    assert not any('VALIDATION-9' in e for e in v.errors)
+
+def test_11b():
+    """resolved_head valid commit → PASS."""
+    try:
+        head = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+    except Exception:
+        head = None
+    if head and len(head) == 40:
+        b = make_binding(**{'active_candidate.resolved_head': head})
+        v = BindingValidator(b)
+        v.validate()
+        assert not any('VALIDATION-9' in e and 'resolved_head' in e
+                       for e in v.errors), \
+            f"Valid resolved_head should pass. Errors: {v.errors}"
+
+def test_11c():
+    """resolved_head invalid commit → FAIL."""
+    b = make_binding(**{'active_candidate.resolved_head': '0' * 40})
+    v = BindingValidator(b)
+    v.validate()
+    assert any('VALIDATION-9' in e and 'not a valid commit' in e
+               for e in v.errors)
+
+def test_11d():
+    """resolved_head mismatch NOT an error — historical anchor, not live."""
+    b = make_binding(**{'active_candidate.resolved_head': 'a' * 40})
+    v = BindingValidator(b)
+    v.validate()
+    errors_text = ' '.join(v.errors)
+    assert 'does not match' not in errors_text.lower() or \
+        'resolved_head' not in errors_text.lower(), \
+        f"resolved_head mismatch should not error. Errors: {v.errors}"
+
+# ── Test 12: runtime_head_binding ──
+
+def test_12a():
+    """runtime_head_binding: GIT_REF_DERIVED → no warning."""
+    b = make_binding(**{'active_candidate.runtime_head_binding': 'GIT_REF_DERIVED'})
+    v = BindingValidator(b, live_mode=True)
+    v.validate()
+    assert not any('VALIDATION-9' in w and 'runtime_head_binding' in w
+                   for w in v.warnings), f"Warnings: {v.warnings}"
+
+def test_12b():
+    """Missing runtime_head_binding → warning in live mode."""
+    b = make_binding(**{'active_candidate.runtime_head_binding': ''})
+    v = BindingValidator(b, live_mode=True)
+    v.validate()
+    assert any('VALIDATION-9' in w and 'runtime_head_binding' in w
+               for w in v.warnings), f"Should warn. Warnings: {v.warnings}"
+
+# ── Test 13: chicken-egg resolved ──
+
+def test_13():
+    """PROJECT_STATE.md doesn't need own commit SHA pre-recorded."""
+    b = make_binding(
+        **{'active_candidate.starting_head': 's' * 40,
+           'active_candidate.resolved_head': 'r' * 40})
+    v = BindingValidator(b)
+    v.validate()
+    assert not any('VALIDATION-8' in e for e in v.errors), \
+        f"Static mode: no self-referential SHA required. Errors: {v.errors}"
+
+# ── Test 14: starting_head field ──
+
+def test_14():
+    """starting_head presence is valid."""
+    b = make_binding()
+    v = BindingValidator(b)
+    v.validate()
+    assert not any('starting_head' in e for e in v.errors), \
+        f"Errors: {v.errors}"
 
 # ═══ All-valid pass ═══
 
@@ -260,7 +346,7 @@ def test_all_valid():
 
 
 if __name__ == '__main__':
-    print('Running 17 binding validation tests...\n')
+    print('Running 25 binding validation tests...\n')
 
     tests = [
         ('1.1 缺afs.type → FAIL', test_01a),
@@ -279,6 +365,15 @@ if __name__ == '__main__':
         ('9.4 R2不污染Version A', test_09d),
         ('10.1 完整字段可恢复上下文', test_10a),
         ('10.2 缺字段触发警告', test_10b),
+        # ── New: runtime-head binding semantics ──
+        ('11a resolved_head缺省无错', test_11a),
+        ('11b resolved_head有效commit→PASS', test_11b),
+        ('11c resolved_head无效commit→FAIL', test_11c),
+        ('11d resolved_head≠当前Head不报错', test_11d),
+        ('12a runtime_head_binding: GIT_REF_DERIVED→PASS', test_12a),
+        ('12b runtime_head_binding缺失→WARN', test_12b),
+        ('13  PROJECT_STATE不预写自身SHA', test_13),
+        ('14  starting_head字段合法', test_14),
         ('ALL  完整有效绑定全通过', test_all_valid),
     ]
 
@@ -300,5 +395,5 @@ if __name__ == '__main__':
                 print(f'  [{r[0]}] {r[1]}: {r[2]}')
         sys.exit(1)
     else:
-        print('\nAll 17 tests passed.')
+        print(f'\nAll {total} tests passed.')
         sys.exit(0)

@@ -30,14 +30,15 @@ product_repository: butbutbutbutbutbut/he-weizhi-site
 
 # ── Active candidate ──
 active_candidate:
-  branch: hermes/adt-persona-memory-credential-boundary-r1
-  resolved_head: be2560b0372653ae19f93744f427c8f683f2b064
-  status: DESIGN_CANDIDATE
-  task_id: ADT-PERSONA-MEMORY-BACKUP-AND-CREDENTIAL-BOUNDARY-R1
-  authorization_id: ADT-PERSONA-MEMORY-BACKUP-CREDENTIAL-BOUNDARY-20260720-001
-  design_status: CANDIDATE_FOR_INDEPENDENT_REVIEW
+  branch: hermes/adt-main-push-ci-coverage-r1
+  starting_head: 7e8cbe7bc194316f75b6e94077a400a43be33ec9
+  runtime_head_binding: GIT_REF_DERIVED
+  status: GOVERNANCE_REPAIR
+  task_id: ADT-RUNTIME-HEAD-BINDING-SEMANTICS-R1
+  authorization_id: ADT-RUNTIME-HEAD-BINDING-SEMANTICS-20260720-001
+  design_status: NOT_APPLICABLE
   implementation_status: NOT_AUTHORIZED
-  next_gate: EXTERNAL_INDEPENDENT_INCREMENTAL_DELTA_AUDIT
+  next_gate: EXTERNAL_INDEPENDENT_WORKFLOW_AUDIT
 
 # ── Comparison candidates ──
 comparison_candidates: []
@@ -59,7 +60,7 @@ deployment_plan:
   next_stage: PERSONA_MEMORY_BACKUP_AND_PROFILE_ISOLATION_PREFLIGHT
 
 # ── Current gate ──
-current_gate: EXTERNAL_INDEPENDENT_INCREMENTAL_DELTA_AUDIT
+current_gate: EXTERNAL_INDEPENDENT_WORKFLOW_AUDIT
 
 # ── Visual status ──
 visual_status:
@@ -80,10 +81,17 @@ decisions:
     implementation: NOT_AUTHORIZED
 
 # ── Authorized action and write scope ──
-authorized_action: "ADT persona memory backup and credential boundary design R1"
+authorized_action: "ADT runtime head binding semantics repair R1"
 authorized_write_scope:
-  - docs/architecture/ADT_PERSONA_MEMORY_BACKUP_AND_CREDENTIAL_BOUNDARY_R1.md
+  - .github/workflows/validate.yml
+  - scripts/validate_binding.py
+  - tests/run_tests.py
+  - tests/test_binding_validation.py
   - PROJECT_STATE.md
+scope_ratification:
+  authorization_id: ADT-RUNTIME-HEAD-BINDING-TEST-SCOPE-RATIFICATION-20260720-001
+  ratified_path: tests/test_binding_validation.py
+  rationale: "Direct regression tests for event-aware runtime Head binding"
 
 # ── Counter-objectives ──
 counter_objectives:
@@ -121,8 +129,8 @@ progress:
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Await external independent incremental delta audit of repair commit."
-last_verified_at: "2026-07-19T20:25:16Z"
+system_next_step: "Await external independent workflow audit of runtime head binding repair."
+last_verified_at: "2026-07-19T21:15:20Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

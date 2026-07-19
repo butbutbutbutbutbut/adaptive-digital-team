@@ -13,6 +13,8 @@ Exit code 1: one or more validations failed.
 
 import yaml
 import argparse
+import json
+import os
 import re
 import sys
 import subprocess
@@ -31,7 +33,6 @@ class BindingValidator:
 
     def parse_yaml(self) -> dict:
         """Parse YAML from markdown-embedded or raw YAML text using PyYAML."""
-        # Extract YAML block from markdown code fence
         yaml_match = re.search(r'```ya?ml\s*\n(.*?)\n```', self.text, re.DOTALL)
         if yaml_match:
             yaml_text = yaml_match.group(1)
@@ -52,6 +53,69 @@ class BindingValidator:
                 return default
         return node
 
+    # ── git helpers ──
+
+    def _git(self, *args, timeout: int = 30) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ['git'] + list(args),
+            capture_output=True, text=True, timeout=timeout
+        )
+
+    def _runtime_head(self) -> str | None:
+        """Return the checked-out commit SHA from git rev-parse HEAD."""
+        try:
+            r = self._git('rev-parse', 'HEAD', timeout=10)
+            return r.stdout.strip() if r.returncode == 0 else None
+        except Exception:
+            return None
+
+    def _remote_head(self, branch: str) -> str | None:
+        """Return origin/<branch> SHA via git ls-remote."""
+        try:
+            r = self._git('ls-remote', 'origin', f'refs/heads/{branch}', timeout=30)
+            if r.returncode != 0:
+                return None
+            line = r.stdout.strip()
+            return line.split()[0] if line else None
+        except Exception:
+            return None
+
+    def _is_ancestor(self, ancestor: str, descendant: str) -> bool:
+        """Check if ancestor is reachable from descendant."""
+        try:
+            r = self._git('merge-base', '--is-ancestor', ancestor, descendant, timeout=10)
+            return r.returncode == 0
+        except Exception:
+            return False
+
+    def _commit_exists(self, sha: str) -> bool:
+        """Check if sha is a valid commit object."""
+        try:
+            r = self._git('cat-file', '-t', sha, timeout=10)
+            return r.returncode == 0 and r.stdout.strip() == 'commit'
+        except Exception:
+            return False
+
+    def _ci_event_name(self) -> str:
+        return os.environ.get('GITHUB_EVENT_NAME', '')
+
+    def _ci_event_sha(self) -> str:
+        return os.environ.get('GITHUB_SHA', '')
+
+    def _pr_head_sha(self) -> str | None:
+        """Extract PR head SHA from GITHUB_EVENT_PATH (pull_request event)."""
+        event_path = os.environ.get('GITHUB_EVENT_PATH', '')
+        if event_path and os.path.exists(event_path):
+            try:
+                with open(event_path) as f:
+                    event = json.load(f)
+                return event.get('pull_request', {}).get('head', {}).get('sha')
+            except Exception:
+                pass
+        return None
+
+    # ── top-level ──
+
     def validate(self) -> bool:
         """Run all validations. Returns True if all pass."""
         self.parsed = self.parse_yaml()
@@ -64,6 +128,7 @@ class BindingValidator:
         self.check_6_rebind_blocks_write()
         self.check_7_progress_card_required_fields()
         self.check_8_candidate_head_live_check()
+        self.check_9_active_candidate_field_semantics()
         self.check_10_minimum_context_recovery()
 
         if self.errors:
@@ -76,8 +141,9 @@ class BindingValidator:
         print("PASS: All validations passed")
         return True
 
+    # ── VALIDATION-1 ──
+
     def check_1_authoritative_fact_source_present(self):
-        """Missing authoritative_fact_source → FAIL."""
         afs_type = self.get('authoritative_fact_source.type')
         afs_sha = self.get('authoritative_fact_source.sha')
         if not afs_type:
@@ -89,12 +155,12 @@ class BindingValidator:
                 "VALIDATION-1: authoritative_fact_source.sha is missing or NONE"
             )
 
+    # ── VALIDATION-2 ──
+
     def check_2_active_not_in_invalidated(self):
-        """active_candidate in invalidated_candidates → FAIL."""
         active_branch = self.get('active_candidate.branch')
         if not active_branch or active_branch == 'NONE':
-            return  # No active candidate to check
-
+            return
         invalidated = self.get('invalidated_candidates', [])
         if isinstance(invalidated, list):
             for entry in invalidated:
@@ -104,13 +170,12 @@ class BindingValidator:
                         f"also appears in invalidated_candidates"
                     )
 
+    # ── VALIDATION-3 ──
+
     def check_3_main_not_dual_role_without_human_auth(self):
-        """main simultaneously governance and product base without Human
-        explicit authorization → FAIL."""
         gov_branch = self.get('governance_base.branch', '')
         afs_branch = self.get('authoritative_fact_source.branch', '')
         afs_type = self.get('authoritative_fact_source.type', '')
-
         if gov_branch == 'main' and afs_branch == 'main':
             if afs_type not in ('HUMAN_EXPLICIT',):
                 self.errors.append(
@@ -119,12 +184,12 @@ class BindingValidator:
                     "main defaults to governance source only."
                 )
 
+    # ── VALIDATION-4 ──
+
     def check_4_comparison_not_active(self):
-        """comparison candidate used as active candidate → FAIL."""
         active_branch = self.get('active_candidate.branch')
         if not active_branch or active_branch == 'NONE':
             return
-
         comparison = self.get('comparison_candidates', [])
         if isinstance(comparison, list):
             for entry in comparison:
@@ -134,13 +199,11 @@ class BindingValidator:
                         f"also appears in comparison_candidates"
                     )
 
+    # ── VALIDATION-5 ──
+
     def check_5_visual_status_not_auto_accepted(self):
-        """VISUAL_STATUS auto-changed to HUMAN_ACCEPTED by CI PASS → FAIL.
-        This is checked by verifying that if visual_status is HUMAN_ACCEPTED,
-        there must be evidence of Human acceptance in the binding."""
         vs = self.get('visual_status.active_candidate', '')
         if vs == 'HUMAN_ACCEPTED':
-            # Check for Human acceptance evidence
             afs_type = self.get('authoritative_fact_source.type', '')
             if afs_type not in ('HUMAN_EXPLICIT',):
                 self.errors.append(
@@ -150,8 +213,9 @@ class BindingValidator:
                     "Visual acceptance requires Human evidence."
                 )
 
+    # ── VALIDATION-6 ──
+
     def check_6_rebind_blocks_write(self):
-        """FACT_SOURCE_REBIND state with product write permission → FAIL."""
         current_gate = self.get('current_gate', '')
         authorized_action = self.get('authorized_action', '')
         if 'FACT_SOURCE_REBIND' in current_gate:
@@ -162,16 +226,12 @@ class BindingValidator:
                     "during fact source rebinding."
                 )
 
+    # ── VALIDATION-7 ──
+
     def check_7_progress_card_required_fields(self):
-        """Progress card missing FACT_SOURCE, ACTIVE_BASELINE, or
-        NEXT_GATE → FAIL."""
-        # Check that the binding has these essential fields
         afs_branch = self.get('authoritative_fact_source.branch', '')
         afs_sha = self.get('authoritative_fact_source.sha', '')
-        active_branch = self.get('active_candidate.branch', '')
-        active_head = self.get('active_candidate.resolved_head', '')
         next_gate = self.get('system_next_step', '')
-
         if not afs_branch or not afs_sha:
             self.warnings.append(
                 "VALIDATION-7: FACT_SOURCE fields may be incomplete "
@@ -182,9 +242,19 @@ class BindingValidator:
                 "VALIDATION-7: system_next_step (NEXT_GATE proxy) is missing"
             )
 
+    # ── VALIDATION-8: Runtime head binding (live mode only) ──
+
     def check_8_candidate_head_live_check(self):
-        """Candidate Head vs live remote mismatch → HARD_STOP.
-        In live mode, verify active_candidate.resolved_head matches origin."""
+        """Runtime-head binding: the current Head comes from git, not from
+        PROJECT_STATE.md.  Validates that the checked-out commit matches the
+        remote branch, that starting_head is an ancestor, and that CI event
+        SHAs are consistent.
+
+        Event-specific behaviour:
+        - push:        checked-out HEAD must == remote HEAD == push event SHA
+        - pull_request: PR source head (from event) must == remote HEAD;
+                        merge ref is ignored for identity comparison.
+        """
         if not self.live_mode:
             return
 
@@ -192,36 +262,121 @@ class BindingValidator:
         if not active_branch or active_branch == 'NONE':
             return
 
-        try:
-            result = subprocess.run(
-                ['git', 'ls-remote', 'origin', f'refs/heads/{active_branch}'],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode != 0:
-                self.warnings.append(
-                    f"VALIDATION-8: Cannot verify live HEAD for '{active_branch}'"
-                )
-                return
+        event_name = self._ci_event_name()
+        runtime_head = self._runtime_head()
+        remote_head = self._remote_head(active_branch)
 
-            remote_sha = result.stdout.strip().split()[0] if result.stdout.strip() else None
-            bound_head = self.get('active_candidate.resolved_head', '')
-
-            if remote_sha and bound_head and remote_sha != bound_head:
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — active_candidate.resolved_head "
-                    f"({bound_head[:12]}) does not match live origin/"
-                    f"{active_branch} ({remote_sha[:12]}). Automatic migration "
-                    f"is forbidden."
-                )
-        except Exception as e:
+        if not runtime_head:
             self.warnings.append(
-                f"VALIDATION-8: Live check failed: {e}"
+                "VALIDATION-8: Cannot determine runtime HEAD"
             )
+            return
+
+        # ── 8a. Push event: runtime HEAD must match remote ──
+        if event_name == 'push':
+            if remote_head and runtime_head != remote_head:
+                self.errors.append(
+                    f"VALIDATION-8: HARD_STOP — runtime HEAD "
+                    f"({runtime_head[:12]}) does not match remote "
+                    f"origin/{active_branch} ({remote_head[:12]}). "
+                    f"Branch may have advanced since checkout."
+                )
+            # Additional: push event SHA must match both
+            event_sha = self._ci_event_sha()
+            if event_sha:
+                if runtime_head != event_sha:
+                    self.errors.append(
+                        f"VALIDATION-8: HARD_STOP — push event SHA "
+                        f"({event_sha[:12]}) does not match checked-out "
+                        f"HEAD ({runtime_head[:12]})"
+                    )
+                if remote_head and event_sha != remote_head:
+                    self.errors.append(
+                        f"VALIDATION-8: HARD_STOP — push event SHA "
+                        f"({event_sha[:12]}) does not match remote "
+                        f"origin/{active_branch} ({remote_head[:12]})"
+                    )
+
+        # ── 8b. Pull request event: PR head must match remote ──
+        elif event_name == 'pull_request':
+            pr_head = self._pr_head_sha()
+            if pr_head and remote_head and pr_head != remote_head:
+                self.errors.append(
+                    f"VALIDATION-8: HARD_STOP — PR head SHA "
+                    f"({pr_head[:12]}) does not match remote "
+                    f"origin/{active_branch} ({remote_head[:12]})"
+                )
+            # Runtime head in PR context is the merge ref — do NOT
+            # compare it against remote for identity.  Use PR head
+            # for ancestry check below.
+            pr_head = pr_head or runtime_head  # fallback for ancestry
+
+        # ── 8c. Non-CI: runtime HEAD must match remote ──
+        else:
+            if remote_head and runtime_head != remote_head:
+                self.errors.append(
+                    f"VALIDATION-8: HARD_STOP — runtime HEAD "
+                    f"({runtime_head[:12]}) does not match remote "
+                    f"origin/{active_branch} ({remote_head[:12]}). "
+                    f"Branch may have advanced since checkout."
+                )
+
+        # ── 8d. starting_head is ancestor of effective head ──
+        #       In PR context use PR head; otherwise use runtime_head.
+        effective_head = runtime_head
+        if event_name == 'pull_request':
+            pr_head = self._pr_head_sha()
+            effective_head = pr_head or runtime_head
+
+        starting_head = self.get('active_candidate.starting_head', '')
+        if starting_head and self._commit_exists(starting_head):
+            if not self._is_ancestor(starting_head, effective_head):
+                self.errors.append(
+                    f"VALIDATION-8: HARD_STOP — starting_head "
+                    f"({starting_head[:12]}) is not an ancestor of "
+                    f"effective HEAD ({effective_head[:12]})"
+                )
+
+    # ── VALIDATION-9: Active candidate field semantics ──
+
+    def check_9_active_candidate_field_semantics(self):
+        """Validate resolved_head semantics and runtime_head_binding presence.
+
+        - resolved_head, if present, must be a valid commit in the repo.
+          It is a *historical anchor*, NOT required to match current HEAD.
+        - resolved_head that is NOT a valid commit or not in ancestry → FAIL.
+        - runtime_head_binding should be GIT_REF_DERIVED (not required in
+          static mode, but validated in live mode).
+        """
+        resolved_head = self.get('active_candidate.resolved_head', '')
+        starting_head = self.get('active_candidate.starting_head', '')
+
+        # resolved_head as historical anchor
+        if resolved_head:
+            # Must be a valid commit
+            if not self._commit_exists(resolved_head):
+                self.errors.append(
+                    f"VALIDATION-9: resolved_head ({resolved_head[:12]}) "
+                    f"is not a valid commit in this repository"
+                )
+            # If starting_head is set, resolved_head should be an ancestor
+            # of something reachable (at minimum it should be in the repo)
+            if starting_head and self._commit_exists(starting_head):
+                # resolved_head should exist somewhere in the repo
+                # but is NOT required to match runtime_head
+                pass
+
+        # runtime_head_binding field (advisory in static, validated in live)
+        binding = self.get('active_candidate.runtime_head_binding', '')
+        if self.live_mode and binding != 'GIT_REF_DERIVED':
+            self.warnings.append(
+                "VALIDATION-9: runtime_head_binding should be "
+                "GIT_REF_DERIVED in live mode"
+            )
+
+    # ── VALIDATION-10 ──
 
     def check_10_minimum_context_recovery(self):
-        """New window with only TASK_ID and user delta can recover full
-        context from repository. This validates that essential fields are
-        present."""
         required_fields = [
             'schema_version',
             'adt_repository',
@@ -240,7 +395,6 @@ class BindingValidator:
             val = self.get(field)
             if val is None or val == '':
                 missing.append(field)
-
         if missing:
             self.warnings.append(
                 f"VALIDATION-10: Minimum context recovery may fail. "

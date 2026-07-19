@@ -71,6 +71,74 @@ repository, PR, exact Head, scope, action, and risk boundary. The Human
 must not be asked to design the authorization content. The Holder must
 not present an authorization gate with an empty or template USER_ACTION.
 
+### Repository binding and fact-source resolution
+
+Before any dispatch, the Holder MUST resolve the single authoritative fact
+source per `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 1. The
+Holder SHALL read the binding file (`PROJECT_STATE.md` or
+`.adt/project-binding.yaml`), fetch origin, enumerate remote candidates and
+PRs, compare binding records against live Git facts, and close on a unique
+authoritative fact source.
+
+The fact-source priority order is:
+
+| Priority | Source |
+|----------|--------|
+| 5 (highest) | Human explicit branch + SHA binding |
+| 4 | Active candidate in binding record |
+| 3 | Open PR with Human binding evidence |
+| 2 | Branch HEAD with ADT binding record |
+| 1 (lowest) | main (governance only) |
+
+main SHALL default to governance source only and MUST NOT automatically become
+a product source without explicit Human declaration. A PR Head MUST NOT
+automatically override an independently declared candidate branch. "Most
+recent commit time" alone MUST NOT determine the fact source.
+
+### Conflict freeze (FACT_SOURCE_REBIND)
+
+The Holder MUST enter `FACT_SOURCE_REBIND` when any of the following conflicts
+is detected per `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 2.2:
+
+- Browser/render output does not match binding SHA
+- User declares "not the version I saw"
+- New A/B candidate upload receipt appears
+- Worktree, branch, and remote HEAD are inconsistent
+- Current candidate explicitly invalidated
+- Governance base and product base conflated without declaration
+- Unregistered updated candidate discovered
+
+During `FACT_SOURCE_REBIND`: product write is BLOCKED. The Holder MUST NOT
+create R1/R2, migrate code, or patch governance before investigating the
+fact conflict.
+
+### Pre-counter-objective check
+
+Before dispatching a Maker, creating a branch, migrating a baseline, or
+repairing governance state, the Holder MUST run the pre-counter-objective
+check defined in
+`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 5:
+
+1. Does this action directly increase product value?
+2. Does this increase the candidate count?
+3. Does this create a new competing fact source?
+4. Does this duplicate capability of an existing branch?
+5. Can this be folded into the next real product task?
+6. Is this formally correct but unnecessary?
+7. Does this increase the user's comprehension burden?
+
+If `GOVERNANCE_COST > PRODUCT_OR_SAFETY_VALUE`, the action is REJECTED and a
+smaller alternative MUST be proposed. This check runs before the action, not
+after.
+
+### Nine-line short card
+
+At every gate transition, the Holder SHALL default to the nine-line short card
+defined in `AGENTS.md` § Nine-line short card and
+`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 4. BLACKBOX status
+claims are PROHIBITED: "processing", "system delayed", and "completed"
+without evidence SHALL NOT be used.
+
 ## Temporary Maker and Checker lifecycle
 
 The Holder issues a Dispatch Card with one Executor, one independent Checker, fixed scope, Base, Head binding, and next gate. The Maker performs only task-scoped work. The Checker independently validates evidence and candidate state. No recursive delegation is permitted.

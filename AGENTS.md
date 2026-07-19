@@ -9,6 +9,48 @@
 - Rollback must use a new revert branch and a reviewed revert commit.
 - Missing authority, state conflicts, or incomplete evidence must fail closed.
 
+## Repository as Prompt — Startup Sequence
+
+The repository itself is the prompt. A new window, Holder, Maker, Checker, or
+child agent SHALL recover the full governance context from the repository
+without the user re-pasting it.
+
+### Mandatory startup protocol
+
+Every new window or agent receiving a repository task MUST execute the full
+startup sequence defined in
+`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 2 before any product
+write. The short path is:
+
+1. Read `AGENTS.md` and the binding file (`PROJECT_STATE.md` or
+   `.adt/project-binding.yaml`).
+2. `git fetch origin --prune`.
+3. Verify current branch, HEAD, and worktree.
+4. Enumerate open PRs, recent remote candidate branches, binding-bearing
+   branches, local worktrees, and any new Human receipt.
+5. Compare binding record against live Git facts.
+6. Resolve the single authoritative fact source.
+7. Only after unique fact source is closed: product write is permitted.
+
+`FACT_SOURCE_REBIND` suspends write when binding facts conflict.
+
+Full rules, fact-source priority, drift triggers, delta-only prompt, and
+A/B incident replay are in `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md`.
+
+### Governance base vs. product base
+
+`governance_base` (where rules are read from) and `authoritative_fact_source`
+(what the current product truth is) are distinct. main defaults to governance
+source only; it MUST NOT automatically become a product source without explicit
+Human declaration.
+
+### Chat carries only delta
+
+The repository carries stable context: bound baselines, prohibited actions,
+current gate, historical candidates, receipt specs. The user provides only:
+TASK_ID, current-round goal/feedback, required decisions, and new evidence.
+Full protocol text stays in the repository.
+
 ## Multimodal evidence
 
 Metadata integrity does not establish semantic evidence acceptance.
@@ -260,6 +302,52 @@ Never output only an error code. Distinguish:
 
 ### Information density control（信息密度）
 
+#### Nine-line short card（九行短卡片）
+
+Every gate transition SHALL default to exactly the following nine lines:
+
+```text
+TASK: <short task description>
+STATUS: <current execution status>
+FACT_SOURCE: <branch>@<full SHA>
+ACTIVE_BASELINE: <candidate branch>@<full Head>
+PROGRESS: [##########] XX%
+ACTION: <one-line description of current action>
+FILES_TOUCHED: <count and key paths, or NONE>
+NEXT_GATE: <next gate identifier>
+USER_ACTION_REQUIRED: YES | NO
+```
+
+Extended fields (only during HARD_STOP, fact conflict, or Human-requested
+detailed audit):
+
+```text
+FAILURE_CLASS: <failure class code>
+COUNTER_OBJECTIVE_RESULT: <pass/fail/violation>
+SYSTEM_NEXT_STEP: <precise next system action>
+```
+
+Full rules in `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 4.
+
+#### BLACKBOX prohibition（黑箱禁止）
+
+`BLACKBOX_STATUS: PROHIBITED`
+
+Prohibited status claims without evidence:
+
+- "处理中" (Processing...)
+- "系统状态延迟" (System status delayed)
+- "已完成" (Completed) without SHA + action + file evidence
+
+Every status change MUST bind: exact SHA, actual action, actual files, current
+gate, and next step.
+
+"Subagent completed" IS NOT task completion.
+"Uploaded" IS NOT visually accepted.
+"CI PASS" IS NOT Human accepted.
+
+#### Content routing
+
 The chat window retains only:
 
 - current conclusion
@@ -460,6 +548,16 @@ defaults to one Maker, one independent Checker, and one final Human decision.
 Non-blocking metadata must be recorded as a limit and must not create a new
 commit loop. Human-only Ready, Merge, branch deletion, final acceptance, and
 runtime activation remain unchanged.
+
+## Repository-as-prompt runtime binding
+
+`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` defines the operational
+binding layer: single authoritative fact source, fact-source priority,
+mandatory startup protocol, FACT_SOURCE_REBIND, delta-only prompt, 9-line
+progress card, BLACKBOX prohibition, pre-counter-objective gate, candidate
+publication contract, and A/B incident replay test. All new windows, Holders,
+Makers, Checkers, and child agents MUST follow the startup protocol in § 2
+before any product write.
 
 ## Audit receipt validation
 

@@ -8,6 +8,42 @@ This protocol reduces repeated state synchronization for small governance
 tasks while preserving fail-closed protection for authority, scope, Base,
 Head, Merge safety, Runtime boundaries, and history.
 
+## Delta-only prompt (chat carries only delta)
+
+Per `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 3, the repository
+carries stable context. The user's chat prompt SHALL only carry the delta:
+
+```text
+TASK_ID: <id>
+USER_DELTA: <new goal, feedback, or decision>
+NEW_EVIDENCE: <if any, or NONE>
+```
+
+The agent SHALL NOT require the user to repeat: repository name, bound
+baselines, known prohibited actions, current gate, historical candidate list,
+or fixed receipt specifications. Full protocol text stays in the repository.
+
+## Drift triggers (when to run full startup vs. delta-only)
+
+Full repository startup per `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md`
+§ 2 executes only on:
+
+- New window
+- New task
+- Fact conflict detection
+- Human provides new candidate receipt
+- Binding SHA changes
+- Current gate changes
+
+Normal same-task iteration within the same window where no binding facts have
+changed SHALL use delta-only: verify binding HEAD is unchanged, verify
+authorized write scope is unchanged, verify current gate is unchanged. Then
+proceed directly. Full scanning SHALL NOT repeat every round.
+
+When any drift trigger fires, the agent MUST NOT proceed to product write.
+It MUST enter the full startup sequence and resolve the authoritative fact
+source before resuming.
+
 ## R0 efficiency baseline
 
 The previous real flow recorded approximately 111 minutes, 5 PR commits, 4

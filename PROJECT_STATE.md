@@ -30,15 +30,15 @@ product_repository: butbutbutbutbutbut/he-weizhi-site
 
 # ── Active candidate ──
 active_candidate:
-  branch: hermes/adt-main-push-ci-coverage-r1
-  starting_head: 7e8cbe7bc194316f75b6e94077a400a43be33ec9
+  branch: hermes/adt-push-ref-branch-binding-r1
+  starting_head: 334d8d6d444d9069b5eed2bec89b22bfbbc8408b
   runtime_head_binding: GIT_REF_DERIVED
   status: GOVERNANCE_REPAIR
-  task_id: ADT-RUNTIME-HEAD-BINDING-SEMANTICS-R1
-  authorization_id: ADT-RUNTIME-HEAD-BINDING-SEMANTICS-20260720-001
+  task_id: ADT-PUSH-REF-BRANCH-BINDING-R1
+  authorization_id: ADT-PUSH-REF-BRANCH-BINDING-20260720-001
   design_status: NOT_APPLICABLE
   implementation_status: NOT_AUTHORIZED
-  next_gate: EXTERNAL_INDEPENDENT_WORKFLOW_AUDIT
+  next_gate: EXTERNAL_INDEPENDENT_INCREMENTAL_AUDIT
 
 # ── Comparison candidates ──
 comparison_candidates: []
@@ -60,7 +60,7 @@ deployment_plan:
   next_stage: PERSONA_MEMORY_BACKUP_AND_PROFILE_ISOLATION_PREFLIGHT
 
 # ── Current gate ──
-current_gate: EXTERNAL_INDEPENDENT_WORKFLOW_AUDIT
+current_gate: EXTERNAL_INDEPENDENT_INCREMENTAL_AUDIT
 
 # ── Visual status ──
 visual_status:
@@ -81,17 +81,12 @@ decisions:
     implementation: NOT_AUTHORIZED
 
 # ── Authorized action and write scope ──
-authorized_action: "ADT runtime head binding semantics repair R1"
+authorized_action: "ADT push ref branch binding repair R1"
 authorized_write_scope:
-  - .github/workflows/validate.yml
   - scripts/validate_binding.py
-  - tests/run_tests.py
   - tests/test_binding_validation.py
+  - tests/run_tests.py
   - PROJECT_STATE.md
-scope_ratification:
-  authorization_id: ADT-RUNTIME-HEAD-BINDING-TEST-SCOPE-RATIFICATION-20260720-001
-  ratified_path: tests/test_binding_validation.py
-  rationale: "Direct regression tests for event-aware runtime Head binding"
 
 # ── Counter-objectives ──
 counter_objectives:
@@ -129,8 +124,8 @@ progress:
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Await external independent workflow audit of runtime head binding repair."
-last_verified_at: "2026-07-19T21:15:20Z"
+system_next_step: "Await external independent incremental audit of push ref branch binding."
+last_verified_at: "2026-07-19T21:32:59Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

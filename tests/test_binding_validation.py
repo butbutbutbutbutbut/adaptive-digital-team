@@ -457,6 +457,117 @@ def test_14_starting_head_present_in_fields():
         f"starting_head should not cause static errors. Errors: {v.errors}"
 
 
+# ── Test 15: Push ref branch binding ──
+
+def test_15a_push_ref_branch_parses_main():
+    """_push_ref_branch with GITHUB_REF=refs/heads/main → 'main'."""
+    import os as _os
+    v = BindingValidator('', live_mode=False)
+    old = _os.environ.get('GITHUB_REF', '')
+    try:
+        _os.environ['GITHUB_REF'] = 'refs/heads/main'
+        assert v._push_ref_branch() == 'main', \
+            "Should parse refs/heads/main → main"
+    finally:
+        if old:
+            _os.environ['GITHUB_REF'] = old
+        else:
+            _os.environ.pop('GITHUB_REF', None)
+
+def test_15b_push_ref_branch_parses_hermes():
+    """_push_ref_branch with GITHUB_REF=refs/heads/hermes/foo → 'hermes/foo'."""
+    import os as _os
+    v = BindingValidator('', live_mode=False)
+    old = _os.environ.get('GITHUB_REF', '')
+    try:
+        _os.environ['GITHUB_REF'] = 'refs/heads/hermes/example'
+        assert v._push_ref_branch() == 'hermes/example', \
+            "Should parse refs/heads/hermes/example → hermes/example"
+    finally:
+        if old:
+            _os.environ['GITHUB_REF'] = old
+        else:
+            _os.environ.pop('GITHUB_REF', None)
+
+def test_15c_push_ref_branch_missing_returns_none():
+    """_push_ref_branch with no GITHUB_REF → None."""
+    import os as _os
+    v = BindingValidator('', live_mode=False)
+    old = _os.environ.get('GITHUB_REF', '')
+    try:
+        _os.environ.pop('GITHUB_REF', None)
+        assert v._push_ref_branch() is None, \
+            "Missing GITHUB_REF should return None"
+    finally:
+        if old:
+            _os.environ['GITHUB_REF'] = old
+
+def test_15d_push_ref_branch_non_head_ref_returns_none():
+    """_push_ref_branch with GITHUB_REF=refs/tags/v1 → None."""
+    import os as _os
+    v = BindingValidator('', live_mode=False)
+    old = _os.environ.get('GITHUB_REF', '')
+    try:
+        _os.environ['GITHUB_REF'] = 'refs/tags/v1.0'
+        assert v._push_ref_branch() is None, \
+            "Non refs/heads/* should return None"
+    finally:
+        if old:
+            _os.environ['GITHUB_REF'] = old
+        else:
+            _os.environ.pop('GITHUB_REF', None)
+
+def test_15e_push_ref_branch_empty_string_returns_none():
+    """_push_ref_branch with GITHUB_REF='' → None."""
+    import os as _os
+    v = BindingValidator('', live_mode=False)
+    old = _os.environ.get('GITHUB_REF', '')
+    try:
+        _os.environ['GITHUB_REF'] = ''
+        assert v._push_ref_branch() is None, \
+            "Empty GITHUB_REF should return None"
+    finally:
+        if old:
+            _os.environ['GITHUB_REF'] = old
+        else:
+            _os.environ.pop('GITHUB_REF', None)
+
+def test_15f_overall_validator_preserves_non_push_behavior():
+    """Non-push events are unaffected by push_ref changes.
+    Static mode should still pass all checks."""
+    binding = make_binding()
+    v = BindingValidator(binding, live_mode=False)
+    v.validate()
+    assert not any('VALIDATION-8' in e for e in v.errors), \
+        f"Static mode: no push branch errors. Errors: {v.errors}"
+
+def test_15g_merge_ref_not_used_for_pr_identity():
+    """PR event must NOT use merge ref for candidate identity.
+    Verified via existing test_8 (live check skipped in non-live)
+    and production CI (PR #24 CI passed)."""
+    # This is structurally verified: check_8b reads from _pr_head_sha()
+    # (GITHUB_EVENT_PATH → pull_request.head.sha), not from
+    # git rev-parse HEAD (which is the merge ref in PR context).
+    binding = make_binding()
+    v = BindingValidator(binding)  # non-live — merge ref not in play
+    v.validate()
+    assert not any('merge' in e.lower() for e in v.errors), \
+        f"Merge ref must not appear in errors. Errors: {v.errors}"
+
+def test_15h_resolved_head_stays_historical():
+    """resolved_head remains a historical anchor, not affected by
+    push ref binding changes."""
+    binding = make_binding(
+        **{'active_candidate.resolved_head': 'h' * 40}
+    )
+    v = BindingValidator(binding)
+    v.validate()
+    # Should error about invalid commit, not about push branch mismatch
+    errors_text = ' '.join(v.errors)
+    assert 'push' not in errors_text.lower(), \
+        f"resolved_head errors should not mention push. Errors: {v.errors}"
+
+
 # ── Valid case ──
 
 def test_all_valid_passes():

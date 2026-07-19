@@ -96,6 +96,13 @@ class BindingValidator:
         except Exception:
             return False
 
+    def _push_ref_branch(self) -> str | None:
+        """Return the branch being pushed from GITHUB_REF (e.g. refs/heads/main)."""
+        ref = os.environ.get('GITHUB_REF', '')
+        if ref.startswith('refs/heads/'):
+            return ref[11:]
+        return None
+
     def _ci_event_name(self) -> str:
         return os.environ.get('GITHUB_EVENT_NAME', '')
 
@@ -274,11 +281,22 @@ class BindingValidator:
 
         # ── 8a. Push event: runtime HEAD must match remote ──
         if event_name == 'push':
-            if remote_head and runtime_head != remote_head:
+            push_branch = self._push_ref_branch()
+            # Determine which remote ref to compare against
+            if push_branch and push_branch != active_branch:
+                # Push is on a different branch (e.g. main) —
+                # compare against that branch's remote, not the candidate
+                compare_remote = self._remote_head(push_branch)
+                compare_label = f"origin/{push_branch}"
+            else:
+                compare_remote = remote_head
+                compare_label = f"origin/{active_branch}"
+
+            if compare_remote and runtime_head != compare_remote:
                 self.errors.append(
                     f"VALIDATION-8: HARD_STOP — runtime HEAD "
                     f"({runtime_head[:12]}) does not match remote "
-                    f"origin/{active_branch} ({remote_head[:12]}). "
+                    f"{compare_label} ({compare_remote[:12]}). "
                     f"Branch may have advanced since checkout."
                 )
             # Additional: push event SHA must match both
@@ -290,11 +308,11 @@ class BindingValidator:
                         f"({event_sha[:12]}) does not match checked-out "
                         f"HEAD ({runtime_head[:12]})"
                     )
-                if remote_head and event_sha != remote_head:
+                if compare_remote and event_sha != compare_remote:
                     self.errors.append(
                         f"VALIDATION-8: HARD_STOP — push event SHA "
                         f"({event_sha[:12]}) does not match remote "
-                        f"origin/{active_branch} ({remote_head[:12]})"
+                        f"{compare_label} ({compare_remote[:12]})"
                     )
 
         # ── 8b. Pull request event: PR head must match remote ──

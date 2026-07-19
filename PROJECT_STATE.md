@@ -9,12 +9,12 @@ equivalent for this repo. All runtime binding fields defined in
 # ── Schema and identity ──
 schema_version: "1"
 adt_repository: butbutbutbutbutbut/adaptive-digital-team
-adt_pin: 8d343f26dfc9f29422b448705bf85e6f0be37362
+adt_pin: d6c49342d50af1173cfe7a93b8771564a1b9b059
 
 # ── Governance base (where rules are read from) ──
 governance_base:
   branch: main
-  sha: 8d343f26dfc9f29422b448705bf85e6f0be37362
+  sha: d6c49342d50af1173cfe7a93b8771564a1b9b059
 
 # ── Authoritative fact source (what the current product truth is) ──
 # Resolved live at every gate. The sha field here is a cache only;
@@ -23,9 +23,9 @@ authoritative_fact_source:
   type: HUMAN_EXPLICIT
   evidence: "AUTHORIZATION_ID: ADT-REPOSITORY-AS-PROMPT-RUNTIME-BINDING-20260720-001"
   branch: main
-  sha: 8d343f26dfc9f29422b448705bf85e6f0be37362
+  sha: d6c49342d50af1173cfe7a93b8771564a1b9b059
 
-# ── Product repository binding (the project this ADT repo governs) ──
+# ── Product repository binding
 product_repository: butbutbutbutbutbut/he-weizhi-site
 
 # ── Active candidate ──
@@ -46,23 +46,25 @@ historical_references:
 # ── Invalidated candidates ──
 invalidated_candidates: []
 
+# ── Deployment plan ──
+deployment_plan:
+  version: v0.2
+  status: ARCHITECTURE_CANDIDATE
+  implementation: NOT_AUTHORIZED
+  next_stage: PERSONA_MEMORY_BACKUP_AND_PROFILE_ISOLATION_PREFLIGHT
+
 # ── Current gate ──
-current_gate: ADT_REPOSITORY_AS_PROMPT_IMPLEMENTATION
+current_gate: DEPLOYMENT_PLAN_ARCHITECTURE_CANDIDATE
 
 # ── Visual status ──
 visual_status:
   active_candidate: NONE
 
 # ── Authorized action and write scope ──
-authorized_action: "ADT repository-as-prompt runtime binding repair"
+authorized_action: "ADT deployment plan v0.2 architecture record"
 authorized_write_scope:
-  - AGENTS.md
+  - docs/architecture/ADT_DEPLOYMENT_PLAN_V0_2.md
   - PROJECT_STATE.md
-  - BOOTSTRAP.md
-  - protocols/*.md
-  - scripts/*.py
-  - tests/*.py
-  - .github/workflows/*.yml
 
 # ── Counter-objectives ──
 counter_objectives:
@@ -79,14 +81,14 @@ counter_objectives:
 
 # ── Progress ──
 progress:
-  completed: 7
-  total: 12
-  display: "[######----] 58%"
+  completed: 1
+  total: 2
+  display: "[#####-----] 50%"
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Create validator, tests, CI; run validation; push branch; create Draft PR"
-last_verified_at: "2026-07-20T01:30:00Z"
+system_next_step: "Await external independent delta audit of repaired PR #22 Head."
+last_verified_at: "2026-07-19T19:26:40Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

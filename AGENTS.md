@@ -1,756 +1,203 @@
-﻿# Agent Governance
+# Agent Governance
 
-- Maker and Checker responsibilities must remain separate.
-- Self-acceptance is forbidden.
-- Automatic merge is forbidden.
-- Do not reset, force-push, or amend a submitted candidate.
-- Do not commit secrets, private material, or unapproved binary assets.
-- After the initial bootstrap commit, every change must use a separate branch and pull request.
-- Rollback must use a new revert branch and a reviewed revert commit.
-- Missing authority, state conflicts, or incomplete evidence must fail closed.
+Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
-## Repository as Prompt — Startup Sequence
+## Non-negotiable boundaries
 
-The repository itself is the prompt. A new window, Holder, Maker, Checker, or
-child agent SHALL recover the full governance context from the repository
-without the user re-pasting it.
+- Maker and Checker responsibilities remain separate; self-acceptance is forbidden.
+- Automatic Ready, automatic Merge, and automatic branch deletion are forbidden.
+- Human Holder retains Ready, Merge, branch deletion, final acceptance, and final visual or engineering acceptance.
+- Missing authority, ambiguous identity, scope conflict, state drift, or incomplete evidence fails closed.
+- Do not reset, force-push, amend, rebase, or otherwise rewrite a submitted candidate history.
+- Do not commit secrets, private material, unapproved binaries, runtime profiles, memory databases, credentials, or product-repository changes without separate authorization.
+- Rollback uses a new revert branch and a reviewed revert commit.
+- Repository facts take priority over chat summaries. The repository is the durable prompt; chat carries only current delta.
+- `BLACKBOX_STATUS: PROHIBITED`. No unverified claim that work is running, completed, accepted, or safe.
 
-### Mandatory startup protocol
+## Repository-as-prompt startup
 
-Every new window or agent receiving a repository task MUST execute the full
-startup sequence defined in
-`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 2 before any product
-write. The short path is:
+Every new Holder, Maker, Checker, window, or agent must, before write:
 
-1. Read `AGENTS.md` and the binding file (`PROJECT_STATE.md` or
-   `.adt/project-binding.yaml`).
-2. `git fetch origin --prune`.
-3. Verify current branch, HEAD, and worktree.
-4. Enumerate open PRs, recent remote candidate branches, binding-bearing
-   branches, local worktrees, and any new Human receipt.
-5. Compare binding record against live Git facts.
-6. Resolve the single authoritative fact source.
-7. Only after unique fact source is closed: product write is permitted.
+1. read `AGENTS.md` and `PROJECT_STATE.md`;
+2. fetch origin and verify the checked-out branch, HEAD, worktree, open PRs, and candidate branches;
+3. compare durable state with live GitHub and Git facts;
+4. resolve one authoritative fact source;
+5. stop in `FACT_SOURCE_REBIND` if facts conflict;
+6. verify task authority, exact repository, exact Base, exact branch, exact allowed files, and next gate.
 
-`FACT_SOURCE_REBIND` suspends write when binding facts conflict.
+Governance base and product fact source remain distinct. Main is the governance base by default and does not silently become a product fact source.
 
-Full rules, fact-source priority, drift triggers, delta-only prompt, and
-A/B incident replay are in `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md`.
+## Roles and authority
 
-### Governance base vs. product base
+### Human Holder
 
-`governance_base` (where rules are read from) and `authoritative_fact_source`
-(what the current product truth is) are distinct. main defaults to governance
-source only; it MUST NOT automatically become a product source without explicit
-Human declaration.
+The Human Holder is the only authority for Ready, final Merge, merge method selection, branch deletion, final acceptance, runtime activation, destructive external action, and scope expansion. Authorization must bind repository, task, branch, Base, permitted paths, action, and risk boundary.
 
-### Chat carries only delta
+### Persistent Holder
 
-The repository carries stable context: bound baselines, prohibited actions,
-current gate, historical candidates, receipt specs. The user provides only:
-TASK_ID, current-round goal/feedback, required decisions, and new evidence.
-Full protocol text stays in the repository.
+The Persistent Holder is the resident control-plane interface and State Registrar, not a third Maker. It verifies facts, prepares exact packets, routes work, validates receipts, and presents executable Human actions. It does not directly Push unless separately appointed as Maker for the task, and it never self-authorizes.
 
-## Multimodal evidence
+### Maker
 
-Metadata integrity does not establish semantic evidence acceptance.
+A Maker performs only the explicitly authorized task on the authorized branch and files. Problems found before audit are fixed on the same candidate branch. A Maker may not create a child task or child PR to repair an unmerged parent candidate.
 
-When a claim depends on images, audio, video, traces, or other external
-binaries, the independent Checker must obtain and review the actual
-evidence modality before acceptance or merge authorization.
+### Independent Checker
 
-Missing binary access or unperformed modal review fails closed and
-cannot be downgraded to a recorded limitation.
+A Checker performs read-only verification, did not design or implement the candidate, did not produce its evidence, and can reject it. Any independence ambiguity fails closed.
 
-## Instruction routing and authority
+## Human-facing evidence discipline
 
-All cross-Agent, cross-window, cross-repository, repository-write,
-audit, and merge instructions must follow
-`protocols/INSTRUCTION_ROUTING_AND_AUTHORITY.md`.
-
-Missing or conflicting FROM, TO, EXECUTOR, CHECKER, REPOSITORY, or
-AUTHORIZATION_ID fields fail closed.
-
-CC status grants no execution, acceptance, audit, or merge authority.
-
-Maker, Checker, PR-creation authority, evidence acceptance, and merge
-authority must remain distinct.
-
-## Persistent Holder adopted governance specification
-
-`protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` is a
-`ADOPTED_GOVERNANCE_SPECIFICATION`. The Persistent Holder is the resident
-control-plane interface and Task Router, not a third Maker. Makers and
-Checkers are temporary task roles; the Holder may be Checker only when the
-independence test in that protocol passes.
-
-The Holder routes publication but does not Push directly. A task-scoped
-Publish Lease cannot expand its parent authorization. Ready, Merge, branch
-deletion, final acceptance, and final visual or engineering acceptance are
-Human-only. PR10 is a read-only source candidate and must not be merged,
-cherry-picked, updated, closed, or deleted.
-
-Persistent Holder runtime, Hermes R1, and automatic scheduling remain
-unimplemented and unauthorized.
-
-## Human-facing control-plane interface
-
-### Purpose
-
-All control-plane feedback directed at Human must satisfy five requirements:
-
-1. Preserve exact machine fields, status values, SHAs, and authorization IDs.
-2. Provide readable explanation in the user's current language.
-3. This project defaults to Simplified Chinese（简体中文）annotations.
-4. Make explicit whether the user must act right now.
-5. Never require the user to infer gates, blocks, or next steps on their own.
-
-### Context-sensitive priority（上下文敏感判定优先级）
-
-`USER_ACTION_REQUIRED` must be decided based on actual tools, permissions,
-connectors, received receipts, and recovery paths available in the current
-execution environment. No gate may have an unconditional YES or NO.
-
-Gate-specific defaults in protocol files are conditional starting points
-only. Actual tool availability, received evidence, permissions, and
-recovery paths override any node default. When the environment cannot be
-determined, the system must diagnose before making a user-action claim.
-
-### Evidence-before-status（证据先于状态）
-
-Execution status claims require evidence:
-
-- `PLANNED`: action is intended but not yet dispatched.
-- `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`: task sent to executor but no
-  receipt, tool result, or connector confirmation has been received.
-- `RECEIPT_RECEIVED`: a receipt has been returned but its content has not
-  yet been independently verified.
-- `EXECUTION_VERIFIED`: the receipt content has been independently
-  confirmed against live facts.
-- `COMPLETED`: verified execution with final result registered.
-
-Without tool invocation, connector result, or receipt evidence, the system
-must not claim: Maker begins, Checker begins, system continues
-automatically, or task is running in background. SYSTEM_NEXT_STEP
-describing a future plan must use future semantics and must not be
-written as a fact already in progress.
-
-### Per-round repair statement（本轮修复）
-
-The title "本轮修复" is fixed. It describes the current governance gap,
-fact uncertainty, process issue, or candidate defect being resolved. It
-does not automatically imply that candidate files are being modified.
-
-At the start of each new governance round, action phase, or gate phase,
-the system must first output a repair statement covering four items:
-
-- 正在修什么（what is being fixed）
-- 为什么要修（why it needs fixing）
-- 修完后解决什么风险（what risk is resolved after repair）
-- 本轮不处理什么（what this round does NOT handle）
-
-None of the four items may be omitted. Content must be specific to the
-current round — generic templates are not acceptable. "本轮不处理什么" must
-prevent the user from mistakenly assuming that related tasks are also in
-progress. This statement applies before GitHub write operations, Human-only
-gates, audits, repairs, and block handling.
-
-During audit, fact-verification, Ready, Merge, and result-registration
-phases where no verified new commit exists, the statement must explicitly
-include: "候选内容未修改". Only when a verified commit or Head change is
-present may the statement claim candidate content has been modified.
-
-ACTION and RESULT fields must distinguish:
-
-- planned action（计划动作）
-- executed action（已执行动作）
-- verified result（已验证结果）
-
-An action that has been planned but not yet executed must not be reported
-as a result.
-
-### Key-node Chinese annotation format（关键节点中文注释）
-
-The following nodes are critical and must include both machine fields and
-Chinese explanation:
-
-- Dispatch（分派）
-- Progress Receipt（进度回执）
-- Target-Fact Validation（目标事实核验）
-- Audit Receipt（审计回执）
-- Invalid Audit Receipt（无效审计回执）
-- Blocking Finding（阻塞发现）
-- Incremental Repair（增量修复）
-- Ready Decision（就绪决定）
-- Merge Capability Preflight（合并能力预检）
-- Merge Decision（合并决定）
-- Merge Result（合并结果）
-- Branch Deletion Decision（分支删除决定）
-- Task Completion（任务完成）
-- Fail-Closed / Capability Unknown / State Drift（失败关闭 / 能力未知 / 状态漂移）
-
-Recommended format for each critical node:
-
-```
-FACT（事实）
-AUTHORITY（授权边界）
-ACTION（当前动作）
-RESULT（结果）
-TASK_PROGRESS（任务进度）
-CURRENT_STAGE_PROGRESS（当前环节进度）
-PROGRESS_BASIS（进度依据）
-PROGRESS_BLOCKER（阻塞项）
-CURRENT_GATE（当前门禁）
-USER_ACTION_REQUIRED（用户是否需要操作）
-USER_ACTION（用户现在需要操作）
-ACTION_REASON（为什么需要操作）
-NO_ACTION_EFFECT（不操作会怎样）
-SYSTEM_NEXT_STEP（系统下一步）
-```
-
-### USER_ACTION_REQUIRED（mandatory field）
-
-Every critical node must output:
-
-```
-USER_ACTION_REQUIRED: YES | NO
-USER_ACTION: <precise action; must be NONE when not required>
-ACTION_REASON: <the Human-only gate, authorization gap, or external
-               resource requirement behind this action>
-NO_ACTION_EFFECT: <the actual state if the user takes no action>
-SYSTEM_NEXT_STEP: <what the Holder, Maker, Checker, or system does next>
-```
-
-Never output only `NEXT_GATE` and leave the user to infer the rest.
-
-### USER_ACTION_REQUIRED decision rules
-
-Set to YES only when:
-
-- Human-only Ready（就绪）
-- Human-only Merge（合并）
-- branch deletion（分支删除）
-- final visual / engineering acceptance（最终验收）
-- scope, authority, or high-risk action authorization（范围/授权/高风险动作）
-- an external action that must be performed manually by the user
-- the current system lacks tools or permissions and the action is genuinely
-  necessary
-
-Set to NO when:
-
-- Maker is executing an already-authorized task
-- Checker is performing read-only audit
-- Holder is performing live fact verification
-- waiting on GitHub status or CI
-- the system already has authority to continue a non-risky action
-- the user does not need to provide new judgment or new authorization
-
-Never present "waiting" as a user action.
-
-### Executable user actions（可直接执行）
-
-Prohibited vague expressions:
-
-- "请确认"（please confirm）
-- "请处理"（please handle）
-- "下一步需要授权"（next step requires authorization）
-- "请选择是否继续"（please choose whether to continue）
-
-Authorization requests must bind the relevant facts precisely:
-
-- repository
-- PR
-- exact Head SHA
-- exact action
-- exact merge method
-- branch deletion decision
-- scope or risk boundary
-
-The user must be able to copy the authorization or reply with an explicit
-yes/no to a precisely-scoped request.
-
-### Real executable options only（真实可执行选项）
-
-Before presenting Merge method, Ready, branch deletion, or other
-capability options:
-
-- verify target facts and capabilities live
-- do not present options the repository does not currently enable or
-  cannot currently execute
-- when capability cannot be read:
-  `CAPABILITY_UNKNOWN / FAIL_CLOSED`
-  with Chinese blocking reason and user action status
-
-### Error and block human-readable translation（错误阻塞翻译）
-
-Never output only an error code. Distinguish:
-
-- `INVALID_AUDIT_RECEIPT`
-  中文：审计目标或 Checker 身份无效，不代表候选实现失败。
-
-- `CANDIDATE_FAILURE`
-  中文：候选实现本身存在阻塞问题。
-
-- `MERGE_METHOD_CAPABILITY_MISMATCH`
-  中文：仓库拒绝了指定合并方式，但候选和有效审计未失效。
-
-- `STATE_DRIFT`
-  中文：Base、Head、PR 状态、范围或检查条件已变化，旧授权不能继续使用。
-
-- `CAPABILITY_UNKNOWN`
-  中文：无法可靠读取当前仓库能力，流程停止且不猜测。
-
-### Information density control（信息密度）
-
-#### Nine-line short card（九行短卡片）
-
-Every gate transition SHALL default to exactly the following nine lines:
+Critical nodes must preserve exact machine facts and provide readable Simplified Chinese explanation. At minimum report:
 
 ```text
-TASK: <short task description>
-STATUS: <current execution status>
-FACT_SOURCE: <branch>@<full SHA>
-ACTIVE_BASELINE: <candidate branch>@<full Head>
-PROGRESS: [##########] XX%
-ACTION: <one-line description of current action>
-FILES_TOUCHED: <count and key paths, or NONE>
-NEXT_GATE: <next gate identifier>
-USER_ACTION_REQUIRED: YES | NO
+FACT
+AUTHORITY
+ACTION
+RESULT
+TASK_PROGRESS
+CURRENT_STAGE_PROGRESS
+PROGRESS_BASIS
+PROGRESS_BLOCKER
+CURRENT_GATE
+USER_ACTION_REQUIRED
+USER_ACTION
+ACTION_REASON
+NO_ACTION_EFFECT
+SYSTEM_NEXT_STEP
 ```
 
-Extended fields (only during HARD_STOP, fact conflict, or Human-requested
-detailed audit):
+A planned action is not an executed action. A receipt is not independent verification. CI success is not Human acceptance. Waiting does not increase progress. Numeric progress requires a pre-bound finite denominator and verified units.
+
+## Candidate Lifecycle R1
+
+### Single formal candidate topology
+
+The normative equation is:
 
 ```text
-FAILURE_CLASS: <failure class code>
-COUNTER_OBJECTIVE_RESULT: <pass/fail/violation>
-SYSTEM_NEXT_STEP: <precise next system action>
+ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
 ```
 
-Full rules in `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 4.
+Rules:
 
-#### BLACKBOX prohibition（黑箱禁止）
+- Every formal candidate PR targets `main` directly.
+- A PR whose `base_ref` is not `main` fails as `STACKED_PR_PROHIBITED`.
+- CI must trigger for every pull request, including a pull request aimed at another candidate branch; a stacked PR cannot hide by avoiding validation.
+- Do not repair an unmerged parent candidate through a child PR.
+- Before independent audit, append repair commits directly to the original candidate branch and audit the new Head.
+- After a candidate is merged, a newly discovered problem starts from the latest `main` as a new task, new branch, and new PR.
+- A former child PR must not be retargeted to `main` after its parent is squash-merged.
+- One task may contain multiple append-only commits on its single branch, but it still has exactly one PR and one direct Base: `main`.
 
-`BLACKBOX_STATUS: PROHIBITED`
+### Runtime-derived identity
 
-Prohibited status claims without evidence:
+Current identity is never trusted from committed state.
 
-- "处理中" (Processing...)
-- "系统状态延迟" (System status delayed)
-- "已完成" (Completed) without SHA + action + file evidence
+#### Push
 
-Every status change MUST bind: exact SHA, actual action, actual files, current
-gate, and next step.
+- `push_branch` is derived only from `GITHUB_REF`.
+- Only `refs/heads/<branch>` is accepted.
+- Missing, empty, tag, notes, pull-merge, or any other ref format is `HARD_STOP`.
+- The identity chain is exact: `git HEAD = GITHUB_SHA = origin/<push_branch>`.
+- There is no fallback to a branch cached in `PROJECT_STATE.md`.
 
-"Subagent completed" IS NOT task completion.
-"Uploaded" IS NOT visually accepted.
-"CI PASS" IS NOT Human accepted.
+#### Pull request
 
-#### Content routing
+- `head_ref` and `head_sha` come from the pull-request event source Head.
+- `base_ref` and `base_sha` come from the pull-request event Base.
+- `base_ref` must be `main`.
+- `refs/pull/*/merge` and synthetic merge commits are not candidate identity.
+- The source Head must equal `origin/<head_ref>` and the checkout used for validation must be that source Head.
 
-The chat window retains only:
+#### Local and pre-merge
 
-- current conclusion
-- exact SHAs, PR, state
-- blocking items
-- user action
-- system next step
+- Current Head is `git rev-parse HEAD`.
+- Current main is `origin/main`.
+- Candidate remote is `origin/<candidate_branch>`.
+- Current Base, Head, remote refs, changed files, and fingerprint must not be read from committed cache fields.
 
-Long logs, full patches, repeated evidence, and process details go into:
+### Durable state boundary
 
-- Progress Receipt
-- Audit Receipt
-- PR body
-- repository documents
-- traceable evidence files
+`PROJECT_STATE.md` stores stable task facts only:
 
-Do not bury the current gate and user action under long logs.
+- `task_id`
+- `repository`
+- `branch`
+- `starting_base_sha`
+- `authorized_write_scope`
+- `authority`
+- `current_gate`
+- `implementation_status`
 
-### No fabricated background execution（不得虚构后台执行）
+It must not store the current Head, current main, current event SHA, current remote branch SHA, or current candidate hash. A `resolved_head`, when present in historical material, is only a historical anchor: it need not equal the current Head, but it must be a commit reachable from current history. It must never reintroduce SHA self-reference.
 
-The protocol must be explicit:
+### Candidate fingerprint
 
-- when no tool has been called and no execution receipt has been received,
-  do not claim a task is "running in the background"
-- when a task has been dispatched but no evidence has been received, write:
-  `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`
-- user action required status must reflect this accurately
+A deterministic SHA-256 fingerprint binds the normalized fields:
 
-### Durable vs live state separation
-
-Stable feedback rules and field definitions are recorded in the repository.
-
-The following are live control-plane state and must never have their
-momentary values written as durable facts:
-
-- current Gate
-- current USER_ACTION
-- current PR state
-- current Head
-- current blocking items
-- current system next step
-- current repository capabilities
-- current TASK_PROGRESS percentage
-- current CURRENT_STAGE_PROGRESS percentage
-- current PROGRESS_BASIS
-- current PROGRESS_BLOCKER
-- current PROGRESS_PLAN and CURRENT_STAGE_PLAN completion state
-
-### Verifiable task progress（可核验任务进度）
-
-All Human-facing critical nodes must output verifiable dual-layer progress
-with the four fields listed above.
-
-#### Progress plan binding（进度计划先绑定）
-
-Before a numeric percentage can appear, finite, explicit, ordered
-`PROGRESS_PLAN` and `CURRENT_STAGE_PLAN` must exist. These are live
-control-plane state and may be recorded in the Dispatch Card, Task
-State Card, or execution receipt.
-
-If total gates or current-stage verification units are not yet bound:
-
-```
-TASK_PROGRESS: UNKNOWN
-CURRENT_STAGE_PROGRESS: UNKNOWN
+```text
+repository
+base_ref
+base_sha
+head_ref
+head_sha
+sorted(changed_files)
 ```
 
-The denominator must not be guessed.
+Validation output must show both the raw normalized fields and the hash. The hash is runtime evidence and is not committed into the candidate it identifies.
 
-#### Calculation rules（计算规则）
+The independent audit receipt, Holder Ready authorization, and Holder Merge authorization must bind the same runtime fingerprint. A change to repository, branch, Base SHA, Head SHA, or changed files immediately produces:
 
-Numeric progress is computed as:
-
-- Only units confirmed by tools, connectors, valid receipts, or
-  independent verification count as complete.
-- `PLANNED` does not count as complete.
-- `DISPATCHED / EXECUTION_NOT_YET_VERIFIED` does not count as complete.
-- `RECEIPT_RECEIVED` but not yet verified does not count as complete.
-- Only `EXECUTION_VERIFIED` or formally registered Human decisions count.
-- Equal-weight verification units are used.
-- Percentage: `floor(verified_units * 100 / total_bound_units)`
-- Ten-block bar filled blocks: `floor(percentage / 10)`
-- 100% may be shown only after every in-task gate is complete and Task
-  Completion is registered.
-
-Do not self-weight to make progress "appear closer to done."
-
-#### Current-stage progress（当前环节进度）
-
-`CURRENT_STAGE_PROGRESS` uses pre-bound verification units internal to
-the current gate.
-
-Example gates and their pre-bound units (ILLUSTRATIVE_ONLY):
-
-- Dispatch stage: Packet prepared, Dispatch confirmed
-- Audit stage: Checker independence verified, target facts verified,
-  file scope verified, decision registered
-
-Units must be bound before the stage begins, not reverse-selected after
-completion.
-
-#### Waiting does not auto-increment（等待不会自动增长）
-
-While waiting on GitHub, CI, Maker, Checker, or Human:
-
-- Progress stays frozen.
-- Do not increment by elapsed time.
-- Do not claim "processing in background."
-- `PROGRESS_BLOCKER` may record `WAITING_ON_*`.
-- `WAITING_ON_*` is not `CANDIDATE_FAILURE`.
-- `USER_ACTION_REQUIRED` is decided by existing context-sensitive rules.
-
-#### Progress may decrease, but must explain（进度允许下降但必须解释）
-
-Recalculation and decrease are permitted when:
-
-- Human explicitly expands scope.
-- Base / Head or target facts undergo valid rebinding.
-- A newly authorized gate is added.
-- A valid audit finding requires fix + re-review stages.
-
-Output required:
-
-```
-PROGRESS_RECALCULATED: <old>% -> <new>%
-RECALCULATION_REASON: <exact reason>
+```text
+AUDIT_BINDING: INVALID
+READY_AUTHORIZATION: INVALID
+MERGE_AUTHORIZATION: INVALID
 ```
 
-Do not silently modify the denominator or percentage.
+Old audit or authorization cannot be silently rebound to a new candidate identity.
 
-Authority drift, unauthorized scope change, or state drift must still
-fail closed and must not be absorbed through progress recalculation.
+### Final realtime gate
 
-#### PROGRESS_BASIS anti-black-box（进度依据防黑箱）
+Immediately before Ready or Merge, the control plane executes `PRE_MERGE_REALTIME_GATE` with the expected audit fingerprint and freshly resolves:
 
-`PROGRESS_BASIS` must not contain only:
+- repository;
+- `origin/main`;
+- `origin/<candidate_branch>`;
+- current Head;
+- Base ref and SHA;
+- candidate branch and Head SHA;
+- sorted changed files;
+- workspace cleanliness;
+- exact authorized scope coverage.
 
-- `estimated`
-- `nearly complete`
-- `most work done`
-- `almost finished`
+It must confirm Base is still `main`, Base SHA unchanged, Head unchanged, files unchanged, runtime fingerprint equals the expected fingerprint, workspace is clean, and actual changed files equal the authorized path list. Any mismatch is `HARD_STOP` and invalidates old audit, Ready authorization, and Merge authorization.
 
-It must include at minimum:
+### CI gate
 
-- verified units numerator
-- bound total denominator
-- completed gate/unit names
-- pending gate/unit names
+The control plane must verify live that:
 
-Long lists may go to the Receipt or PR body, but the chat must retain
-the numeric basis and current blocker.
+- push CI is attached to the current source Head and succeeded;
+- pull-request CI is attached to the current source Head and succeeded;
+- static validation, complete tests, and live validation all actually ran;
+- no required step was skipped or soft-failed;
+- `continue-on-error` occurrences are zero.
 
-#### Progress visualization（进度可视化）
-
-Each progress field must include both the machine-readable value and a
-Simplified Chinese explanation with a ten-block visual bar. Example
-(ILLUSTRATIVE_ONLY):
-
-```
-TASK_PROGRESS: 80%
-CURRENT_STAGE_PROGRESS: 0%
-
-当前任务  [████████░░] 80% — 4/5 个门禁已验证
-当前环节  [░░░░░░░░░░] 0%  — 等待独立审计回执
-```
-
-The machine field and Chinese display must not contradict each other.
-
-#### Progress and existing gates（进度与现有门禁）
-
-Progress percentages are informational. They must not be treated as:
-
-- substitutes for acceptance
-- substitutes for audit pass
-- substitutes for Ready
-- substitutes for Merge
-
-All existing Human-only and fail-closed gates remain unchanged.
-
-### Existing authority and safety boundary preservation
-
-This interface section must not:
-
-- expand Holder, Maker, or Checker authority
-- permit Maker self-acceptance
-- permit Checker write operations
-- lower Human-only Ready / Merge / branch deletion
-- activate Runtime
-- authorize Hermes R1
-- enable automatic scheduling
-- enable automatic merge
-- modify existing merge capability preflight safety rules
-
-## Lightweight execution routing
-
-Use `protocols/LIGHTWEIGHT_EXECUTION_FLOW.md` for L0/L1/L2 routing. L0
-defaults to one Maker, one independent Checker, and one final Human decision.
-Non-blocking metadata must be recorded as a limit and must not create a new
-commit loop. Human-only Ready, Merge, branch deletion, final acceptance, and
-runtime activation remain unchanged.
-
-## Repository-as-prompt runtime binding
-
-`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` defines the operational
-binding layer: single authoritative fact source, fact-source priority,
-mandatory startup protocol, FACT_SOURCE_REBIND, delta-only prompt, 9-line
-progress card, BLACKBOX prohibition, pre-counter-objective gate, candidate
-publication contract, and A/B incident replay test. All new windows, Holders,
-Makers, Checkers, and child agents MUST follow the startup protocol in § 2
-before any product write.
+CI success does not grant Ready or Merge authority.
 
 ## Audit receipt validation
 
-Audit receipts must be validated against the exact target facts (`TASK_ID`,
-`AUTHORIZATION_ID`, repository, PR, exact Base, exact Head, Checker
-identity, current PR state) before any state registration, per
-`protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` and
-`protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`.
+Before registering a receipt, the Holder verifies task, authorization, repository, PR, `base_ref`, Base SHA, `head_ref`, Head SHA, sorted changed files, Checker identity, PR state, and candidate fingerprint. A transcription or target mismatch is `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH`; it is a receipt defect, not automatically a candidate defect, and it consumes no audit or repair budget.
 
-A target-fact mismatch is `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH`:
-the receipt is rejected without changing candidate state, consuming audit or
-repair budget, triggering repository repair or a full audit rerun, or moving
-any gate. Checker input errors are receipt defects, not candidate defects.
-A corrected receipt is a receipt retry within the same gate, not a new full
-audit, and non-permission receipt errors do not require new Human
-authorization. Authority, scope, Base/Head drift, Checker conflict, Runtime,
-and history-rewrite violations remain fail-closed.
+A valid receipt becomes invalid as soon as any fingerprint field changes. A corrected receipt for unchanged candidate facts is a retry within the same gate. Authority conflict, scope violation, candidate drift, Checker conflict, runtime activation, or history rewrite remains fail-closed.
 
-## Merge method capability preflight
+## Lightweight repair and merge safety
 
-### Branch sync vs. final merge
+A non-blocking metadata defect does not justify a new PR. A real pre-audit candidate defect is repaired on the same branch. Scope expansion requires new Human authorization. Merge capability must be read live before presenting options. Merge-method capability mismatch alone may route to precise method reauthorization only when repository, PR, Base, Head, fingerprint, scope, state, mergeability, checks, and valid audit are unchanged.
 
-`BRANCH_SYNC_METHOD` and `PR_FINAL_MERGE_METHOD` are distinct.
+## Runtime and automation boundaries
 
-`allow_merge_commit`, `allow_squash_merge`, and `allow_rebase_merge` are
-GitHub Pull Request final merge method settings. They control how GitHub
-merges a PR into the target branch via the PR Merge API. They do not control
-ordinary git operations on the feature branch.
-
-`allow_merge_commit=false` means GitHub will not offer or execute a merge
-commit when merging the PR. It does not forbid a developer from running
-`git merge <target>` on the feature branch to produce an ordinary merge
-commit for branch synchronization.
-
-`BRANCH_SYNC_METHOD` must not be treated as `PR_FINAL_MERGE_METHOD`, and
-vice versa. Branch sync operations (bringing target changes into the feature
-branch during development) and PR final merge (closing the PR into the
-target branch) are separate action classes. They must be separately
-authorized and separately verified.
-
-### Pre-authorization verification
-
-Before requesting Human authorization for `PR_FINAL_MERGE_METHOD`, the
-Holder or its delegate must verify live repository facts:
-
-- repository identity
-- PR number and state (must be OPEN)
-- exact Base SHA
-- exact Head SHA
-- mergeability (`MERGEABLE`, `UNKNOWN`, or `CONFLICTING`)
-- enabled PR merge methods (from repository settings)
-- required checks and protection rules (when accessible)
-
-Only the target repository's currently enabled PR merge methods may be
-presented to Human. Disabled or unavailable methods must not appear as
-options.
-
-### Merge capability unknown
-
-When merge capability cannot be read from the repository (API failure,
-insufficient permissions, ambiguous response) or when enabled methods
-conflict with each other:
-
-`MERGE_CAPABILITY_UNKNOWN / FAIL_CLOSED`
-
-Do not proceed to Human authorization. Do not default to any merge method.
-Do not guess.
-
-### Merge authorization binding
-
-A PR final merge authorization must precisely bind:
-
-- repository
-- PR number
-- exact Head SHA at time of authorization
-- exact PR merge method (one of the currently enabled methods)
-- branch deletion decision (delete / retain after merge)
-
-Any drift in these bindings between authorization and execution fails closed.
-
-### Pre-execution re-verification
-
-Immediately before calling the PR Merge API, re-verify live facts:
-
-- repository identity
-- PR identity
-- exact Base SHA
-- exact Head SHA
-- PR state
-- mergeability
-- the authorized merge method is still enabled in repository settings
-- applicable required checks
-- applicable branch-protection and permission facts (when accessible)
-
-If any authorized binding fact has changed since authorization, stop and
-fail closed. Do not proceed to merge.
-
-### Merge method capability mismatch
-
-`MERGE_METHOD_CAPABILITY_MISMATCH` applies only when ALL of the following
-facts remain unchanged since authorization:
-
-- repository identity
-- PR identity
-- Base SHA
-- Head SHA
-- scope (files and actions in authorization)
-- candidate files and their content
-- PR state
-- mergeability
-- a valid independent audit conclusion bound to the exact Head SHA
-
-When repository policy rejects the authorized merge method but all the
-above facts are unchanged:
-
-- candidate state is unchanged
-- valid independent audit conclusion remains valid
-- audit budget is not consumed
-- repair budget is not consumed
-- repository repair is not triggered
-- a full audit rerun is not triggered
-- the candidate does not enter a failure gate
-
-The situation routes to `HUMAN_MERGE_METHOD_REAUTHORIZATION` only. The
-new authorization may only replace the exact merge method with a different
-enabled method. It must not expand any other permission, scope, or gate.
-
-### Drift (not eligible for lightweight re-authorization)
-
-The following changes are genuine drift. None of them may use
-`HUMAN_MERGE_METHOD_REAUTHORIZATION` or any lightweight path:
-
-- repository change
-- PR identity change
-- Base drift (Base SHA differs from authorization)
-- Head drift (Head SHA differs from authorization)
-- scope change (files or actions outside authorization)
-- candidate file change or candidate content change
-- PR state change (e.g. CLOSED, MERGED, converted from Draft)
-- mergeability change
-- permission change
-- required-check change
-- branch-protection change
-
-When any of the above occurs, stop. Do not silently rebind the old
-authorization. Return to the appropriate fact-verification, audit, or
-Human gate for the changed fact.
-
-### Merge settings as live facts
-
-The following are live control-plane facts, read from the repository at
-execution time. They are not durable repository state and must never be
-written to committed files, the PR body, or any durable record as
-authoritative bindings:
-
-- enabled PR merge methods (`allow_merge_commit`, `allow_squash_merge`,
-  `allow_rebase_merge`)
-- PR mergeability
-- required status checks
-- branch-protection rules
-- applicable merge permissions
-
-Each merge-capability gate must re-read these facts live. Stale cached
-values are not authoritative.
-
-### Runtime and automation boundaries
-
-Automatic merge, Hermes R1, and automatic scheduling remain unauthorized.
-Merge capability preflight is a pre-authorization verification step, not a
-Runtime activation.
+Persistent Holder runtime, Hermes R1, automatic scheduling, automatic merge, Persona, Memory, Token, Profile, Gateway, Feishu integration, memory bridge, and credential operations remain unimplemented and unauthorized unless separately adopted and explicitly activated.
 
 ## Adaptive counter-objective governance
 
-`protocols/ADAPTIVE_COUNTER_OBJECTIVE_GOVERNANCE.md` is the adaptive
-extension of this canonical Holder and Lightweight Flow, not a parallel
-governance system. Every task, child, tooling task, repair, candidate, and
-audit must carry one valid `GOVERNANCE_BINDING_ID`; missing or drifting
-fields fail closed as `GOVERNANCE_BINDING_INVALID`.
-
-Before Maker dispatch, `ENHANCED` or `CRITICAL` work requires
-`COUNTER_OBJECTIVE_REVIEW: STRATEGY_ACCEPTED` and a separate execution
-budget authorization. Exactly one of `LIGHT`, `STANDARD`, `ENHANCED`, or
-`CRITICAL` is active. Profile changes do not reset budget, failed candidates,
-parentage, Human-only gates, forbidden scope, or product baselines.
-
-Evidence conflict, repeated failure, scope expansion, tooling drift, or
-missing product delta triggers `SUSPENDED_FOR_COUNTER_REVIEW` and
-fail-closed stopping. Tooling is a separate inherited child task with its
-own budget and `PRODUCT_PROGRESS_IMPACT: NO`; activity completion never
-equals product progress.
-
-Governance overhead is budgeted and may trigger
-`SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION`. Human-facing critical nodes retain
-the existing structured fields, precise user-action decision, and
-three-sentence summary. This protocol does not activate Runtime, Hermes R1,
-automation, or any Human-only gate.
+Governance must not multiply candidates, duplicate state systems, or create formally correct but unnecessary work. When governance cost exceeds product or safety value, use the smallest safe path. Activity completion never equals product progress, and tooling work never inherits product acceptance.

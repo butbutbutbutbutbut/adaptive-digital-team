@@ -1,439 +1,361 @@
 #!/usr/bin/env python3
-"""Binding validator for ADT repository-as-prompt runtime binding protocol.
+"""ADT candidate identity, single-PR topology, and fingerprint validator."""
+from __future__ import annotations
 
-Validates PROJECT_STATE.md or .adt/project-binding.yaml against the rules in
-protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md § 9.
-
-Usage:
-    python scripts/validate_binding.py [--file PATH] [--ci]
-
-Exit code 0: all validations pass.
-Exit code 1: one or more validations failed.
-"""
-
-import yaml
 import argparse
+import hashlib
 import json
 import os
 import re
-import sys
 import subprocess
+import sys
 from pathlib import Path
+from typing import Any
+
+import yaml
+
+STACKED_PR_PROHIBITED = "STACKED_PR_PROHIBITED"
+HARD_STOP = "HARD_STOP"
+FINGERPRINT_KEYS = ("repository", "base_ref", "base_sha", "head_ref", "head_sha", "changed_files")
+FORBIDDEN_STATE_KEYS = {
+    "current_head_sha", "current_main_sha", "current_event_sha",
+    "current_remote_branch_sha", "current_candidate_fingerprint",
+    "candidate_fingerprint", "runtime_fingerprint",
+}
+
+
+def canonical_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "repository": str(fields.get("repository", "")),
+        "base_ref": str(fields.get("base_ref", "")),
+        "base_sha": str(fields.get("base_sha", "")),
+        "head_ref": str(fields.get("head_ref", "")),
+        "head_sha": str(fields.get("head_sha", "")),
+        "changed_files": sorted({str(x) for x in fields.get("changed_files", [])}),
+    }
+
+
+def candidate_fingerprint(fields: dict[str, Any]) -> str:
+    payload = json.dumps(canonical_fields(fields), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def push_ref_branch(ref: str | None = None) -> str | None:
+    value = os.environ.get("GITHUB_REF", "") if ref is None else ref
+    match = re.fullmatch(r"refs/heads/(.+)", value or "")
+    if not match:
+        return None
+    branch = match.group(1).strip()
+    return branch if branch and not branch.startswith("/") and not branch.endswith("/") else None
 
 
 class BindingValidator:
-    """Validates a runtime binding record against the protocol rules."""
-
-    def __init__(self, binding_text: str, live_mode: bool = False):
-        self.text = binding_text
-        self.live_mode = live_mode
+    def __init__(
+        self,
+        text: str,
+        live_mode: bool = False,
+        pre_merge: bool = False,
+        expected_fingerprint: str | None = None,
+        audit_fingerprint: str | None = None,
+        ready_authorization_fingerprint: str | None = None,
+        merge_authorization_fingerprint: str | None = None,
+    ) -> None:
+        self.text = text
+        self.live_mode = live_mode or pre_merge
+        self.pre_merge = pre_merge
+        self.expected_fingerprint = expected_fingerprint
+        self.audit_fingerprint = audit_fingerprint
+        self.ready_fingerprint = ready_authorization_fingerprint
+        self.merge_fingerprint = merge_authorization_fingerprint
         self.errors: list[str] = []
         self.warnings: list[str] = []
-        self.parsed: dict = {}
+        self.parsed: dict[str, Any] = {}
+        self.runtime_fields: dict[str, Any] | None = None
+        self.runtime_fingerprint: str | None = None
 
-    def parse_yaml(self) -> dict:
-        """Parse YAML from markdown-embedded or raw YAML text using PyYAML."""
-        yaml_match = re.search(r'```ya?ml\s*\n(.*?)\n```', self.text, re.DOTALL)
-        if yaml_match:
-            yaml_text = yaml_match.group(1)
-        else:
-            yaml_text = self.text
-        return yaml.safe_load(yaml_text) or {}
+    def parse(self) -> dict[str, Any]:
+        match = re.search(r"```ya?ml\s*\n(.*?)\n```", self.text, re.S)
+        value = yaml.safe_load(match.group(1) if match else self.text) or {}
+        if not isinstance(value, dict):
+            raise ValueError("binding root must be a mapping")
+        return value
 
-    def get(self, key: str, default=None):
-        """Resolve dotted key path from parsed YAML dict."""
-        parts = key.split('.')
-        node = self.parsed
-        for part in parts:
-            if isinstance(node, dict):
-                node = node.get(part)
-                if node is None:
-                    return default
-            else:
+    parse_yaml = parse
+    normalize_fingerprint_fields = staticmethod(canonical_fields)
+    candidate_fingerprint = staticmethod(candidate_fingerprint)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        node: Any = self.parsed
+        for part in key.split("."):
+            if not isinstance(node, dict) or part not in node:
                 return default
+            node = node[part]
         return node
 
-    # ── git helpers ──
-
-    def _git(self, *args, timeout: int = 30) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ['git'] + list(args),
-            capture_output=True, text=True, timeout=timeout
-        )
+    def _git(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", *args], text=True, capture_output=True, check=False, timeout=30)
 
     def _runtime_head(self) -> str | None:
-        """Return the checked-out commit SHA from git rev-parse HEAD."""
         try:
-            r = self._git('rev-parse', 'HEAD', timeout=10)
-            return r.stdout.strip() if r.returncode == 0 else None
+            out = self._git("rev-parse", "HEAD")
+            return out.stdout.strip() if out.returncode == 0 else None
+        except Exception:
+            return None
+
+    def _current_branch(self) -> str | None:
+        try:
+            out = self._git("symbolic-ref", "--quiet", "--short", "HEAD")
+            return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else None
         except Exception:
             return None
 
     def _remote_head(self, branch: str) -> str | None:
-        """Return origin/<branch> SHA via git ls-remote."""
+        if not branch:
+            return None
         try:
-            r = self._git('ls-remote', 'origin', f'refs/heads/{branch}', timeout=30)
-            if r.returncode != 0:
-                return None
-            line = r.stdout.strip()
-            return line.split()[0] if line else None
+            local = self._git("rev-parse", f"refs/remotes/origin/{branch}")
+            if local.returncode == 0 and local.stdout.strip():
+                return local.stdout.strip()
+            remote = self._git("ls-remote", "origin", f"refs/heads/{branch}")
+            return remote.stdout.split()[0] if remote.returncode == 0 and remote.stdout.strip() else None
         except Exception:
             return None
 
-    def _is_ancestor(self, ancestor: str, descendant: str) -> bool:
-        """Check if ancestor is reachable from descendant."""
+    def _changed_files(self, base: str, head: str) -> list[str] | None:
         try:
-            r = self._git('merge-base', '--is-ancestor', ancestor, descendant, timeout=10)
-            return r.returncode == 0
+            out = self._git("diff", "--name-only", "--diff-filter=ACMRDTUXB", f"{base}...{head}")
+            return sorted({x.strip() for x in out.stdout.splitlines() if x.strip()}) if out.returncode == 0 else None
+        except Exception:
+            return None
+
+    def _workspace_clean(self) -> bool:
+        try:
+            out = self._git("status", "--porcelain")
+            return out.returncode == 0 and not out.stdout.strip()
         except Exception:
             return False
 
     def _commit_exists(self, sha: str) -> bool:
-        """Check if sha is a valid commit object."""
         try:
-            r = self._git('cat-file', '-t', sha, timeout=10)
-            return r.returncode == 0 and r.stdout.strip() == 'commit'
+            return bool(sha) and self._git("cat-file", "-e", f"{sha}^{{commit}}").returncode == 0
         except Exception:
             return False
 
-    def _ci_event_name(self) -> str:
-        return os.environ.get('GITHUB_EVENT_NAME', '')
+    def _is_ancestor(self, ancestor: str, head: str) -> bool:
+        try:
+            return self._git("merge-base", "--is-ancestor", ancestor, head).returncode == 0
+        except Exception:
+            return False
 
-    def _ci_event_sha(self) -> str:
-        return os.environ.get('GITHUB_SHA', '')
+    def _event_payload(self) -> dict[str, Any]:
+        path = os.environ.get("GITHUB_EVENT_PATH", "")
+        if not path:
+            return {}
+        try:
+            value = json.loads(Path(path).read_text())
+            return value if isinstance(value, dict) else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
 
-    def _pr_head_sha(self) -> str | None:
-        """Extract PR head SHA from GITHUB_EVENT_PATH (pull_request event)."""
-        event_path = os.environ.get('GITHUB_EVENT_PATH', '')
-        if event_path and os.path.exists(event_path):
-            try:
-                with open(event_path) as f:
-                    event = json.load(f)
-                return event.get('pull_request', {}).get('head', {}).get('sha')
-            except Exception:
-                pass
-        return None
+    def _push_ref_branch(self) -> str | None:
+        # Push identity is derived exclusively from GITHUB_REF.
+        return push_ref_branch(os.environ.get("GITHUB_REF", ""))
 
-    # ── top-level ──
+    def _repository(self) -> str:
+        return str(os.environ.get("GITHUB_REPOSITORY") or self.get("repository") or "")
+
+    def _scope(self) -> list[str]:
+        value = self.get("authorized_write_scope", [])
+        return sorted({str(x) for x in value}) if isinstance(value, list) else []
+
+    def check_static(self) -> None:
+        required = (
+            "task_id", "repository", "branch", "starting_base_sha",
+            "authorized_write_scope", "authority", "current_gate", "implementation_status",
+        )
+        missing = [x for x in required if self.get(x) in (None, "", [])]
+        if missing:
+            self.errors.append("VALIDATION-STATE: missing stable fields: " + ", ".join(missing))
+        if self.get("repository") and self.get("repository") != "butbutbutbutbutbut/adaptive-digital-team":
+            self.errors.append("VALIDATION-STATE: repository binding is incorrect")
+        if self.get("implementation_status") != "NOT_AUTHORIZED":
+            self.errors.append("VALIDATION-STATE: implementation_status must be NOT_AUTHORIZED")
+        scope = self._scope()
+        if not scope or any("*" in x for x in scope):
+            self.errors.append("VALIDATION-SCOPE: exact non-wildcard paths required")
+
+        def walk(node: Any, path: str = "") -> None:
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    current = f"{path}.{key}" if path else str(key)
+                    if str(key) in FORBIDDEN_STATE_KEYS:
+                        self.errors.append(f"VALIDATION-STATE: runtime cache prohibited: {current}")
+                    walk(value, current)
+            elif isinstance(node, list):
+                for index, value in enumerate(node):
+                    walk(value, f"{path}[{index}]")
+        walk(self.parsed)
+
+    def check_legacy(self) -> None:
+        afs = self.get("authoritative_fact_source")
+        if isinstance(afs, dict):
+            if not afs.get("type") or not afs.get("sha") or afs.get("sha") == "NONE":
+                self.errors.append("VALIDATION-1: authoritative fact source is incomplete")
+            if self.get("governance_base.branch") == "main" and afs.get("branch") == "main" and afs.get("type") != "HUMAN_EXPLICIT":
+                self.errors.append("VALIDATION-3: main dual role requires HUMAN_EXPLICIT")
+        active = str(self.get("branch") or self.get("active_candidate.branch") or "")
+        if any(isinstance(x, dict) and x.get("branch") == active for x in (self.get("invalidated_candidates", []) or [])):
+            self.errors.append("VALIDATION-2: active candidate is invalidated")
+        if any(isinstance(x, dict) and x.get("branch") == active for x in (self.get("comparison_candidates", []) or [])):
+            self.errors.append("VALIDATION-4: comparison candidate cannot be active")
+        if self.get("visual_status.active_candidate") == "HUMAN_ACCEPTED" and self.get("authoritative_fact_source.type") != "HUMAN_EXPLICIT":
+            self.errors.append("VALIDATION-5: visual acceptance requires Human evidence")
+        if "FACT_SOURCE_REBIND" in str(self.get("current_gate") or ""):
+            action = str(self.get("authorized_action") or "")
+            if action and "NONE" not in action:
+                self.errors.append("VALIDATION-6: FACT_SOURCE_REBIND blocks write")
+
+    def resolve_runtime(self) -> dict[str, Any] | None:
+        repository = self._repository()
+        runtime_head = self._runtime_head()
+        if not repository or not runtime_head:
+            self.errors.append(f"{HARD_STOP}: repository or git HEAD unresolved")
+            return None
+        event_name = os.environ.get("GITHUB_EVENT_NAME", "").strip()
+
+        if event_name == "push":
+            head_ref = self._push_ref_branch()
+            if not head_ref:
+                self.errors.append(f"{HARD_STOP}: invalid GITHUB_REF; only refs/heads/<branch> accepted")
+                return None
+            head_sha = os.environ.get("GITHUB_SHA", "").strip()
+            remote = self._remote_head(head_ref)
+            if not head_sha or not remote or not (runtime_head == head_sha == remote):
+                self.errors.append(f"{HARD_STOP}: push identity mismatch; requires HEAD = GITHUB_SHA = origin/{head_ref}")
+            base_ref = "main"
+            base_sha = str(self._event_payload().get("before") or self.get("starting_base_sha") or "") if head_ref == "main" else (self._remote_head("main") or "")
+
+        elif event_name == "pull_request":
+            pr = self._event_payload().get("pull_request", {})
+            head = pr.get("head", {}) if isinstance(pr, dict) else {}
+            base = pr.get("base", {}) if isinstance(pr, dict) else {}
+            head_ref, head_sha = str(head.get("ref") or ""), str(head.get("sha") or "")
+            base_ref, base_sha = str(base.get("ref") or ""), str(base.get("sha") or "")
+            if base_ref != "main":
+                self.errors.append(f"{STACKED_PR_PROHIBITED}: base_ref={base_ref!r}")
+            if head_ref.startswith("refs/pull/") or head_ref.endswith("/merge"):
+                self.errors.append(f"{HARD_STOP}: merge ref cannot be candidate Head; merge refs are prohibited")
+            remote = self._remote_head(head_ref)
+            if not head_ref or not head_sha or not base_sha or not remote or remote != head_sha or runtime_head != head_sha:
+                self.errors.append(f"{HARD_STOP}: PR source Head must equal origin/<head_ref>; merge refs are prohibited")
+
+        else:
+            head_ref = self._current_branch() or str(self.get("branch") or "")
+            head_sha, base_ref = runtime_head, "main"
+            base_sha = self._remote_head("main") or ""
+            remote = self._remote_head(head_ref)
+            if not head_ref or not base_sha or not remote or remote != head_sha:
+                self.errors.append(f"{HARD_STOP}: local identity mismatch")
+
+        changed = self._changed_files(base_sha, head_sha)
+        if changed is None:
+            self.errors.append(f"{HARD_STOP}: changed files unresolved")
+            return None
+        return canonical_fields({
+            "repository": repository, "base_ref": base_ref, "base_sha": base_sha,
+            "head_ref": head_ref, "head_sha": head_sha, "changed_files": changed,
+        })
+
+    def check_live(self) -> None:
+        fields = self.resolve_runtime()
+        if fields is None:
+            return
+        self.runtime_fields = fields
+        self.runtime_fingerprint = candidate_fingerprint(fields)
+        if fields["head_ref"] != "main" and fields["base_ref"] != "main":
+            self.errors.append(f"{STACKED_PR_PROHIBITED}: formal candidate must target main")
+        branch = str(self.get("branch") or "")
+        if fields["head_ref"] != "main" and branch and fields["head_ref"] != branch:
+            self.errors.append(f"{HARD_STOP}: runtime branch differs from authorized branch")
+        if fields["head_ref"] != "main" and fields["changed_files"] != self._scope():
+            actual, allowed = set(fields["changed_files"]), set(self._scope())
+            unauthorized = sorted(actual - allowed)
+            unchanged = sorted(allowed - actual)
+            self.errors.append(f"{HARD_STOP}: authorized_write_scope mismatch; unauthorized={unauthorized}, authorized_but_unchanged={unchanged}")
+        anchor = str(self.get("resolved_head") or "")
+        if anchor and not self._commit_exists(anchor):
+            self.errors.append("VALIDATION-RESOLVED-HEAD: historical anchor is not a commit")
+        elif anchor and not self._is_ancestor(anchor, fields["head_sha"]):
+            self.errors.append("VALIDATION-RESOLVED-HEAD: historical anchor is not in current history")
+
+    def check_premerge(self) -> None:
+        if not self.pre_merge or not self.runtime_fingerprint:
+            return
+        if not self.expected_fingerprint:
+            self.errors.append(f"{HARD_STOP}: --expected-fingerprint is required")
+        elif self.expected_fingerprint != self.runtime_fingerprint:
+            self.errors.append(f"{HARD_STOP}: FINGERPRINT_MISMATCH")
+        if not self._workspace_clean():
+            self.errors.append(f"{HARD_STOP}: workspace is not clean")
+        for label, value in {
+            "AUDIT_BINDING": self.audit_fingerprint,
+            "READY_AUTHORIZATION": self.ready_fingerprint,
+            "MERGE_AUTHORIZATION": self.merge_fingerprint,
+        }.items():
+            if value is not None and value != self.runtime_fingerprint:
+                self.errors.append(f"{label}: INVALID")
 
     def validate(self) -> bool:
-        """Run all validations. Returns True if all pass."""
-        self.parsed = self.parse_yaml()
+        try:
+            self.parsed = self.parse()
+        except (ValueError, yaml.YAMLError) as exc:
+            self.errors.append(f"VALIDATION-YAML: {exc}")
+            return self._finish()
+        self.check_static()
+        self.check_legacy()
+        if self.live_mode:
+            self.check_live()
+        self.check_premerge()
+        return self._finish()
 
-        self.check_1_authoritative_fact_source_present()
-        self.check_2_active_not_in_invalidated()
-        self.check_3_main_not_dual_role_without_human_auth()
-        self.check_4_comparison_not_active()
-        self.check_5_visual_status_not_auto_accepted()
-        self.check_6_rebind_blocks_write()
-        self.check_7_progress_card_required_fields()
-        self.check_8_candidate_head_live_check()
-        self.check_9_active_candidate_field_semantics()
-        self.check_10_minimum_context_recovery()
-
+    def _finish(self) -> bool:
+        if self.runtime_fields and self.runtime_fingerprint:
+            print("FINGERPRINT_FIELDS: " + json.dumps(self.runtime_fields, sort_keys=True, ensure_ascii=False))
+            print("CANDIDATE_FINGERPRINT: " + self.runtime_fingerprint)
+        for warning in self.warnings:
+            print("WARN: " + warning, file=sys.stderr)
+        for error in self.errors:
+            print("FAIL: " + error, file=sys.stderr)
         if self.errors:
-            for e in self.errors:
-                print(f"FAIL: {e}", file=sys.stderr)
             return False
-        if self.warnings:
-            for w in self.warnings:
-                print(f"WARN: {w}", file=sys.stderr)
         print("PASS: All validations passed")
         return True
 
-    # ── VALIDATION-1 ──
 
-    def check_1_authoritative_fact_source_present(self):
-        afs_type = self.get('authoritative_fact_source.type')
-        afs_sha = self.get('authoritative_fact_source.sha')
-        if not afs_type:
-            self.errors.append(
-                "VALIDATION-1: authoritative_fact_source.type is missing"
-            )
-        if not afs_sha or afs_sha == 'NONE':
-            self.errors.append(
-                "VALIDATION-1: authoritative_fact_source.sha is missing or NONE"
-            )
-
-    # ── VALIDATION-2 ──
-
-    def check_2_active_not_in_invalidated(self):
-        active_branch = self.get('active_candidate.branch')
-        if not active_branch or active_branch == 'NONE':
-            return
-        invalidated = self.get('invalidated_candidates', [])
-        if isinstance(invalidated, list):
-            for entry in invalidated:
-                if isinstance(entry, dict) and entry.get('branch') == active_branch:
-                    self.errors.append(
-                        f"VALIDATION-2: active_candidate '{active_branch}' "
-                        f"also appears in invalidated_candidates"
-                    )
-
-    # ── VALIDATION-3 ──
-
-    def check_3_main_not_dual_role_without_human_auth(self):
-        gov_branch = self.get('governance_base.branch', '')
-        afs_branch = self.get('authoritative_fact_source.branch', '')
-        afs_type = self.get('authoritative_fact_source.type', '')
-        if gov_branch == 'main' and afs_branch == 'main':
-            if afs_type not in ('HUMAN_EXPLICIT',):
-                self.errors.append(
-                    "VALIDATION-3: governance_base and authoritative_fact_source "
-                    "both reference 'main' without HUMAN_EXPLICIT type. "
-                    "main defaults to governance source only."
-                )
-
-    # ── VALIDATION-4 ──
-
-    def check_4_comparison_not_active(self):
-        active_branch = self.get('active_candidate.branch')
-        if not active_branch or active_branch == 'NONE':
-            return
-        comparison = self.get('comparison_candidates', [])
-        if isinstance(comparison, list):
-            for entry in comparison:
-                if isinstance(entry, dict) and entry.get('branch') == active_branch:
-                    self.errors.append(
-                        f"VALIDATION-4: active_candidate '{active_branch}' "
-                        f"also appears in comparison_candidates"
-                    )
-
-    # ── VALIDATION-5 ──
-
-    def check_5_visual_status_not_auto_accepted(self):
-        vs = self.get('visual_status.active_candidate', '')
-        if vs == 'HUMAN_ACCEPTED':
-            afs_type = self.get('authoritative_fact_source.type', '')
-            if afs_type not in ('HUMAN_EXPLICIT',):
-                self.errors.append(
-                    "VALIDATION-5: visual_status.active_candidate is "
-                    "HUMAN_ACCEPTED but authoritative_fact_source.type is "
-                    f"'{afs_type}', not HUMAN_EXPLICIT. "
-                    "Visual acceptance requires Human evidence."
-                )
-
-    # ── VALIDATION-6 ──
-
-    def check_6_rebind_blocks_write(self):
-        current_gate = self.get('current_gate', '')
-        authorized_action = self.get('authorized_action', '')
-        if 'FACT_SOURCE_REBIND' in current_gate:
-            if authorized_action and 'NONE' not in authorized_action:
-                self.errors.append(
-                    "VALIDATION-6: current_gate is FACT_SOURCE_REBIND but "
-                    "authorized_action is not NONE. Write is not permitted "
-                    "during fact source rebinding."
-                )
-
-    # ── VALIDATION-7 ──
-
-    def check_7_progress_card_required_fields(self):
-        afs_branch = self.get('authoritative_fact_source.branch', '')
-        afs_sha = self.get('authoritative_fact_source.sha', '')
-        next_gate = self.get('system_next_step', '')
-        if not afs_branch or not afs_sha:
-            self.warnings.append(
-                "VALIDATION-7: FACT_SOURCE fields may be incomplete "
-                "(required for progress card)"
-            )
-        if not next_gate:
-            self.warnings.append(
-                "VALIDATION-7: system_next_step (NEXT_GATE proxy) is missing"
-            )
-
-    # ── VALIDATION-8: Runtime head binding (live mode only) ──
-
-    def check_8_candidate_head_live_check(self):
-        """Runtime-head binding: the current Head comes from git, not from
-        PROJECT_STATE.md.  Validates that the checked-out commit matches the
-        remote branch, that starting_head is an ancestor, and that CI event
-        SHAs are consistent.
-
-        Event-specific behaviour:
-        - push:        checked-out HEAD must == remote HEAD == push event SHA
-        - pull_request: PR source head (from event) must == remote HEAD;
-                        merge ref is ignored for identity comparison.
-        """
-        if not self.live_mode:
-            return
-
-        active_branch = self.get('active_candidate.branch', '')
-        if not active_branch or active_branch == 'NONE':
-            return
-
-        event_name = self._ci_event_name()
-        runtime_head = self._runtime_head()
-        remote_head = self._remote_head(active_branch)
-
-        if not runtime_head:
-            self.warnings.append(
-                "VALIDATION-8: Cannot determine runtime HEAD"
-            )
-            return
-
-        # ── 8a. Push event: runtime HEAD must match remote ──
-        if event_name == 'push':
-            if remote_head and runtime_head != remote_head:
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — runtime HEAD "
-                    f"({runtime_head[:12]}) does not match remote "
-                    f"origin/{active_branch} ({remote_head[:12]}). "
-                    f"Branch may have advanced since checkout."
-                )
-            # Additional: push event SHA must match both
-            event_sha = self._ci_event_sha()
-            if event_sha:
-                if runtime_head != event_sha:
-                    self.errors.append(
-                        f"VALIDATION-8: HARD_STOP — push event SHA "
-                        f"({event_sha[:12]}) does not match checked-out "
-                        f"HEAD ({runtime_head[:12]})"
-                    )
-                if remote_head and event_sha != remote_head:
-                    self.errors.append(
-                        f"VALIDATION-8: HARD_STOP — push event SHA "
-                        f"({event_sha[:12]}) does not match remote "
-                        f"origin/{active_branch} ({remote_head[:12]})"
-                    )
-
-        # ── 8b. Pull request event: PR head must match remote ──
-        elif event_name == 'pull_request':
-            pr_head = self._pr_head_sha()
-            if pr_head and remote_head and pr_head != remote_head:
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — PR head SHA "
-                    f"({pr_head[:12]}) does not match remote "
-                    f"origin/{active_branch} ({remote_head[:12]})"
-                )
-            # Runtime head in PR context is the merge ref — do NOT
-            # compare it against remote for identity.  Use PR head
-            # for ancestry check below.
-            pr_head = pr_head or runtime_head  # fallback for ancestry
-
-        # ── 8c. Non-CI: runtime HEAD must match remote ──
-        else:
-            if remote_head and runtime_head != remote_head:
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — runtime HEAD "
-                    f"({runtime_head[:12]}) does not match remote "
-                    f"origin/{active_branch} ({remote_head[:12]}). "
-                    f"Branch may have advanced since checkout."
-                )
-
-        # ── 8d. starting_head is ancestor of effective head ──
-        #       In PR context use PR head; otherwise use runtime_head.
-        effective_head = runtime_head
-        if event_name == 'pull_request':
-            pr_head = self._pr_head_sha()
-            effective_head = pr_head or runtime_head
-
-        starting_head = self.get('active_candidate.starting_head', '')
-        if starting_head and self._commit_exists(starting_head):
-            if not self._is_ancestor(starting_head, effective_head):
-                self.errors.append(
-                    f"VALIDATION-8: HARD_STOP — starting_head "
-                    f"({starting_head[:12]}) is not an ancestor of "
-                    f"effective HEAD ({effective_head[:12]})"
-                )
-
-    # ── VALIDATION-9: Active candidate field semantics ──
-
-    def check_9_active_candidate_field_semantics(self):
-        """Validate resolved_head semantics and runtime_head_binding presence.
-
-        - resolved_head, if present, must be a valid commit in the repo.
-          It is a *historical anchor*, NOT required to match current HEAD.
-        - resolved_head that is NOT a valid commit or not in ancestry → FAIL.
-        - runtime_head_binding should be GIT_REF_DERIVED (not required in
-          static mode, but validated in live mode).
-        """
-        resolved_head = self.get('active_candidate.resolved_head', '')
-        starting_head = self.get('active_candidate.starting_head', '')
-
-        # resolved_head as historical anchor
-        if resolved_head:
-            # Must be a valid commit
-            if not self._commit_exists(resolved_head):
-                self.errors.append(
-                    f"VALIDATION-9: resolved_head ({resolved_head[:12]}) "
-                    f"is not a valid commit in this repository"
-                )
-            # If starting_head is set, resolved_head should be an ancestor
-            # of something reachable (at minimum it should be in the repo)
-            if starting_head and self._commit_exists(starting_head):
-                # resolved_head should exist somewhere in the repo
-                # but is NOT required to match runtime_head
-                pass
-
-        # runtime_head_binding field (advisory in static, validated in live)
-        binding = self.get('active_candidate.runtime_head_binding', '')
-        if self.live_mode and binding != 'GIT_REF_DERIVED':
-            self.warnings.append(
-                "VALIDATION-9: runtime_head_binding should be "
-                "GIT_REF_DERIVED in live mode"
-            )
-
-    # ── VALIDATION-10 ──
-
-    def check_10_minimum_context_recovery(self):
-        required_fields = [
-            'schema_version',
-            'adt_repository',
-            'governance_base.branch',
-            'governance_base.sha',
-            'authoritative_fact_source.type',
-            'authoritative_fact_source.branch',
-            'authoritative_fact_source.sha',
-            'current_gate',
-            'counter_objectives',
-            'user_action_required',
-            'system_next_step',
-        ]
-        missing = []
-        for field in required_fields:
-            val = self.get(field)
-            if val is None or val == '':
-                missing.append(field)
-        if missing:
-            self.warnings.append(
-                f"VALIDATION-10: Minimum context recovery may fail. "
-                f"Missing fields: {', '.join(missing)}"
-            )
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Validate ADT runtime binding record"
-    )
-    parser.add_argument(
-        '--file', '-f',
-        default='PROJECT_STATE.md',
-        help='Path to binding file (default: PROJECT_STATE.md)'
-    )
-    parser.add_argument(
-        '--ci', action='store_true',
-        help='Run in CI mode (live git checks enabled)'
-    )
-    parser.add_argument(
-        '--live', action='store_true',
-        help='Enable live git remote checks'
-    )
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--file", "-f", default="PROJECT_STATE.md")
+    parser.add_argument("--ci", action="store_true")
+    parser.add_argument("--live", action="store_true")
+    parser.add_argument("--pre-merge", action="store_true")
+    parser.add_argument("--expected-fingerprint")
+    parser.add_argument("--audit-fingerprint")
+    parser.add_argument("--ready-authorization-fingerprint")
+    parser.add_argument("--merge-authorization-fingerprint")
     args = parser.parse_args()
-
     path = Path(args.file)
     if not path.exists():
         print(f"ERROR: File not found: {path}", file=sys.stderr)
-        sys.exit(2)
+        return 2
+    validator = BindingValidator(
+        path.read_text(), live_mode=args.ci or args.live, pre_merge=args.pre_merge,
+        expected_fingerprint=args.expected_fingerprint,
+        audit_fingerprint=args.audit_fingerprint,
+        ready_authorization_fingerprint=args.ready_authorization_fingerprint,
+        merge_authorization_fingerprint=args.merge_authorization_fingerprint,
+    )
+    return 0 if validator.validate() else 1
 
-    text = path.read_text(encoding='utf-8')
-    validator = BindingValidator(text, live_mode=args.live or args.ci)
 
-    if validator.validate():
-        sys.exit(0)
-    else:
-        sys.exit(1)
-
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    raise SystemExit(main())

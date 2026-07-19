@@ -8,28 +8,20 @@ on:
       - 'codex/**'
       - 'agent/**'
       - 'maker/**'
-    paths:
-      - 'PROJECT_STATE.md'
-      - 'protocols/**.md'
-      - 'scripts/validate_binding.py'
-      - 'tests/test_binding_validation.py'
-      - '.github/workflows/validate.yml'
   pull_request:
-    branches: [main]
-    paths:
-      - 'PROJECT_STATE.md'
-      - 'protocols/**.md'
-      - 'scripts/validate_binding.py'
-      - 'tests/test_binding_validation.py'
-      - '.github/workflows/validate.yml'
+
+permissions:
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source Head
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,8 +34,8 @@ jobs:
       - name: Run binding validation (static)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md
 
-      - name: Run binding validation tests
-        run: pytest tests/test_binding_validation.py -v
+      - name: Run complete test suite
+        run: python tests/run_tests.py
 
       - name: Run binding validation (live, CI mode)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md --ci

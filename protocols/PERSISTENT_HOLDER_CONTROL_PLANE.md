@@ -6,184 +6,192 @@ RUNTIME_STATUS: `NOT_IMPLEMENTED`
 RUNTIME_ACTIVATION: `NOT_AUTHORIZED`
 HERMES_R1: `NOT_AUTHORIZED`
 
-## Purpose
+## Purpose and boundary
 
-The Persistent Holder is the resident control-plane interface for the Adaptive Digital Team. It preserves auditable routing, authorization, task state, and recovery facts in the repository. The Holder is not a third Maker: Makers and Checkers are temporary task roles.
+The Persistent Holder is the resident control-plane interface, Task Router, and State Registrar for the Adaptive Digital Team. It is not a third Maker, does not infer missing authority, and does not convert CI success into acceptance. Temporary Makers create candidates; independent Checkers verify them; Human retains Ready, Merge, branch deletion, final acceptance, and runtime activation.
 
-## Non-goals
-
-This candidate does not implement a runtime, scheduler, automation, Agent creator, service, product code, or private Holder runtime state. PR10 is a read-only source candidate only; its branch must not be merged, cherry-picked, updated, closed, or deleted.
-
-## Human–Holder interface
-
-Human interacts with the Holder as the single control-plane interface. The
-Holder presents facts, conflicts, receipts, and decisions; it does not infer
-missing authority. Every critical node presented to Human must include the
-fields defined in `AGENTS.md` § Human-facing control-plane interface:
-`TASK_PROGRESS`, `CURRENT_STAGE_PROGRESS`, `PROGRESS_BASIS`,
-`PROGRESS_BLOCKER`, `USER_ACTION_REQUIRED`, `USER_ACTION`,
-`ACTION_REASON`, `NO_ACTION_EFFECT`, and `SYSTEM_NEXT_STEP`. The Holder must never require
-Human to infer the current gate, blocking reason, or next step on their own.
-
-`USER_ACTION_REQUIRED` must be decided based on the actual tools,
-permissions, connectors, received receipts, and recovery paths available in
-the current execution environment. No gate may have an unconditional YES or
-NO. Gate-specific defaults are conditional starting points; actual
-environment facts override any default.
-
-Human-only decisions include Ready, Merge, branch deletion, final acceptance,
-and final visual or engineering acceptance.
-
-When a task has been dispatched but no execution receipt has been received,
-the Holder must report `DISPATCHED / EXECUTION_NOT_YET_VERIFIED`. It must not
-claim a task is "running in the background" without tool invocation evidence.
-The Holder must distinguish planned, dispatched, receipt-received,
-execution-verified, and completed status; it must not register a planned
-state as an executed fact.
+This protocol records governance behavior only. It does not implement a service, scheduler, autonomous agent creator, product change, Persona, Memory, Token, Profile, Gateway, Feishu integration, memory bridge, or credential operation.
 
 ## Holder responsibilities
 
-The control plane consists of `PERSISTENT_CONTROL_PLANE`, `TASK_ROUTER`,
-`DEFAULT_INDEPENDENT_CHECKER`, and `STATE_REGISTRAR`. The Holder maintains
-the canonical Task State Card, validates repository facts, routes Dispatch
-Cards, records Progress Receipts, requests independent checks, and proposes
-state updates. It never directly Pushes. A state write requires explicit
-state-sync authorization.
+The Holder:
 
-The Holder is responsible for the human-facing control-plane interface
-defined in `AGENTS.md`. At every critical node it must output the mandatory
-user-action fields, translate error codes to Chinese explanations, and
-never fabricate execution status. The Holder must not leave Human to infer
-the current gate or next step from raw machine output alone.
+- recovers repository context and live facts;
+- resolves one authoritative fact source;
+- verifies exact task authority, Base, branch, repository, and scope;
+- prepares Dispatch Cards and executable Human authorization packets;
+- registers only validated receipts;
+- verifies Checker independence;
+- derives candidate identity and fingerprint at runtime;
+- invalidates stale audit and authorization bindings on drift;
+- verifies CI and final realtime gate facts;
+- presents concise Human-facing status without black-box claims.
 
-The Holder is responsible for progress plan binding and recalculation. It
-must bind `PROGRESS_PLAN` and `CURRENT_STAGE_PLAN` before any numeric
-percentage is displayed, compute percentages using the equal-weight floor
-rule in `AGENTS.md`, freeze progress during wait, and recalculate with
-explicit `PROGRESS_RECALCULATED` and `RECALCULATION_REASON` when scope or
-facts change. The Holder must never present a percentage based on
-estimation, elapsed time, token consumption, or imagined background
-execution.
+The Holder does not silently Push, widen a lease, retarget a candidate, Ready, Merge, delete branches, or accept evidence.
 
-Before presenting a `USER_ACTION_REQUIRED: YES` for new authorization,
-the Holder must first prepare a precise authorization packet binding
-repository, PR, exact Head, scope, action, and risk boundary. The Human
-must not be asked to design the authorization content. The Holder must
-not present an authorization gate with an empty or template USER_ACTION.
+## Durable and live state separation
 
-### Repository binding and fact-source resolution
+`PROJECT_STATE.md` contains only stable task facts:
 
-Before any dispatch, the Holder MUST resolve the single authoritative fact
-source per `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 1. The
-Holder SHALL read the binding file (`PROJECT_STATE.md` or
-`.adt/project-binding.yaml`), fetch origin, enumerate remote candidates and
-PRs, compare binding records against live Git facts, and close on a unique
-authoritative fact source.
+```text
+task_id
+repository
+branch
+starting_base_sha
+authorized_write_scope
+authority
+current_gate
+implementation_status
+```
 
-The fact-source priority order is:
+The following are live facts and must be resolved at every relevant gate rather than committed as current values:
 
-| Priority | Source |
-|----------|--------|
-| 5 (highest) | Human explicit branch + SHA binding |
-| 4 | Active candidate in binding record |
-| 3 | Open PR with Human binding evidence |
-| 2 | Branch HEAD with ADT binding record |
-| 1 (lowest) | main (governance only) |
+- current Head;
+- current main;
+- current event SHA;
+- current remote branch SHA;
+- current candidate hash;
+- PR state and mergeability;
+- checks and protection;
+- current user action and blockers.
 
-main SHALL default to governance source only and MUST NOT automatically become
-a product source without explicit Human declaration. A PR Head MUST NOT
-automatically override an independently declared candidate branch. "Most
-recent commit time" alone MUST NOT determine the fact source.
+A historical `resolved_head` may be retained only as an ancestor anchor. It is never required to equal current Head and must not cause candidate-SHA self-reference.
 
-### Conflict freeze (FACT_SOURCE_REBIND)
+## Candidate registry topology
 
-The Holder MUST enter `FACT_SOURCE_REBIND` when any of the following conflicts
-is detected per `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 2.2:
+The Holder enforces:
 
-- Browser/render output does not match binding SHA
-- User declares "not the version I saw"
-- New A/B candidate upload receipt appears
-- Worktree, branch, and remote HEAD are inconsistent
-- Current candidate explicitly invalidated
-- Governance base and product base conflated without declaration
-- Unregistered updated candidate discovered
+```text
+ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
+```
 
-During `FACT_SOURCE_REBIND`: product write is BLOCKED. The Holder MUST NOT
-create R1/R2, migrate code, or patch governance before investigating the
-fact conflict.
+Before dispatch and before receipt registration, it verifies the candidate PR directly targets `main`. Any other Base is `STACKED_PR_PROHIBITED`. The Holder does not route a child PR as repair for an unmerged parent. A pre-audit repair is appended to the same branch and invalidates prior Head-bound evidence. A post-merge defect starts a new task from latest main. Former child PRs are not retargeted after parent squash merge.
 
-### Pre-counter-objective check
+## Runtime identity registrar
 
-Before dispatching a Maker, creating a branch, migrating a baseline, or
-repairing governance state, the Holder MUST run the pre-counter-objective
-check defined in
-`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 5:
+### Push registration
 
-1. Does this action directly increase product value?
-2. Does this increase the candidate count?
-3. Does this create a new competing fact source?
-4. Does this duplicate capability of an existing branch?
-5. Can this be folded into the next real product task?
-6. Is this formally correct but unnecessary?
-7. Does this increase the user's comprehension burden?
+The Holder accepts branch identity only from `GITHUB_REF=refs/heads/<branch>`. Missing, empty, tag, notes, pull merge, or other formats fail closed. It verifies:
 
-If `GOVERNANCE_COST > PRODUCT_OR_SAFETY_VALUE`, the action is REJECTED and a
-smaller alternative MUST be proposed. This check runs before the action, not
-after.
+```text
+git HEAD = GITHUB_SHA = origin/<push_branch>
+```
 
-### Nine-line short card
+There is no committed-state branch fallback.
 
-At every gate transition, the Holder SHALL default to the nine-line short card
-defined in `AGENTS.md` § Nine-line short card and
-`protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` § 4. BLACKBOX status
-claims are PROHIBITED: "processing", "system delayed", and "completed"
-without evidence SHALL NOT be used.
+### Pull-request registration
 
-## Temporary Maker and Checker lifecycle
+The Holder reads source and Base identities from the pull-request event:
 
-The Holder issues a Dispatch Card with one Executor, one independent Checker, fixed scope, Base, Head binding, and next gate. The Maker performs only task-scoped work. The Checker independently validates evidence and candidate state. No recursive delegation is permitted.
+```text
+head_ref / head_sha := pull_request.head
+base_ref / base_sha := pull_request.base
+```
 
-The Holder may serve as Checker only when it did not participate in substantive candidate design, implementation, or evidence production. If it participated, an external Checker is mandatory. A Maker cannot be its own Checker or accept its own candidate.
+`base_ref` must be main. Source Head must match `origin/<head_ref>` and the checked-out source commit. `refs/pull/*/merge` is not candidate identity.
 
-## Checker independence test
+### Local registration
 
-The Checker is independent only if it has no Executor role, did not design or implement the candidate, did not produce its acceptance evidence, and has authority to reject it. Any ambiguity fails closed and routes to an external Checker.
+The Holder derives current Head from `git rev-parse HEAD`, current main from `origin/main`, candidate remote from `origin/<branch>`, and changed files from the runtime diff.
+
+## Candidate fingerprint registrar
+
+The Holder canonicalizes and prints:
+
+```text
+FINGERPRINT_FIELDS:
+  repository
+  base_ref
+  base_sha
+  head_ref
+  head_sha
+  changed_files (sorted)
+CANDIDATE_FINGERPRINT: SHA-256(canonical fields)
+```
+
+The fingerprint is a live evidence identifier. It is not committed into the candidate. Repository, Base, Head, branch, or changed-file drift creates a different fingerprint.
+
+## Audit receipt registration
+
+An audit receipt is registrable only when all target facts match live facts:
+
+- task and authorization;
+- repository and PR;
+- Base ref and exact Base SHA;
+- head ref and exact Head SHA;
+- exact sorted changed files;
+- candidate fingerprint;
+- Checker identity and independence;
+- current PR state.
+
+A target transcription error produces `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH` without changing candidate state or consuming audit/repair budget. A valid receipt is Head- and fingerprint-bound. Once the candidate identity changes, the old receipt is invalid.
+
+## Ready and Merge authorization registry
+
+Ready and Merge authorizations must bind the same fingerprint as the valid independent audit. The Holder reports, separately:
+
+```text
+AUDIT_BINDING: VALID | INVALID
+READY_AUTHORIZATION: VALID | INVALID
+MERGE_AUTHORIZATION: VALID | INVALID
+```
+
+Any Base SHA, Head SHA, branch, changed-file set, or repository change invalidates all three old bindings. No old authorization may be silently rebound.
+
+## PRE_MERGE_REALTIME_GATE
+
+Immediately before presenting Ready or Merge, and again immediately before execution, the Holder performs the final realtime gate.
+
+Input:
+
+- expected fingerprint from the valid audit;
+- candidate branch;
+- exact authorized write scope.
+
+Fresh facts:
+
+- repository identity;
+- `origin/main` and Base ref;
+- `origin/<candidate_branch>`;
+- current Head;
+- sorted changed files;
+- workspace clean status;
+- live PR state, mergeability, checks, permissions, and protections when relevant.
+
+Required checks:
+
+1. Base remains `main`.
+2. Base SHA is unchanged.
+3. Head SHA is unchanged and equals candidate remote.
+4. Changed files are unchanged.
+5. Runtime fingerprint equals expected fingerprint.
+6. Workspace clean is true.
+7. Authorized write scope exactly equals actual changed files.
+8. Audit, Ready authorization, and Merge authorization fingerprints are all identical when their gates are invoked.
+
+Any mismatch produces `HARD_STOP`, `STATE_DRIFT`, or `FINGERPRINT_MISMATCH` as applicable. The Holder does not continue to Ready or Merge.
+
+## CI verification
+
+The Holder verifies live that both push and pull-request workflow runs are attached to current source Head and succeeded. Static validation, complete tests, and live validation must all run. Skipped required work, soft failure, missing runs, or any `continue-on-error` occurrence fails closed. CI does not grant Human authority.
 
 ## Dispatch Card
 
 ```text
 PACKET: DISPATCH_CARD
 TASK_ID:
-FROM: Human / Persistent Holder
-TO: Temporary Maker
-CC:
+AUTHORIZATION_ID:
 EXECUTOR:
 CHECKER:
 REPOSITORY:
-AUTHORIZATION_ID:
+BASE_REF: main
 BASE_SHA:
-HEAD_BINDING_MODE: BASE_FIXED | APPEND_ONLY_FROM_HEAD | PR_HEAD_FIXED
+BRANCH:
+PR_BASE: main
 ALLOWED_FILES:
 FORBIDDEN_ACTIONS:
-PROGRESS_PLAN:
-CURRENT_STAGE_PLAN:
-LIVE_NEXT_GATE_PROMPT:
-STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
+NEXT_GATE:
 ```
-
-## Task-scoped Publish Lease
-
-`MAKER_SELF_PUBLISH_UNDER_TASK_SCOPED_LEASE` permits a Maker to prepare and, only when explicitly granted, publish its own task result. The Holder only routes publication; it does not Push directly. A Publish Lease inherits the parent repository, Base, scope, branch, Head binding, file limits, and gate. It cannot expand parent authorization or grant Ready, Merge, acceptance, or branch-deletion authority.
-
-### Publish Lease validity and invalidation
-
-A Lease is valid only while all of these bindings remain exact: its parent authorization is active and unchanged; its repository, allowed actions, scope, expiry, executor, branch, fixed Base, Starting Head, Head Binding Mode, `CURRENT_GATE`, and `NEXT_GATE` match the authorization. A Lease is immediately invalidated when the parent authorization is revoked, expires, is consumed, or is superseded, or when its repository, scope, actions, expiry, or executor changes.
-
-The actual Base must equal the Lease's fixed Base. Any Base mismatch invalidates the Lease. Files, repository, actions, term, or executor outside the authorization are scope changes and invalidate it. The current branch must equal the authorized branch; a branch change invalidates the Lease.
-
-The Lease must bind an explicit Starting Head and Head Binding Mode. Any Head drift invalidates it except the one append-only commit expressly authorized by this Lease. After that commit, the evidence, Progress Receipt, and Lease consumption state must bind the new complete Head SHA. A changed `CURRENT_GATE` or `NEXT_GATE` invalidates the Lease and an old Lease cannot cross a new audit or Human-only gate. An expired Lease cannot be executed or resumed.
-
-If the Lease conflicts with its parent authorization, repository rules, a Checker decision, or a Human-only gate, the stricter rule controls and execution stops. On any invalidation, fail closed: do not Push, create or update a PR, or rebind Base, Head, branch, scope, or gate. Return `LEASE_INVALIDATED`, record the reason and last verified facts, obtain new Human authorization and a new Lease, and never reuse or resume the old Lease. A child Lease never grants Ready, Merge, branch deletion, final acceptance, or history rewrite authority.
 
 ## Progress Receipt
 
@@ -195,182 +203,30 @@ EXECUTOR:
 BASE_SHA:
 HEAD_SHA:
 CHANGED_FILES:
+FINGERPRINT_FIELDS:
+CANDIDATE_FINGERPRINT:
 VALIDATION:
+CI:
 UNEXPECTED_CHANGES:
-TASK_PROGRESS:
-CURRENT_STAGE_PROGRESS:
-PROGRESS_BASIS:
-PROGRESS_BLOCKER:
 STATUS: CANDIDATE_FOR_INDEPENDENT_REVIEW
-LIVE_NEXT_GATE_PROMPT:
+NEXT_GATE:
 ```
 
-## Audit receipt validation
+A Progress Receipt is Maker evidence only. It is not an audit receipt or acceptance.
 
-The State Registrar validates every audit receipt before registration. A
-receipt is registrable only if it matches the live target facts exactly:
-`TASK_ID`, `AUTHORIZATION_ID`, repository, PR, exact Base SHA, exact Head
-SHA, Checker identity, and the current PR state. Any target-fact mismatch
-classifies the receipt as `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH`
-and rejects it before any state transition.
+## Human-facing control plane
 
-An invalid receipt is rejected without side effects. It must not change
-candidate state, consume audit budget, consume repair budget, trigger a
-repository repair, trigger a full audit rerun, or advance or roll back any
-gate. A Checker input error is a receipt defect recorded against the
-Checker's submission, kept separate from candidate defects; it does not mark
-the candidate as failed or defective.
+At every critical node, the Holder distinguishes planned, dispatched, receipt-received, execution-verified, and completed states. It states whether Human action is required and provides an exact executable action when required. Waiting is never presented as a Human action. `BLACKBOX_STATUS: PROHIBITED` remains mandatory.
 
-Only a valid independent audit receipt bound to the exact Head SHA may
-register an audit conclusion. A corrected receipt for the same gate is a
-receipt retry within that gate, not a new full audit round. A non-permission
-receipt error does not require new Human authorization. Missing or
-conflicting authority, scope violation, Base or Head drift of the candidate,
-Checker independence conflict, Runtime boundary violation, and history
-rewrite remain fail-closed.
+## Failure routing
 
-## Durable Repository State
+- `STACKED_PR_PROHIBITED`: PR Base is not main; no audit or authorization can proceed.
+- `INVALID_AUDIT_RECEIPT`: target facts or Checker submission are invalid; candidate is not automatically defective.
+- `CANDIDATE_FAILURE`: implementation or evidence itself violates requirements.
+- `STATE_DRIFT`: live Base, Head, branch, repository, files, PR, checks, or protection changed.
+- `FINGERPRINT_MISMATCH`: runtime identity differs from audited identity.
+- `CAPABILITY_UNKNOWN`: required live capability cannot be read; stop without guessing.
 
-The repository records durable governance facts only: adopted protocols and
-audit conclusions, runtime implementation and authorization boundaries,
-stable project bindings, and stable governance boundaries. It does not record
-the current PR Head, PR state, current authorization, current gate, next gate,
-temporary Executor or Checker, or one-time Lease state.
+## Merge capability and runtime boundaries
 
-## Live Control-Plane State
-
-Live state is recovered at execution time from GitHub PR and branch metadata,
-the explicit Human authorization, the Head-bound independent audit receipt,
-and the Persistent Holder State Registry. A PR body may repeat a live gate as
-a convenience for people, but that prompt is not a durable repository fact.
-The Holder reports stale non-permission metadata as `RECORDED_LIMIT` when it
-does not affect authority, scope, Base, Head, Merge safety, or the Runtime
-boundary. Those authority and safety failures remain fail-closed.
-
-Live control-plane state includes but is not limited to:
-
-- current Gate（当前门禁）
-- current USER_ACTION_REQUIRED and USER_ACTION
-- current PR state
-- current Head SHA
-- current blocking items
-- current system next step
-- current repository capabilities
-- current TASK_PROGRESS percentage and basis
-- current CURRENT_STAGE_PROGRESS percentage and basis
-- current PROGRESS_PLAN and CURRENT_STAGE_PLAN completion state
-
-None of these momentary values may be written as durable repository facts.
-The durable repository records stable feedback rules, field definitions,
-adopted protocols, and audit conclusions only. Live state belongs to the
-control-plane execution layer and is recovered fresh at each gate.
-
-Repository merge settings (enabled merge methods, protection rules, required
-status checks) are live control-plane facts. They are not durable repository
-state and must be re-read at each merge-capability gate. The merge method
-capability preflight rules in `AGENTS.md` govern how these live facts are
-verified, presented, and bound to merge authorization.
-
-The following are explicitly live control-plane facts, never durable state:
-
-- enabled PR merge methods (`allow_merge_commit`, `allow_squash_merge`,
-  `allow_rebase_merge`)
-- PR mergeability
-- required status checks
-- branch-protection rules
-- applicable merge permissions
-
-Any gate that depends on these facts must read them live from the repository.
-Stale cached values, PR body text, or cross-file references are not
-authoritative substitutes. Durable repository state records adopted
-protocols and audit conclusions only; merge settings and other live facts
-belong to the control-plane execution layer and are never committed as
-durable bindings.
-
-## Canonical Task State Card
-
-The Task State Card is a live control-plane receipt, not a durable project
-state file. It records `TASK_ID`, `AUTHORIZATION_ID`, `REPOSITORY`, `BASE_SHA`,
-`HEAD_SHA`, `BRANCH`, `PR`, `EXECUTOR`, `CHECKER`, `CURRENT_GATE`, `STATUS`,
-`LAST_VERIFIED_AT`, `SUPERSEDES`, `TASK_PROGRESS`, `CURRENT_STAGE_PROGRESS`,
-`PROGRESS_BASIS`, `PROGRESS_BLOCKER`, `PROGRESS_PLAN`, and `CURRENT_STAGE_PLAN`
-only in the Holder State Registry or an execution receipt. Local runtime
-state is a non-authoritative cache and is never committed as a substitute.
-
-The lightweight routing and receipt rules are defined in
-`protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`.
-
-## Authority inheritance and consumption
-
-Authority is layered: repository facts establish what exists; explicit Human authorization establishes what may be done. Neither chat summaries nor runtime observations can override either layer. A child lease cannot exceed its parent. One-time authority is consumed after its authorized action and cannot be reused; superseding authority must name the prior authorization and its reason.
-
-## Repository facts versus runtime observations
-
-Repository commits, refs, paths, and recorded receipts are durable facts. Runtime observations, account state, memory, and chat are ephemeral observations. Conflicts are reported, not guessed through. A missing or stale repository fact blocks the next formal gate.
-
-## Fail-closed and stop rules
-
-Stop with no side effects on missing authority, ambiguous roles, dirty worktree, Base or Head drift, unauthorized files, unavailable evidence, Checker conflict, or a forbidden PR10 operation. Rejection codes include `GATE_BLOCKED`, `NO_WRITE_ALLOWED`, `SELF_ACCEPTANCE_BLOCKED`, `SCOPE_VIOLATION`, and `STATE_SYNC_REQUIRED`.
-
-## Recovery and supersession
-
-A new Holder recovers from the repository Task State Card, receipts, branch and PR facts, and explicit Human decisions. Account loss or window change does not erase durable state. If a fact or authorization changes, record a new candidate transition that references `SUPERSEDES`; do not rewrite history or silently continue from stale runtime state. On recovery, live progress percentages and PROGRESS_BASIS must be recalculated from current bound facts; cached percentages must not be trusted as current. If PROGRESS_PLAN or CURRENT_STAGE_PLAN is not fully recoverable, progress must be set to UNKNOWN until re-bound.
-
-## Human-only gates
-
-Only Human may grant Ready, Merge, branch deletion, final acceptance, and final visual or engineering acceptance. The Holder, Maker, and Checker may prepare evidence and recommendations but cannot self-authorize these gates.
-
-## Anti-patterns
-
-Do not treat the Holder as a third Maker, use private memory as durable truth, let a lease widen scope, route through recursive delegation, let the Holder Push, merge PR10 wholesale, cherry-pick PR10, or create runtime state in the repository.
-
-## Acceptance matrix
-
-| Control | Candidate requirement |
-|---|---|
-| Control plane | Holder, Task Router, default independent Checker, State Registrar named |
-| Roles | Maker and Checker temporary and independent |
-| Routing | Dispatch Card and fixed scope required |
-| Publishing | Task-scoped lease only; Holder routes, Maker may self-publish only if leased |
-| Authority | Two-layer precedence; child authority cannot expand parent |
-| State | Canonical repository card; runtime observations non-authoritative |
-| Safety | Fail-closed stop rules, recovery, and supersession |
-| Human gates | Ready, Merge, deletion, final acceptance remain Human-only |
-| PR10 | Source candidate only; no merge, cherry-pick, update, close, or delete |
-
-## State closure gate
-
-Protocol adoption records the governance specification only. It does not
-activate a Persistent Holder runtime, Hermes R1, automation, scheduling, or
-real project takeover. Those remain unauthorized until separately approved.
-
-## Adaptive counter-objective governance integration
-
-The canonical adaptive extension is
-`protocols/ADAPTIVE_COUNTER_OBJECTIVE_GOVERNANCE.md`. It does not create a
-parallel Holder, Maker, Checker, receipt, or gate system. The Holder remains
-the single router and State Registrar; existing Dispatch Card, Progress
-Receipt, Candidate Receipt, Checker Audit, and Human-only gates remain the
-execution path.
-
-Every task, child, tooling task, repair, candidate, and audit carries one
-valid `GOVERNANCE_BINDING_ID` plus the inherited parent objective,
-counter-objective, expected product delta, evidence authority, budget, stop
-conditions, progress impact, and Human-only gates. Missing or drifting
-bindings fail closed as `GOVERNANCE_BINDING_INVALID` before dispatch, write,
-Checker entry, progress, or Human acceptance.
-
-The Holder selects exactly one dynamic profile. `ENHANCED` and `CRITICAL`
-require a passing counter-objective review and separate execution budget
-authorization before Maker dispatch. A failed premise, trusted evidence
-conflict, repeated candidate failure, scope expansion, or missing product
-delta suspends the task as `SUSPENDED_FOR_COUNTER_REVIEW`; old authorization
-does not silently continue. Tooling is a separate inherited child task with
-its own budget and `PRODUCT_PROGRESS_IMPACT: NO`.
-
-The Holder tracks budget, failed hypotheses, failed candidates, product
-value, continuation justification, and governance overhead. Activity or
-tool completion cannot be registered as product progress. If governance
-itself exceeds its target, route to `GOVERNANCE_OVERHEAD_REVIEW` or
-`SUSPENDED_FOR_GOVERNANCE_SIMPLIFICATION`. Human-facing critical-node fields
-and three-sentence summaries remain mandatory under `AGENTS.md`.
+Merge methods, mergeability, required checks, protection, and permissions are live facts. The Holder re-reads them before presenting or executing a merge decision. A method mismatch may route only to precise Human method reauthorization when the candidate fingerprint and every other binding remain unchanged. Automatic merge, scheduling, Hermes R1, and persistent runtime remain unauthorized.

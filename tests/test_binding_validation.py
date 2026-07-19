@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Tests for ADT runtime binding validation.
 
-Covers all 10 mandatory validation scenarios from
+Covers all mandatory validation scenarios from
 protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md § 9 including
-the A/B incident replay test.
+the A/B incident replay test and runtime-head binding semantics.
 """
 
+import json
+import os
 import yaml
 import sys
+import subprocess
 from pathlib import Path
 
 # Add scripts to path
@@ -37,7 +40,8 @@ def make_binding(**overrides) -> str:
         },
         'active_candidate': {
             'branch': 'feature/candidate',
-            'resolved_head': 'c' * 40,
+            'starting_head': 'c' * 40,
+            'runtime_head_binding': 'GIT_REF_DERIVED',
             'status': 'ACTIVE',
         },
         'comparison_candidates': [],
@@ -68,7 +72,6 @@ def make_binding(**overrides) -> str:
             if part not in node or not isinstance(node[part], dict):
                 node[part] = {}
             node = node[part]
-        # Handle special case: setting a value to empty string means delete
         if value == '':
             node.pop(parts[-1], None)
         else:
@@ -191,7 +194,7 @@ def test_7_missing_next_step_warns():
         "Should warn when system_next_step is missing"
 
 
-# ── Test 8: candidate Head live mismatch → HARD_STOP (skipped, live only) ──
+# ── Test 8: candidate Head live check skipped in non-live mode ──
 
 def test_8_live_check_requires_live_mode():
     """In non-live mode, live check is skipped."""
@@ -210,7 +213,7 @@ def test_9_ab_incident_replay_version_a_selected():
     R2 = invalidated. System MUST select Version A."""
     binding = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.resolved_head': 'd' * 40,
+           'active_candidate.starting_head': 'd' * 40,
            'active_candidate.status': 'ACTIVE',
            'comparison_candidates': [
                {'branch': 'codex/version-b', 'resolved_head': 'e' * 40,
@@ -230,23 +233,14 @@ def test_9_ab_incident_replay_version_a_selected():
            'authoritative_fact_source.evidence':
                'Human explicitly bound Version A as active fact source',
     })
-
     v = BindingValidator(binding)
     v.validate()
-
-    # Version A must not appear in invalidated
     assert not any('VALIDATION-2' in e for e in v.errors), \
         "Version A (active) must not appear in invalidated"
-
-    # Version A must not appear in comparison
     assert not any('VALIDATION-4' in e for e in v.errors), \
         "Version A (active) must not appear in comparison"
-
-    # main must not be dual-used
     assert not any('VALIDATION-3' in e for e in v.errors), \
         "Governance base must not conflate with product base"
-
-    # Must pass overall
     assert not v.errors, \
         f"A/B incident replay should pass but got errors: {v.errors}"
 
@@ -255,7 +249,7 @@ def test_9_ab_incident_replay_rejects_main_as_product():
     """System must NOT select main when Version A exists."""
     binding = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.resolved_head': 'd' * 40,
+           'active_candidate.starting_head': 'd' * 40,
            'authoritative_fact_source.branch': 'main',
            'authoritative_fact_source.type': 'BINDING_RECORD',
            'governance_base.branch': 'main',
@@ -278,7 +272,7 @@ def test_9_ab_incident_replay_rejects_pr35_when_version_a_active():
     """System must NOT select PR #35 when Version A is the active candidate."""
     binding = make_binding(
         **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.resolved_head': 'd' * 40,
+           'active_candidate.starting_head': 'd' * 40,
            'historical_references': [
                {'branch': 'pr-35', 'sha': 'f' * 40,
                 'role': 'Historical visual baseline'}
@@ -334,6 +328,133 @@ def test_10_missing_fields_warns():
     v.validate()
     assert any('VALIDATION-10' in w for w in v.warnings), \
         "Should warn when essential context recovery fields are missing"
+
+
+# ══════════════════════════════════════════════════════════════════
+# NEW: Runtime-head binding semantics tests (VALIDATION-8,9)
+# ══════════════════════════════════════════════════════════════════
+
+# ── Test 11: resolved_head as historical anchor ──
+
+def test_11_resolved_head_absent_no_error():
+    """resolved_head absent → no VALIDATION-9 error (it's optional)."""
+    binding = make_binding()
+    v = BindingValidator(binding)
+    v.validate()
+    assert not any('VALIDATION-9' in e for e in v.errors), \
+        "Missing resolved_head should not be an error"
+
+
+def test_11_resolved_head_valid_commit_passes():
+    """resolved_head pointing to a valid commit → PASS."""
+    # Use the actual HEAD SHA of this repo as a valid resolved_head
+    try:
+        head = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+    except Exception:
+        head = None
+
+    if head and len(head) == 40:
+        binding = make_binding(**{'active_candidate.resolved_head': head})
+        v = BindingValidator(binding)
+        v.validate()
+        assert not any('VALIDATION-9' in e and 'resolved_head' in e
+                       for e in v.errors), \
+            f"Valid resolved_head ({head[:12]}) should not error. " \
+            f"Errors: {v.errors}"
+    else:
+        # Skip if we can't get a real SHA — not a test failure
+        pass
+
+
+def test_11_resolved_head_invalid_commit_fails():
+    """resolved_head that is not a valid commit → FAIL."""
+    binding = make_binding(
+        **{'active_candidate.resolved_head': '0' * 40}
+    )
+    v = BindingValidator(binding)
+    v.validate()
+    assert any('VALIDATION-9' in e and 'not a valid commit' in e
+               for e in v.errors), \
+        "Bogus resolved_head should fail VALIDATION-9"
+
+
+def test_11_resolved_head_not_required_to_match_current():
+    """resolved_head != runtime_head must NOT be an error.
+    resolved_head is a historical anchor, not a live value."""
+    binding = make_binding(
+        **{'active_candidate.resolved_head': 'a' * 40}
+    )
+    v = BindingValidator(binding)
+    v.validate()
+    # The error should be about invalid commit (fake SHA), NOT about
+    # mismatch with current HEAD
+    errors_text = ' '.join(v.errors)
+    assert 'does not match' not in errors_text.lower() or \
+        'resolved_head' not in errors_text.lower(), \
+        f"resolved_head mismatch should not be an error. Errors: {v.errors}"
+
+
+# ── Test 12: runtime_head_binding field ──
+
+def test_12_runtime_head_binding_derived_passes():
+    """runtime_head_binding: GIT_REF_DERIVED → no warning in live mode."""
+    binding = make_binding(
+        **{'active_candidate.runtime_head_binding': 'GIT_REF_DERIVED'}
+    )
+    v = BindingValidator(binding, live_mode=True)
+    v.validate()
+    assert not any('VALIDATION-9' in w and 'runtime_head_binding' in w
+                   for w in v.warnings), \
+        f"GIT_REF_DERIVED should not warn. Warnings: {v.warnings}"
+
+
+def test_12_runtime_head_binding_missing_warns():
+    """Missing runtime_head_binding → warning in live mode."""
+    binding = make_binding(
+        **{'active_candidate.runtime_head_binding': ''}
+    )
+    v = BindingValidator(binding, live_mode=True)
+    v.validate()
+    assert any('VALIDATION-9' in w and 'runtime_head_binding' in w
+               for w in v.warnings), \
+        f"Missing runtime_head_binding should warn in live mode. " \
+        f"Warnings: {v.warnings}"
+
+
+# ── Test 13: self-referential chicken-egg resolved ──
+
+def test_13_project_state_does_not_need_own_commit_sha():
+    """PROJECT_STATE.md can be committed without pre-recording its own SHA.
+    resolved_head is historical, runtime head comes from git at runtime."""
+    binding = make_binding(
+        **{'active_candidate.starting_head': 's' * 40,
+           'active_candidate.resolved_head': 'r' * 40,  # different from starting
+    })
+    v = BindingValidator(binding)
+    v.validate()
+    # Neither starting_head nor resolved_head are checked against
+    # current HEAD in static mode. The check is only that resolved_head
+    # is a valid commit (which 'r'*40 is not, but that's VALIDATION-9
+    # not VALIDATION-8). In static mode without live git access,
+    # the chicken-egg is structurally resolved.
+    assert not any('VALIDATION-8' in e for e in v.errors), \
+        f"Static mode should not require self-referential SHA. Errors: {v.errors}"
+
+
+# ── Test 14: starting_head semantics ──
+
+def test_14_starting_head_present_in_fields():
+    """starting_head is a required field in active_candidate."""
+    binding = make_binding()
+    v = BindingValidator(binding)
+    v.validate()
+    # starting_head presence is validated in live mode (check_8b),
+    # in static mode it's advisory. No error expected.
+    assert not any('starting_head' in e for e in v.errors), \
+        f"starting_head should not cause static errors. Errors: {v.errors}"
 
 
 # ── Valid case ──

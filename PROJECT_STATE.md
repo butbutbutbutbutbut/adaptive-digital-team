@@ -31,10 +31,11 @@ product_repository: butbutbutbutbutbut/he-weizhi-site
 # ── Active candidate ──
 active_candidate:
   branch: hermes/adt-main-push-ci-coverage-r1
-  resolved_head: 5c171fd26ac9a5e060f0958527e494a0d5f09d28
+  starting_head: 7e8cbe7bc194316f75b6e94077a400a43be33ec9
+  runtime_head_binding: GIT_REF_DERIVED
   status: GOVERNANCE_REPAIR
-  task_id: ADT-MAIN-PUSH-CI-COVERAGE-R1
-  authorization_id: ADT-MAIN-PUSH-CI-COVERAGE-20260720-001
+  task_id: ADT-RUNTIME-HEAD-BINDING-SEMANTICS-R1
+  authorization_id: ADT-RUNTIME-HEAD-BINDING-SEMANTICS-20260720-001
   design_status: NOT_APPLICABLE
   implementation_status: NOT_AUTHORIZED
   next_gate: EXTERNAL_INDEPENDENT_WORKFLOW_AUDIT
@@ -80,9 +81,12 @@ decisions:
     implementation: NOT_AUTHORIZED
 
 # ── Authorized action and write scope ──
-authorized_action: "ADT main push CI coverage repair R1"
+authorized_action: "ADT runtime head binding semantics repair R1"
 authorized_write_scope:
   - .github/workflows/validate.yml
+  - scripts/validate_binding.py
+  - tests/run_tests.py
+  - tests/test_binding_validation.py
   - PROJECT_STATE.md
 
 # ── Counter-objectives ──
@@ -121,8 +125,8 @@ progress:
 
 # ── Human action ──
 user_action_required: NO
-system_next_step: "Await external independent workflow audit of main push CI coverage."
-last_verified_at: "2026-07-19T20:49:25Z"
+system_next_step: "Await external independent workflow audit of runtime head binding repair."
+last_verified_at: "2026-07-19T21:03:36Z"
 
 # ── Legacy fields (preserved for backward compatibility) ──
 PHASE: PHASE_1

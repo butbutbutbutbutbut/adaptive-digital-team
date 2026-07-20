@@ -356,7 +356,7 @@ def test_scope_duplicate_path_fails(monkeypatch):
 
 def test_scope_absolute_path_fails():
     """Absolute path in scope → SCOPE_VIOLATION."""
-    v = BindingValidator(state(authorized_write_scope=["C:\\absolute\\path.txt"]))
+    v = BindingValidator(state(authorized_write_scope=["/etc/passwd"]))
     v.validate()
     assert any("absolute" in e.lower() for e in v.errors)
 

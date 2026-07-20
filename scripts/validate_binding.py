@@ -261,7 +261,8 @@ class BindingValidator:
             if not entry:
                 errs.append(f"{SCOPE_VIOLATION}: empty scope entry")
                 continue
-            if os.path.isabs(entry):
+            # Cross-platform absolute path detection
+            if os.path.isabs(entry) or entry.startswith("/"):
                 errs.append(f"{SCOPE_VIOLATION}: absolute path not allowed: {entry}")
             if ".." in Path(entry).parts:
                 errs.append(f"{SCOPE_VIOLATION}: path traversal not allowed: {entry}")

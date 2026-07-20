@@ -6,21 +6,16 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-CANDIDATE-IDENTITY-AND-SINGLE-PR-GATE-R1
+task_id: ADT-ROADMAP-P0-P5-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-candidate-identity-single-pr-gate-r1
-starting_base_sha: a3d6a7cd15ba057e7d66d30c0f972562e961005c
+branch: hermes/adt-roadmap-p0-p5-r1
+starting_base_sha: 3272a565576ec41db99d427efb9ed687b765ac06
 authorized_write_scope:
   - AGENTS.md
-  - protocols/LIGHTWEIGHT_EXECUTION_FLOW.md
-  - protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md
-  - .github/workflows/validate.yml
-  - scripts/validate_binding.py
-  - tests/test_binding_validation.py
-  - tests/run_tests.py
   - PROJECT_STATE.md
+  - docs/ADT_ROADMAP_P0_P5.md
 authority:
-  authorization_id: ADT-CANDIDATE-IDENTITY-AND-SINGLE-PR-GATE-20260720-001
+  authorization_id: ADT-ROADMAP-P0-P5-20260721-001
   holder: HUMAN_HOLDER
   maker: SOLE_MAKER
   checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER

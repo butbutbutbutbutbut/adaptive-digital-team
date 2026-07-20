@@ -749,25 +749,27 @@ def test_candidate_state_formal_in_pr(monkeypatch, tmp_path):
     v.validate()
     assert v.candidate_state in ("FORMAL_CANDIDATE", "AUDIT_ELIGIBLE")
 
-def test_candidate_state_not_audit_eligible_without_pr():
+def test_candidate_state_not_audit_eligible_without_pr(monkeypatch):
     """Without PR → cannot be AUDIT_ELIGIBLE."""
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     v = BindingValidator(state())
     v.runtime_fields = fields()
     v.runtime_fingerprint = BindingValidator.candidate_fingerprint(fields())
-    # No errors
     result = v.determine_candidate_state()
     assert result != "AUDIT_ELIGIBLE"
 
-def test_candidate_state_not_formal_without_commits():
+def test_candidate_state_not_formal_without_commits(monkeypatch):
     """No changed files → cannot be FORMAL_CANDIDATE."""
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     v = BindingValidator(state())
     v.runtime_fields = fields(changed_files=[])
     v.runtime_fingerprint = BindingValidator.candidate_fingerprint(fields(changed_files=[]))
     result = v.determine_candidate_state()
     assert result != "FORMAL_CANDIDATE"
 
-def test_candidate_state_no_fingerprint_no_audit():
+def test_candidate_state_no_fingerprint_no_audit(monkeypatch):
     """Without fingerprint → cannot be AUDIT_ELIGIBLE."""
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     v = BindingValidator(state())
     v.runtime_fields = fields()
     v.runtime_fingerprint = None

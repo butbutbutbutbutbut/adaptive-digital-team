@@ -15,6 +15,7 @@ authorized_write_scope:
   - AGENTS.md
   - protocols/BEGINNER_BOOTSTRAP_ROUTER.md
   - tests/test_beginner_bootstrap.py
+  - tests/test_binding_validation.py
   - PROJECT_STATE.md
 authority:
   authorization_id: ADT-BEGINNER-BOOTSTRAP-R1

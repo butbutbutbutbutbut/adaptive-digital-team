@@ -8,6 +8,12 @@ on:
       - 'codex/**'
       - 'agent/**'
       - 'maker/**'
+  delete:
+    branches:
+      - 'hermes/**'
+      - 'codex/**'
+      - 'agent/**'
+      - 'maker/**'
   pull_request:
 
 permissions:
@@ -39,3 +45,51 @@ jobs:
 
       - name: Run binding validation (live, CI mode)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md --ci
+
+  history-check:
+    if: ${{ github.event_name == 'push' || github.event_name == 'delete' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run candidate history immutability check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/validate_candidate_history.py
+
+  pr-eligibility:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Check PR eligibility (history immutability)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/validate_candidate_history.py

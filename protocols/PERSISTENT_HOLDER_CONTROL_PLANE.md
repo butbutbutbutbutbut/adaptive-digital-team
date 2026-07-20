@@ -225,7 +225,26 @@ At every critical node, the Holder distinguishes planned, dispatched, receipt-re
 - `CANDIDATE_FAILURE`: implementation or evidence itself violates requirements.
 - `STATE_DRIFT`: live Base, Head, branch, repository, files, PR, checks, or protection changed.
 - `FINGERPRINT_MISMATCH`: runtime identity differs from audited identity.
+- `BLOCKED_BY_HISTORY`: candidate branch or associated PR has been permanently disqualified due to prior history rewrite (forced push, deletion, or non-fast-forward update). A new branch and new PR are required.
 - `CAPABILITY_UNKNOWN`: required live capability cannot be read; stop without guessing.
+
+## Remote candidate history immutability
+
+Candidate branches are protected by a two-layer defense: (1) the
+`candidate-history-protection` ruleset physically blocks force pushes and
+deletions; (2) the CI history validator detects violations and persists
+permanent disqualification.
+
+Once a candidate branch is determined to have suffered a history rewrite,
+the branch and any associated PR are permanently disqualified.  The
+disqualification record lives in `refs/adt/disqualified/<safe-name>` —
+outside the candidate branch, surviving branch deletion and force-push.
+Commit status, temporary CI artifacts, and runtime logs alone are
+insufficient for disqualification evidence.
+
+On every PR event, the Holder verifies the head branch is not in the
+disqualification registry. A `BLOCKED_BY_HISTORY` result stops the
+candidate at the eligibility gate.
 
 ## Merge capability and runtime boundaries
 

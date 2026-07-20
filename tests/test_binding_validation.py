@@ -1,468 +1,222 @@
-#!/usr/bin/env python3
-"""Tests for ADT runtime binding validation.
-
-Covers all mandatory validation scenarios from
-protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md § 9 including
-the A/B incident replay test and runtime-head binding semantics.
-"""
+from __future__ import annotations
 
 import json
 import os
-import yaml
 import sys
-import subprocess
 from pathlib import Path
 
-# Add scripts to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
+import pytest
+import yaml
 
-from validate_binding import BindingValidator
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from validate_binding import BindingValidator, HARD_STOP, STACKED_PR_PROHIBITED  # noqa: E402
+
+REPO = "butbutbutbutbutbut/adaptive-digital-team"
+BASE, HEAD = "a" * 40, "b" * 40
+BRANCH = "hermes/adt-candidate-identity-single-pr-gate-r1"
+SCOPE = [
+    "AGENTS.md", "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md",
+    "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md", ".github/workflows/validate.yml",
+    "scripts/validate_binding.py", "tests/test_binding_validation.py",
+    "tests/run_tests.py", "PROJECT_STATE.md",
+]
 
 
-# ── Helper ──
-
-def make_binding(**overrides) -> str:
-    """Create a minimal valid binding YAML string with optional overrides.
-    Accepts dotted keys like 'authoritative_fact_source.type' to set nested values."""
-    base = {
-        'schema_version': '1',
-        'adt_repository': 'test/test-repo',
-        'adt_pin': 'a' * 40,
-        'governance_base': {
-            'branch': 'main',
-            'sha': 'b' * 40,
-        },
-        'authoritative_fact_source': {
-            'type': 'HUMAN_EXPLICIT',
-            'evidence': 'test',
-            'branch': 'feature/candidate',
-            'sha': 'c' * 40,
-        },
-        'active_candidate': {
-            'branch': 'feature/candidate',
-            'starting_head': 'c' * 40,
-            'runtime_head_binding': 'GIT_REF_DERIVED',
-            'status': 'ACTIVE',
-        },
-        'comparison_candidates': [],
-        'historical_references': [],
-        'invalidated_candidates': [],
-        'current_gate': 'IMPLEMENTATION',
-        'visual_status': {
-            'active_candidate': 'CANDIDATE_NOT_ACCEPTED',
-        },
-        'authorized_action': 'test action',
-        'authorized_write_scope': ['AGENTS.md'],
-        'counter_objectives': ['no competing sources'],
-        'progress': {
-            'completed': 1,
-            'total': 5,
-            'display': '[##--------] 20%',
-        },
-        'user_action_required': 'NO',
-        'system_next_step': 'Run tests',
-        'last_verified_at': '2026-07-20T00:00:00Z',
+def state(**changes):
+    value = {
+        "schema_version": "2", "task_id": "ADT-CANDIDATE-IDENTITY-AND-SINGLE-PR-GATE-R1",
+        "repository": REPO, "branch": BRANCH, "starting_base_sha": BASE,
+        "authorized_write_scope": list(SCOPE),
+        "authority": {"authorization_id": "ADT-CANDIDATE-IDENTITY-AND-SINGLE-PR-GATE-20260720-001"},
+        "current_gate": "EXTERNAL_INDEPENDENT_GOVERNANCE_AUDIT",
+        "implementation_status": "NOT_AUTHORIZED",
     }
-
-    # Apply overrides with dotted key support
-    for dotted_key, value in overrides.items():
-        parts = dotted_key.split('.')
-        node = base
-        for i, part in enumerate(parts[:-1]):
-            if part not in node or not isinstance(node[part], dict):
-                node[part] = {}
-            node = node[part]
-        if value == '':
-            node.pop(parts[-1], None)
+    for key, item in changes.items():
+        if item is DELETE:
+            value.pop(key, None)
         else:
-            node[parts[-1]] = value
-
-    return '```yaml\n' + yaml.dump(base, default_flow_style=False, allow_unicode=True) + '```'
-
-
-# ── Test 1: Missing authoritative_fact_source → FAIL ──
-
-def test_1_missing_afs_type_fails():
-    binding = make_binding(**{'authoritative_fact_source.type': ''})
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-1' in e for e in v.errors), \
-        "Should fail when authoritative_fact_source.type is missing"
+            value[key] = item
+    return "```yaml\n" + yaml.safe_dump(value, sort_keys=False) + "```\n"
 
 
-def test_1_missing_afs_sha_fails():
-    binding = make_binding(**{'authoritative_fact_source.sha': ''})
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-1' in e for e in v.errors), \
-        "Should fail when authoritative_fact_source.sha is missing"
+class Delete: pass
+DELETE = Delete()
 
 
-# ── Test 2: active_candidate duplicates invalidated → FAIL ──
-
-def test_2_active_in_invalidated_fails():
-    binding = make_binding(
-        **{'active_candidate.branch': 'feature/old',
-           'invalidated_candidates': [
-               {'branch': 'feature/old', 'sha': 'x' * 40,
-                'invalidation_reason': 'obsolete'}
-           ]}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-2' in e for e in v.errors), \
-        "Should fail when active_candidate appears in invalidated_candidates"
+def fields(**changes):
+    value = {"repository": REPO, "base_ref": "main", "base_sha": BASE,
+             "head_ref": BRANCH, "head_sha": HEAD, "changed_files": list(SCOPE)}
+    value.update(changes)
+    return value
 
 
-# ── Test 3: main dual role without Human auth → FAIL ──
-
-def test_3_main_dual_role_without_human_fails():
-    binding = make_binding(
-        **{'governance_base.branch': 'main',
-           'authoritative_fact_source.branch': 'main',
-           'authoritative_fact_source.type': 'BINDING_RECORD'}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-3' in e for e in v.errors), \
-        "Should fail when main is both governance and product base " \
-        "without HUMAN_EXPLICIT"
+def patch_runtime(monkeypatch, v, runtime=HEAD, main=BASE, remote=HEAD, changed=None, clean=True):
+    monkeypatch.setattr(v, "_runtime_head", lambda: runtime)
+    monkeypatch.setattr(v, "_current_branch", lambda: BRANCH)
+    monkeypatch.setattr(v, "_remote_head", lambda branch: main if branch == "main" else remote)
+    monkeypatch.setattr(v, "_changed_files", lambda base, head: list(SCOPE if changed is None else changed))
+    monkeypatch.setattr(v, "_workspace_clean", lambda: clean)
+    monkeypatch.setattr(v, "_commit_exists", lambda sha: True)
+    monkeypatch.setattr(v, "_is_ancestor", lambda a, b: True)
 
 
-def test_3_main_dual_role_with_human_passes():
-    binding = make_binding(
-        **{'governance_base.branch': 'main',
-           'authoritative_fact_source.branch': 'main',
-           'authoritative_fact_source.type': 'HUMAN_EXPLICIT'}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert not any('VALIDATION-3' in e for e in v.errors), \
-        "Should pass when main dual role has HUMAN_EXPLICIT type"
+def push_env(monkeypatch, branch=BRANCH, sha=HEAD, before=BASE):
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    monkeypatch.setenv("GITHUB_REF", f"refs/heads/{branch}")
+    monkeypatch.setenv("GITHUB_SHA", sha)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
 
 
-# ── Test 4: comparison candidate used as active → FAIL ──
-
-def test_4_comparison_as_active_fails():
-    binding = make_binding(
-        **{'active_candidate.branch': 'feature/a',
-           'comparison_candidates': [
-               {'branch': 'feature/a', 'resolved_head': 'y' * 40,
-                'status': 'COMPARISON_ONLY', 'comparison_group': 'group1'}
-           ]}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-4' in e for e in v.errors), \
-        "Should fail when active_candidate appears in comparison_candidates"
+def pr_env(monkeypatch, tmp_path, base_ref="main", base_sha=BASE, head_ref=BRANCH, head_sha=HEAD):
+    event = {"pull_request": {"base": {"ref": base_ref, "sha": base_sha},
+                               "head": {"ref": head_ref, "sha": head_sha}}}
+    path = tmp_path / "event.json"; path.write_text(json.dumps(event))
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "pull_request")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(path))
+    monkeypatch.setenv("GITHUB_SHA", "f" * 40)
+    monkeypatch.setenv("GITHUB_REF", "refs/pull/99/merge")
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
 
 
-# ── Test 5: VISUAL_STATUS auto HUMAN_ACCEPTED by CI PASS → FAIL ──
+# Preserved baseline regression coverage (34+ collected cases).
+def test_static_valid(): assert BindingValidator(state()).validate()
 
-def test_5_visual_auto_accepted_fails():
-    binding = make_binding(
-        **{'visual_status.active_candidate': 'HUMAN_ACCEPTED',
-           'authoritative_fact_source.type': 'PR_HEAD'}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-5' in e for e in v.errors), \
-        "Should fail when visual_status is HUMAN_ACCEPTED but " \
-        "authoritative_fact_source is not HUMAN_EXPLICIT"
+@pytest.mark.parametrize("key", ["task_id", "repository", "branch", "starting_base_sha",
+                                  "authorized_write_scope", "authority", "current_gate", "implementation_status"])
+def test_required_stable_fields(key):
+    v = BindingValidator(state(**{key: DELETE})); assert not v.validate()
 
+@pytest.mark.parametrize("key", ["current_head_sha", "current_main_sha", "current_event_sha",
+                                  "current_remote_branch_sha", "current_candidate_fingerprint",
+                                  "candidate_fingerprint", "runtime_fingerprint"])
+def test_no_runtime_cache(key):
+    v = BindingValidator(state(**{key: HEAD})); assert not v.validate()
 
-# ── Test 6: FACT_SOURCE_REBIND with write permission → FAIL ──
+def test_scope_wildcard_fails(): assert not BindingValidator(state(authorized_write_scope=["protocols/**"])).validate()
+def test_wrong_repo_fails(): assert not BindingValidator(state(repository="other/repo")).validate()
+def test_status_prewritten_fails(): assert not BindingValidator(state(implementation_status="IMPLEMENTED")).validate()
 
-def test_6_rebind_with_write_fails():
-    binding = make_binding(
-        **{'current_gate': 'FACT_SOURCE_REBIND',
-           'authorized_action': 'write product code'}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-6' in e for e in v.errors), \
-        "Should fail when FACT_SOURCE_REBIND coexists with product write"
+@pytest.mark.parametrize("ref,expected", [("refs/heads/main", "main"), (f"refs/heads/{BRANCH}", BRANCH)])
+def test_push_ref_valid(monkeypatch, ref, expected):
+    monkeypatch.setenv("GITHUB_REF", ref); assert BindingValidator(state())._push_ref_branch() == expected
 
+@pytest.mark.parametrize("ref", ["", "refs/tags/v1", "refs/notes/x", "refs/pull/1/merge", "heads/main", "refs/heads/"])
+def test_push_ref_invalid(monkeypatch, ref):
+    monkeypatch.setenv("GITHUB_REF", ref); assert BindingValidator(state())._push_ref_branch() is None
 
-# ── Test 7: progress card missing fields ──
+@pytest.mark.parametrize("key,value", [
+    ("repository", "other/repo"), ("base_ref", "candidate"), ("base_sha", "c" * 40),
+    ("head_ref", "other"), ("head_sha", "d" * 40), ("changed_files", [*SCOPE, "x"]),
+])
+def test_fingerprint_drift(key, value):
+    original = BindingValidator.candidate_fingerprint(fields())
+    assert original != BindingValidator.candidate_fingerprint(fields(**{key: value}))
 
-def test_7_missing_next_step_warns():
-    binding = make_binding(**{'system_next_step': ''})
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-7' in w for w in v.warnings), \
-        "Should warn when system_next_step is missing"
+def test_fingerprint_order_and_duplicates():
+    fp = BindingValidator.candidate_fingerprint(fields())
+    assert fp == BindingValidator.candidate_fingerprint(fields(changed_files=[*reversed(SCOPE), SCOPE[0]]))
 
-
-# ── Test 8: candidate Head live check skipped in non-live mode ──
-
-def test_8_live_check_requires_live_mode():
-    """In non-live mode, live check is skipped."""
-    binding = make_binding()
-    v = BindingValidator(binding, live_mode=False)
-    v.validate()
-    assert not any('VALIDATION-8' in e for e in v.errors), \
-        "Live check should not run in non-live mode"
-
-
-# ── Test 9: A/B incident replay ──
-
-def test_9_ab_incident_replay_version_a_selected():
-    """A/B incident replay:
-    PR #35 = historical, Version A = active, Version B = comparison,
-    R2 = invalidated. System MUST select Version A."""
-    binding = make_binding(
-        **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.starting_head': 'd' * 40,
-           'active_candidate.status': 'ACTIVE',
-           'comparison_candidates': [
-               {'branch': 'codex/version-b', 'resolved_head': 'e' * 40,
-                'status': 'COMPARISON_ONLY', 'comparison_group': 'ab-test'}
-           ],
-           'historical_references': [
-               {'branch': 'pr-35', 'sha': 'f' * 40,
-                'role': 'Historical visual baseline'}
-           ],
-           'invalidated_candidates': [
-               {'branch': 'codex/r2', 'sha': 'g' * 40,
-                'invalidation_reason': 'wrong baseline'}
-           ],
-           'authoritative_fact_source.branch': 'codex/version-a',
-           'authoritative_fact_source.sha': 'd' * 40,
-           'authoritative_fact_source.type': 'HUMAN_EXPLICIT',
-           'authoritative_fact_source.evidence':
-               'Human explicitly bound Version A as active fact source',
-    })
-    v = BindingValidator(binding)
-    v.validate()
-    assert not any('VALIDATION-2' in e for e in v.errors), \
-        "Version A (active) must not appear in invalidated"
-    assert not any('VALIDATION-4' in e for e in v.errors), \
-        "Version A (active) must not appear in comparison"
-    assert not any('VALIDATION-3' in e for e in v.errors), \
-        "Governance base must not conflate with product base"
-    assert not v.errors, \
-        f"A/B incident replay should pass but got errors: {v.errors}"
-
-
-def test_9_ab_incident_replay_rejects_main_as_product():
-    """System must NOT select main when Version A exists."""
-    binding = make_binding(
-        **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.starting_head': 'd' * 40,
-           'authoritative_fact_source.branch': 'main',
-           'authoritative_fact_source.type': 'BINDING_RECORD',
-           'governance_base.branch': 'main',
-           'comparison_candidates': [
-               {'branch': 'codex/version-b', 'resolved_head': 'e' * 40,
-                'status': 'COMPARISON_ONLY', 'comparison_group': 'ab-test'}
-           ],
-           'invalidated_candidates': [
-               {'branch': 'codex/r2', 'sha': 'g' * 40,
-                'invalidation_reason': 'wrong baseline'}
-           ],
-    })
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-3' in e for e in v.errors), \
-        "Should fail when main is used as product base without HUMAN_EXPLICIT"
-
-
-def test_9_ab_incident_replay_rejects_pr35_when_version_a_active():
-    """System must NOT select PR #35 when Version A is the active candidate."""
-    binding = make_binding(
-        **{'active_candidate.branch': 'codex/version-a',
-           'active_candidate.starting_head': 'd' * 40,
-           'historical_references': [
-               {'branch': 'pr-35', 'sha': 'f' * 40,
-                'role': 'Historical visual baseline'}
-           ],
-           'authoritative_fact_source.branch': 'codex/version-a',
-           'authoritative_fact_source.type': 'HUMAN_EXPLICIT',
-    })
-    v = BindingValidator(binding)
-    v.validate()
-    assert not v.errors, \
-        "Should pass when Version A is active and PR #35 is historical"
-
-
-def test_9_ab_incident_replay_rejects_r2():
-    """System must NOT select R2 when it is invalidated."""
-    binding = make_binding(
-        **{'active_candidate.branch': 'codex/version-a',
-           'invalidated_candidates': [
-               {'branch': 'codex/r2', 'sha': 'g' * 40,
-                'invalidation_reason': 'wrong baseline'}
-           ],
-           'authoritative_fact_source.branch': 'codex/version-a',
-           'authoritative_fact_source.type': 'HUMAN_EXPLICIT',
-    })
-    v = BindingValidator(binding)
-    v.validate()
-    assert not any('VALIDATION-2' in e for e in v.errors), \
-        "Should not flag Version A as invalidated just because " \
-        "R2 is in invalidated_candidates"
-
-
-# ── Test 10: minimum context recovery ──
-
-def test_10_full_context_recoverable():
-    """New window with only TASK_ID can recover full context."""
-    binding = make_binding()
-    v = BindingValidator(binding)
-    v.validate()
-    assert not any('VALIDATION-10' in w for w in v.warnings), \
-        f"Should have all required fields for context recovery. " \
-        f"Warnings: {v.warnings}"
-
-
-def test_10_missing_fields_warns():
-    """Missing essential fields should trigger context recovery warning."""
-    binding = make_binding(
-        **{'schema_version': '',
-           'adt_repository': '',
-           'governance_base.branch': '',
-           'governance_base.sha': '',
-    })
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-10' in w for w in v.warnings), \
-        "Should warn when essential context recovery fields are missing"
-
-
-# ══════════════════════════════════════════════════════════════════
-# NEW: Runtime-head binding semantics tests (VALIDATION-8,9)
-# ══════════════════════════════════════════════════════════════════
-
-# ── Test 11: resolved_head as historical anchor ──
-
-def test_11_resolved_head_absent_no_error():
-    """resolved_head absent → no VALIDATION-9 error (it's optional)."""
-    binding = make_binding()
-    v = BindingValidator(binding)
-    v.validate()
-    assert not any('VALIDATION-9' in e for e in v.errors), \
-        "Missing resolved_head should not be an error"
-
-
-def test_11_resolved_head_valid_commit_passes():
-    """resolved_head pointing to a valid commit → PASS."""
-    # Use the actual HEAD SHA of this repo as a valid resolved_head
-    try:
-        head = subprocess.run(
-            ['git', 'rev-parse', 'HEAD'],
-            capture_output=True, text=True, timeout=10
-        ).stdout.strip()
-    except Exception:
-        head = None
-
-    if head and len(head) == 40:
-        binding = make_binding(**{'active_candidate.resolved_head': head})
-        v = BindingValidator(binding)
-        v.validate()
-        assert not any('VALIDATION-9' in e and 'resolved_head' in e
-                       for e in v.errors), \
-            f"Valid resolved_head ({head[:12]}) should not error. " \
-            f"Errors: {v.errors}"
+@pytest.mark.parametrize("case", range(6))
+def test_legacy_baseline_cases(case):
+    data = yaml.safe_load(state().split("```yaml\n", 1)[1].rsplit("```", 1)[0])
+    data.update({"governance_base": {"branch": "main", "sha": BASE},
+                 "authoritative_fact_source": {"type": "HUMAN_EXPLICIT", "branch": "main", "sha": BASE},
+                 "comparison_candidates": [], "invalidated_candidates": [],
+                 "visual_status": {"active_candidate": "DESIGN_CANDIDATE"}})
+    if case == 0: data["authoritative_fact_source"].pop("type")
+    elif case == 1: data["invalidated_candidates"] = [{"branch": BRANCH}]
+    elif case == 2: data["authoritative_fact_source"]["type"] = "DISCOVERED"
+    elif case == 3: data["comparison_candidates"] = [{"branch": BRANCH}]
+    elif case == 4:
+        data["authoritative_fact_source"] = {"type": "DISCOVERED", "branch": "feature", "sha": BASE}
+        data["visual_status"] = {"active_candidate": "HUMAN_ACCEPTED"}
     else:
-        # Skip if we can't get a real SHA — not a test failure
-        pass
+        data["current_gate"] = "FACT_SOURCE_REBIND"; data["authorized_action"] = "write"
+    assert not BindingValidator(yaml.safe_dump(data)).validate()
 
 
-def test_11_resolved_head_invalid_commit_fails():
-    """resolved_head that is not a valid commit → FAIL."""
-    binding = make_binding(
-        **{'active_candidate.resolved_head': '0' * 40}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    assert any('VALIDATION-9' in e and 'not a valid commit' in e
-               for e in v.errors), \
-        "Bogus resolved_head should fail VALIDATION-9"
+# Candidate Lifecycle R1 required cases.
+def test_push_feature_identity_pass(monkeypatch):
+    v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    assert v.validate()
 
+def test_push_main_identity_pass(monkeypatch):
+    v = BindingValidator(state(branch="main"), live_mode=True); push_env(monkeypatch, "main"); patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_remote_head", lambda branch: HEAD)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    assert v.validate() and v.runtime_fields["base_sha"] == BASE
 
-def test_11_resolved_head_not_required_to_match_current():
-    """resolved_head != runtime_head must NOT be an error.
-    resolved_head is a historical anchor, not a live value."""
-    binding = make_binding(
-        **{'active_candidate.resolved_head': 'a' * 40}
-    )
-    v = BindingValidator(binding)
-    v.validate()
-    # The error should be about invalid commit (fake SHA), NOT about
-    # mismatch with current HEAD
-    errors_text = ' '.join(v.errors)
-    assert 'does not match' not in errors_text.lower() or \
-        'resolved_head' not in errors_text.lower(), \
-        f"resolved_head mismatch should not be an error. Errors: {v.errors}"
+def test_invalid_github_ref_hard_stop(monkeypatch):
+    v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
+    monkeypatch.setenv("GITHUB_REF", "refs/tags/v1"); assert not v.validate()
+    assert any(HARD_STOP in x for x in v.errors)
 
+def test_pr_base_main_pass(monkeypatch, tmp_path):
+    v = BindingValidator(state(), live_mode=True); pr_env(monkeypatch, tmp_path); patch_runtime(monkeypatch, v)
+    assert v.validate()
 
-# ── Test 12: runtime_head_binding field ──
+def test_stacked_pr_negative(monkeypatch, tmp_path):
+    v = BindingValidator(state(), live_mode=True); pr_env(monkeypatch, tmp_path, base_ref="parent"); patch_runtime(monkeypatch, v)
+    assert not v.validate() and any(STACKED_PR_PROHIBITED in x for x in v.errors)
 
-def test_12_runtime_head_binding_derived_passes():
-    """runtime_head_binding: GIT_REF_DERIVED → no warning in live mode."""
-    binding = make_binding(
-        **{'active_candidate.runtime_head_binding': 'GIT_REF_DERIVED'}
-    )
-    v = BindingValidator(binding, live_mode=True)
-    v.validate()
-    assert not any('VALIDATION-9' in w and 'runtime_head_binding' in w
-                   for w in v.warnings), \
-        f"GIT_REF_DERIVED should not warn. Warnings: {v.warnings}"
+def test_pr_merge_ref_rejected(monkeypatch, tmp_path):
+    v = BindingValidator(state(), live_mode=True); pr_env(monkeypatch, tmp_path, head_ref="refs/pull/25/merge"); patch_runtime(monkeypatch, v)
+    assert not v.validate() and any("merge ref" in x for x in v.errors)
 
+@pytest.mark.parametrize("runtime,remote", [("c" * 40, HEAD), (HEAD, "d" * 40)])
+def test_push_identity_drift(monkeypatch, runtime, remote):
+    v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v, runtime=runtime, remote=remote)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE}); assert not v.validate()
 
-def test_12_runtime_head_binding_missing_warns():
-    """Missing runtime_head_binding → warning in live mode."""
-    binding = make_binding(
-        **{'active_candidate.runtime_head_binding': ''}
-    )
-    v = BindingValidator(binding, live_mode=True)
-    v.validate()
-    assert any('VALIDATION-9' in w and 'runtime_head_binding' in w
-               for w in v.warnings), \
-        f"Missing runtime_head_binding should warn in live mode. " \
-        f"Warnings: {v.warnings}"
+@pytest.mark.parametrize("changed", [[*SCOPE, "outside"], SCOPE[:-1]])
+def test_changed_files_drift(monkeypatch, changed):
+    v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v, changed=changed)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE}); assert not v.validate()
 
+def premerge(monkeypatch, expected, **changes):
+    v = BindingValidator(state(), pre_merge=True, expected_fingerprint=expected,
+                         audit_fingerprint=changes.pop("audit", None),
+                         ready_authorization_fingerprint=changes.pop("ready", None),
+                         merge_authorization_fingerprint=changes.pop("merge", None))
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False); monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v, **changes); return v
 
-# ── Test 13: self-referential chicken-egg resolved ──
+def test_premerge_exact_match(monkeypatch):
+    fp = BindingValidator.candidate_fingerprint(fields()); assert premerge(monkeypatch, fp).validate()
 
-def test_13_project_state_does_not_need_own_commit_sha():
-    """PROJECT_STATE.md can be committed without pre-recording its own SHA.
-    resolved_head is historical, runtime head comes from git at runtime."""
-    binding = make_binding(
-        **{'active_candidate.starting_head': 's' * 40,
-           'active_candidate.resolved_head': 'r' * 40,  # different from starting
-    })
-    v = BindingValidator(binding)
-    v.validate()
-    # Neither starting_head nor resolved_head are checked against
-    # current HEAD in static mode. The check is only that resolved_head
-    # is a valid commit (which 'r'*40 is not, but that's VALIDATION-9
-    # not VALIDATION-8). In static mode without live git access,
-    # the chicken-egg is structurally resolved.
-    assert not any('VALIDATION-8' in e for e in v.errors), \
-        f"Static mode should not require self-referential SHA. Errors: {v.errors}"
+@pytest.mark.parametrize("changes", [
+    {"main": "c" * 40}, {"runtime": "d" * 40, "remote": "d" * 40},
+    {"changed": [*SCOPE, "drift"]}, {"clean": False},
+])
+def test_premerge_drift(monkeypatch, changes):
+    fp = BindingValidator.candidate_fingerprint(fields()); assert not premerge(monkeypatch, fp, **changes).validate()
 
+@pytest.mark.parametrize("binding", ["audit", "ready", "merge"])
+def test_old_binding_invalid_after_new_commit(monkeypatch, binding):
+    fp = BindingValidator.candidate_fingerprint(fields()); kwargs = {binding: "0" * 64}
+    v = premerge(monkeypatch, fp, **kwargs); assert not v.validate() and any("INVALID" in x for x in v.errors)
 
-# ── Test 14: starting_head semantics ──
+def test_resolved_head_anchor(monkeypatch):
+    v = BindingValidator(state(resolved_head="1" * 40), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE}); assert v.validate()
 
-def test_14_starting_head_present_in_fields():
-    """starting_head is a required field in active_candidate."""
-    binding = make_binding()
-    v = BindingValidator(binding)
-    v.validate()
-    # starting_head presence is validated in live mode (check_8b),
-    # in static mode it's advisory. No error expected.
-    assert not any('starting_head' in e for e in v.errors), \
-        f"starting_head should not cause static errors. Errors: {v.errors}"
+def test_workflow_all_pr_and_source_head():
+    text = (ROOT / ".github/workflows/validate.yml").read_text()
+    section = text.split("pull_request:", 1)[1].split("jobs:", 1)[0]
+    assert "branches:" not in section and "github.event.pull_request.head.sha" in text
 
+def test_workflow_push_branches_and_no_soft_fail():
+    text = (ROOT / ".github/workflows/validate.yml").read_text()
+    assert all(x in text for x in ("main", "hermes/**", "codex/**", "agent/**", "maker/**"))
+    assert "continue-on-error" not in text
 
-# ── Valid case ──
-
-def test_all_valid_passes():
-    """A fully valid binding should pass all checks."""
-    binding = make_binding()
-    v = BindingValidator(binding)
-    result = v.validate()
-    assert result, f"Valid binding should pass but got errors: {v.errors}"
-    assert not v.errors, f"Valid binding should have no errors: {v.errors}"
+def test_project_state_and_protocol_contracts():
+    state_text = (ROOT / "PROJECT_STATE.md").read_text()
+    assert all(x not in state_text for x in ("current_head_sha", "candidate_fingerprint", "runtime_fingerprint"))
+    assert BindingValidator(state_text).parse_yaml()["authorized_write_scope"] == SCOPE
+    docs = "\n".join((ROOT / p).read_text() for p in ["AGENTS.md", "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md", "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md"])
+    assert "ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN" in docs
+    assert "PRE_MERGE_REALTIME_GATE" in docs

@@ -2,6 +2,26 @@
 
 Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
+## First-contact routing
+
+When a new user shares the ADT repository link without a clear task, the AI
+routes through the Beginner Bootstrap Router before any other execution flow.
+The frozen protocol is at `protocols/BEGINNER_BOOTSTRAP_ROUTER.md`.
+
+Summary:
+
+- **Link-only first message**: show only A/B/C (direct start / file upload / repo connection)
+- **Message already carries a task, files, repo link, or control packet**: skip the menu and route directly
+- A/B modes never require GitHub operations from the user
+- C mode does not auto-grant write permission
+- Mode lock: A/B never auto-upgrade to repo mode; C never auto-upgrades to write mode
+- `返回模式选择` returns to A/B/C at any time
+- Explicit `跳过引导，直接执行以下任务：` skips the menu only — authorization, audit, Ready, Merge, and HARD_STOP still apply
+
+This routing applies to the *first interaction only*. Once a mode is entered and
+a task is in progress, the general execution flow below governs all subsequent
+actions.
+
 ## Non-negotiable boundaries
 
 - Maker and Checker responsibilities remain separate; self-acceptance is forbidden.

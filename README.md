@@ -1,12 +1,81 @@
 # Adaptive Digital Team
 
-The governance root for the Adaptive Digital Team (ADT).
+> 你把 ADT 仓库链接发给 AI 之后，它会根据你的情况给你最合适的入口。
+
+---
+
+## 发给 AI 这个链接，你会看到
+
+**如果只发了链接、没有说具体要做什么：**
+
+AI 只会回复三个选项：
+
+```text
+A｜直接开始
+B｜我会上传文件
+C｜连接我自己拥有或管理的项目仓库
+```
+
+**如果附带说了要做什么：**
+
+AI 会**自动跳过菜单**，直接开始处理你的任务——不管是聊天、处理文件、还是连接仓库。
+
+| 你发的消息里带了什么 | AI 会怎么做 |
+|---|---|
+| 明确的普通任务 | 跳过菜单，直接开始（A 模式） |
+| 文件 + 明确任务 | 跳过菜单，直接处理文件（B 模式） |
+| 你的仓库 + 仓库任务 | 跳过菜单，进入仓库连接核验（C 模式） |
+| 完整治理控制包 | 跳过菜单，进入控制包处理 |
+
+A / B 模式**永不要求你操作 GitHub**。C 模式**不自动获得写权限**。
+
+任何时候想回到菜单，说 `返回模式选择`。
+
+---
+
+### A｜直接开始
+
+```text
+你可以直接告诉我想完成什么。
+
+建议包含：
+1. 想得到什么结果
+2. 已经有哪些信息
+3. 希望以什么形式交付
+
+例如：
+"帮我整理一份活动方案，最后输出成可复制的正文。"
+```
+
+### B｜我会上传文件
+
+```text
+请把文件上传到当前对话，然后告诉我：
+
+1. 需要修改、分析还是整理
+2. 最终需要什么格式
+
+可以一次上传多个文件，不需要上传到 GitHub。
+```
+
+### C｜连接我自己拥有或管理的项目仓库
+
+```text
+请提供你自己拥有或管理的项目仓库链接。
+
+然后选择：
+
+1｜只读分析，不修改仓库
+2｜允许创建候选变更，但最终提交和合并仍由你确认
+```
+
+---
+
+## What ADT provides
 
 ADT is a **governance tool system and control plane** — a set of protocols, validators,
 and reusable checks that help humans and AI agents work together safely on multi-agent
 projects. It is not a runtime, not a scheduler, and not a single AI personality.
-
-## What ADT provides
 
 - **Repository-as-prompt** — durable context that any fresh agent window reads before acting
 - **Maker/Checker separation** — independent implementation and audit roles

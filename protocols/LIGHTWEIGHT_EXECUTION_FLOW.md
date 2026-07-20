@@ -35,15 +35,16 @@ ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
 ## Maker path
 
 1. Verify exact Base, branch, repository, authority, and scope.
-2. Create the one authorized candidate branch from exact main.
-3. Modify only exact authorized paths.
-4. Stage explicit paths; wildcard staging is prohibited.
-5. Run static validation and the complete regression suite.
-6. Verify actual changed files exactly equal the authorized scope.
-7. Push the same branch and create one Draft PR targeting main.
-8. Keep Draft; do not Ready or Merge.
-9. Obtain push and pull-request CI attached to the source Head.
-10. Route to an independent Checker.
+2. Machine precheck must pass before any write (see Candidate state machine below).
+3. Create the one authorized candidate branch from exact main.
+4. Modify only exact authorized paths.
+5. Stage explicit paths; wildcard staging is prohibited.
+6. Run static validation and the complete regression suite.
+7. Verify actual changed files are within authorized scope (scope enforcement).
+8. Push the same branch and create one Draft PR targeting main.
+9. Keep Draft; do not Ready or Merge.
+10. Obtain push and pull-request CI attached to the source Head.
+11. Route to an independent Checker.
 
 A Maker cannot create a subtask, stacked PR, self-audit, or self-acceptance path to complete the same candidate.
 
@@ -166,6 +167,74 @@ Numeric progress requires a finite pre-bound plan. Only independently verified u
 ## Human interaction and merge
 
 Human normally provides initial exact scope and final high-risk decisions. Ready, merge method, Merge, branch deletion, final acceptance, runtime activation, and destructive external action remain Human-only. Merge settings, mergeability, checks, permissions, and protection are live facts and are re-read immediately before authorization and execution.
+
+## Candidate state machine
+
+Every formal candidate transitions through this state machine:
+
+```
+TASK_AUTHORIZED
+    → MACHINE_PRECHECK
+    → WRITE_AUTHORIZED
+    → COMMITTED
+    → PUSHED
+    → DRAFT_PR
+    → CI_PASS
+    → FORMAL_CANDIDATE
+    → INDEPENDENT_AUDIT
+```
+
+### State definitions
+
+| State | Condition |
+|-------|-----------|
+| `LOCAL_DRAFT` | Local branch; no machine precheck passed or precheck failed. Not a formal candidate. |
+| `TASK_AUTHORIZED` | Human has pre-granted conditional write authorization (AUTHORIZATION_ID + scope). |
+| `WRITE_AUTHORIZED` | Machine precheck passed; write authorization activated. Local writes permitted within scope. |
+| `COMMITTED_CANDIDATE` | At least one commit beyond exact base; pushed to remote. |
+| `FORMAL_CANDIDATE` | Formal task branch, non-zero commits, exact base ancestry valid, scope compliant, candidate fingerprint computable. PR event: Head/Base match declaration. |
+| `AUDIT_ELIGIBLE` | FORMAL_CANDIDATE + has open PR + CI passed + fingerprint exists. Ready for independent audit. |
+
+### State rules
+
+- Human can pre-grant conditional write permission; only machine precheck activates it.
+- Human does not need to re-carry precheck results between windows.
+- Agent self-reported PASS cannot substitute for machine facts.
+- Local drafts are not formal candidates and cannot be audited.
+- `LOCAL_DRAFT` cannot declare `AUDIT_ELIGIBLE`.
+- Zero commits cannot declare `FORMAL_CANDIDATE`.
+- No fingerprint cannot declare `AUDIT_ELIGIBLE`.
+- No PR or CI cannot declare `AUDIT_ELIGIBLE`.
+
+### Pre-write execution gate (machine-enforceable)
+
+Before any local write, the validator enforces:
+
+1. Detached HEAD → `HARD_STOP` (except CI checkout using `GITHUB_REF` / `GITHUB_HEAD_REF` / `GITHUB_BASE_REF`)
+2. Current branch must match task-declared branch
+3. Exact Base must exist as a commit
+4. Exact Base must be an ancestor of current HEAD
+5. Candidate must derive from `main` (no non-main parent)
+6. Base drift (main advanced beyond declared base) → `HARD_STOP`
+
+### Scope enforcement (machine-enforceable)
+
+The Validator reads `authorized_write_scope` and verifies all actual changed
+files are within the authorized set:
+
+- Supports explicit file paths and controlled glob patterns (`fnmatch`)
+- Duplicate paths in scope → `SCOPE_VIOLATION`
+- Absolute paths in scope → `SCOPE_VIOLATION`
+- `..` traversal paths → `SCOPE_VIOLATION`
+- Files outside scope → `SCOPE_VIOLATION`
+- Missing or empty scope in live candidate mode → fail-closed
+- Static text validation does not depend on Git
+
+Coverage modes:
+- **Local live**: committed + staged + unstaged + untracked files
+- **CI `pull_request`**: candidate Head vs target Base
+- **CI push (branch)**: push branch vs `origin/main`
+- **CI push (main)**: merge commit vs parent commit
 
 ## Compatibility preservation
 

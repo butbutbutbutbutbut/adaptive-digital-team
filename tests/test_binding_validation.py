@@ -10,7 +10,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from validate_binding import BindingValidator, HARD_STOP, STACKED_PR_PROHIBITED  # noqa: E402
+from validate_binding import (  # noqa: E402
+    BindingValidator, HARD_STOP, STACKED_PR_PROHIBITED, SCOPE_VIOLATION,
+    CANDIDATE_STATES,
+)
 
 REPO = "butbutbutbutbutbut/adaptive-digital-team"
 BASE, HEAD = "a" * 40, "b" * 40
@@ -51,11 +54,15 @@ def fields(**changes):
     return value
 
 
-def patch_runtime(monkeypatch, v, runtime=HEAD, main=BASE, remote=HEAD, changed=None, clean=True):
+def patch_runtime(monkeypatch, v, runtime=HEAD, main=BASE, remote=HEAD, changed=None, clean=True,
+                  branch=BRANCH, is_detached=False):
     monkeypatch.setattr(v, "_runtime_head", lambda: runtime)
-    monkeypatch.setattr(v, "_current_branch", lambda: BRANCH)
-    monkeypatch.setattr(v, "_remote_head", lambda branch: main if branch == "main" else remote)
+    monkeypatch.setattr(v, "_current_branch", lambda: None if is_detached else branch)
+    monkeypatch.setattr(v, "_is_detached", lambda: is_detached)
+    monkeypatch.setattr(v, "_remote_head", lambda b: main if b == "main" else remote)
     monkeypatch.setattr(v, "_changed_files", lambda base, head: list(SCOPE if changed is None else changed))
+    monkeypatch.setattr(v, "_local_changed_files", lambda: list(SCOPE if changed is None else changed))
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: list(SCOPE if changed is None else changed))
     monkeypatch.setattr(v, "_workspace_clean", lambda: clean)
     monkeypatch.setattr(v, "_commit_exists", lambda sha: True)
     monkeypatch.setattr(v, "_is_ancestor", lambda a, b: True)
@@ -80,7 +87,10 @@ def pr_env(monkeypatch, tmp_path, base_ref="main", base_sha=BASE, head_ref=BRANC
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
 
 
-# Preserved baseline regression coverage (34+ collected cases).
+# ══════════════════════════════════════════════════════════════
+# Preserved baseline regression coverage
+# ══════════════════════════════════════════════════════════════
+
 def test_static_valid(): assert BindingValidator(state()).validate()
 
 @pytest.mark.parametrize("key", ["task_id", "repository", "branch", "starting_base_sha",
@@ -94,7 +104,16 @@ def test_required_stable_fields(key):
 def test_no_runtime_cache(key):
     v = BindingValidator(state(**{key: HEAD})); assert not v.validate()
 
-def test_scope_wildcard_fails(): assert not BindingValidator(state(authorized_write_scope=["protocols/**"])).validate()
+def test_scope_wildcard_warns_not_errors():
+    """Glob patterns in scope now just warn in static mode; enforcement is live."""
+    v = BindingValidator(state(authorized_write_scope=["protocols/**"]))
+    v.validate()
+    assert any("VALIDATION-SCOPE" in w for w in v.warnings)
+
+def test_scope_empty_fails():
+    v = BindingValidator(state(authorized_write_scope=[]))
+    assert not v.validate()
+
 def test_wrong_repo_fails(): assert not BindingValidator(state(repository="other/repo")).validate()
 def test_status_prewritten_fails(): assert not BindingValidator(state(implementation_status="IMPLEMENTED")).validate()
 
@@ -137,7 +156,10 @@ def test_legacy_baseline_cases(case):
     assert not BindingValidator(yaml.safe_dump(data)).validate()
 
 
-# Candidate Lifecycle R1 required cases.
+# ══════════════════════════════════════════════════════════════
+# Candidate Lifecycle R1 required cases (preserved)
+# ══════════════════════════════════════════════════════════════
+
 def test_push_feature_identity_pass(monkeypatch):
     v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
@@ -171,10 +193,13 @@ def test_push_identity_drift(monkeypatch, runtime, remote):
     v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v, runtime=runtime, remote=remote)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE}); assert not v.validate()
 
-@pytest.mark.parametrize("changed", [[*SCOPE, "outside"], SCOPE[:-1]])
+@pytest.mark.parametrize("changed", [[*SCOPE, "outside"], [*SCOPE, "unauthorized.md"]])
 def test_changed_files_drift(monkeypatch, changed):
+    """Files outside authorized scope cause failure."""
     v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v, changed=changed)
-    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE}); assert not v.validate()
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: changed)
+    assert not v.validate()
 
 def premerge(monkeypatch, expected, **changes):
     v = BindingValidator(state(), pre_merge=True, expected_fingerprint=expected,
@@ -216,7 +241,378 @@ def test_workflow_push_branches_and_no_soft_fail():
 def test_project_state_and_protocol_contracts():
     state_text = (ROOT / "PROJECT_STATE.md").read_text()
     assert all(x not in state_text for x in ("current_head_sha", "candidate_fingerprint", "runtime_fingerprint"))
-    assert BindingValidator(state_text).parse_yaml()["authorized_write_scope"] == SCOPE
+    parsed = BindingValidator(state_text).parse_yaml()
+    scope = parsed["authorized_write_scope"]
+    assert "scripts/validate_binding.py" in scope
+    assert "tests/test_binding_validation.py" in scope
+    assert "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md" in scope
+    assert "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md" in scope
+    assert "PROJECT_STATE.md" in scope
     docs = "\n".join((ROOT / p).read_text() for p in ["AGENTS.md", "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md", "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md"])
     assert "ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN" in docs
     assert "PRE_MERGE_REALTIME_GATE" in docs
+    assert "Candidate state machine" in docs
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: Scope enforcement tests
+# ══════════════════════════════════════════════════════════════
+
+def test_scope_normal_pass(monkeypatch):
+    """Normal authorized scope: all changed files within scope → PASS."""
+    v = BindingValidator(state(), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: list(SCOPE))
+    assert v.validate()
+
+def test_scope_outside_file_fails(monkeypatch):
+    """File outside authorized_write_scope → SCOPE_VIOLATION."""
+    v = BindingValidator(state(), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v, changed=[*SCOPE, "unauthorized/file.py"])
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: [*SCOPE, "unauthorized/file.py"])
+    assert not v.validate()
+    assert any(SCOPE_VIOLATION in e for e in v.errors)
+
+def test_scope_staged_changes_checked(monkeypatch):
+    """Staged changes must be checked against scope in candidate mode."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_local_changed_files", lambda: ["scripts/validate_binding.py", "tests/test_binding_validation.py"])
+    # Both are in SCOPE → should pass
+    assert v.validate()
+
+def test_scope_unstaged_outside_fails(monkeypatch):
+    """Unstaged changes outside scope → SCOPE_VIOLATION in candidate mode."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_local_changed_files", lambda: ["scripts/validate_binding.py", "outside.txt"])
+    assert not v.validate()
+    assert any(SCOPE_VIOLATION in e for e in v.errors)
+
+def test_scope_untracked_outside_fails(monkeypatch):
+    """Untracked files outside scope → SCOPE_VIOLATION in candidate mode."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_local_changed_files", lambda: ["untracked_new_file.log"])
+    assert not v.validate()
+    assert any(SCOPE_VIOLATION in e for e in v.errors)
+
+def test_scope_glob_legal_match(monkeypatch):
+    """Glob pattern in scope that matches changed files → PASS."""
+    scope_with_glob = ["scripts/*.py", "tests/*.py", "protocols/*.md", "PROJECT_STATE.md"]
+    v = BindingValidator(state(authorized_write_scope=scope_with_glob), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v, changed=["scripts/validate_binding.py", "tests/test_binding_validation.py"])
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: ["scripts/validate_binding.py", "tests/test_binding_validation.py"])
+    assert v.validate()
+
+def test_scope_glob_overreach_fails(monkeypatch):
+    """Glob matches authorized files but a changed file outside glob → SCOPE_VIOLATION."""
+    scope_with_glob = ["scripts/*.py", "tests/*.py"]
+    v = BindingValidator(state(authorized_write_scope=scope_with_glob), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v, changed=["scripts/validate_binding.py", "PROJECT_STATE.md"])
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: ["scripts/validate_binding.py", "PROJECT_STATE.md"])
+    assert not v.validate()
+    assert any(SCOPE_VIOLATION in e for e in v.errors)
+
+def test_scope_missing_fail_closed(monkeypatch):
+    """Missing scope in candidate mode → fail-closed."""
+    v = BindingValidator(state(authorized_write_scope=[]), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    assert not v.validate()
+
+def test_scope_empty_fail_closed_candidate(monkeypatch):
+    """Empty scope in candidate mode → fail-closed."""
+    v = BindingValidator(state(authorized_write_scope=[]), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    assert not v.validate()
+
+def test_scope_duplicate_path_fails(monkeypatch):
+    """Duplicate paths in scope → SCOPE_VIOLATION."""
+    dup_scope = SCOPE + ["AGENTS.md"]  # deliberate duplicate
+    v = BindingValidator(state(authorized_write_scope=dup_scope), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    v.validate()
+    assert any("duplicate" in e.lower() for e in v.errors)
+
+def test_scope_absolute_path_fails():
+    """Absolute path in scope → SCOPE_VIOLATION."""
+    v = BindingValidator(state(authorized_write_scope=["C:\\absolute\\path.txt"]))
+    v.validate()
+    assert any("absolute" in e.lower() for e in v.errors)
+
+def test_scope_traversal_path_fails():
+    """Path with .. traversal → SCOPE_VIOLATION."""
+    v = BindingValidator(state(authorized_write_scope=["../outside/file.txt"]))
+    v.validate()
+    assert any("traversal" in e.lower() for e in v.errors)
+
+def test_scope_static_no_git_dependency():
+    """Static text validation must not depend on Git."""
+    # In static mode (live_mode=False), scope entry validation works without git
+    v = BindingValidator(state(), live_mode=False)
+    v.validate()
+    # Should succeed without needing git
+    assert not any("unresolved" in e.lower() for e in v.errors)
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: Pre-write execution gate tests
+# ══════════════════════════════════════════════════════════════
+
+def test_prewrite_detached_head_fails(monkeypatch):
+    """Local write mode with detached HEAD → HARD_STOP."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v, is_detached=True)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("detached HEAD" in e for e in v.errors)
+
+def test_prewrite_branch_mismatch_fails(monkeypatch):
+    """Current branch differs from declared branch → HARD_STOP."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v, branch="hermes/wrong-branch")
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("branch mismatch" in e for e in v.errors)
+
+def test_prewrite_base_not_exist_fails(monkeypatch):
+    """Exact base commit does not exist → HARD_STOP."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_commit_exists", lambda sha: False)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("does not exist" in e for e in v.errors)
+
+def test_prewrite_base_not_ancestor_fails(monkeypatch):
+    """Exact base is not an ancestor of current HEAD → HARD_STOP."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_is_ancestor", lambda a, b: False)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("not an ancestor" in e for e in v.errors)
+
+def test_prewrite_non_main_derived_fails(monkeypatch):
+    """Candidate base does not derive from main → HARD_STOP."""
+    v = BindingValidator(state(starting_base_sha="x" * 40), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v, main=BASE, remote="x" * 40)
+    # _is_ancestor(main_sha, exact_base) should be False
+    monkeypatch.setattr(v, "_is_ancestor", lambda a, b: False)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("does not derive from main" in e for e in v.errors)
+
+def test_prewrite_base_drift_fails(monkeypatch):
+    """Base drift (main advanced beyond declared base) → HARD_STOP."""
+    advanced_main = "c" * 40
+    v = BindingValidator(state(starting_base_sha=BASE), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v, main=advanced_main, remote=BASE)
+    # Ancestry OK, but main_sha != exact_base → base drift
+    monkeypatch.setattr(v, "_is_ancestor", lambda a, b: True)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("base drift" in e for e in v.errors)
+
+def test_prewrite_ci_detached_ok(monkeypatch, tmp_path):
+    """CI detached checkout with valid GITHUB_REF → should not fail on detached HEAD."""
+    v = BindingValidator(state(), live_mode=True)
+    pr_env(monkeypatch, tmp_path)
+    patch_runtime(monkeypatch, v, is_detached=True)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    # CI mode should NOT add detached HEAD error
+    assert not any("detached HEAD" in e for e in v.errors)
+
+def test_prewrite_pr_branch_mismatch_fails(monkeypatch, tmp_path):
+    """PR head ref differs from declared branch → HARD_STOP."""
+    v = BindingValidator(state(), live_mode=True)
+    pr_env(monkeypatch, tmp_path, head_ref="hermes/wrong-pr-branch")
+    patch_runtime(monkeypatch, v, is_detached=True)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("differs from declared branch" in e for e in v.errors)
+
+def test_prewrite_pr_non_main_base_fails(monkeypatch, tmp_path):
+    """PR with non-main base_ref → HARD_STOP."""
+    v = BindingValidator(state(), live_mode=True)
+    pr_env(monkeypatch, tmp_path, base_ref="feature/other")
+    patch_runtime(monkeypatch, v, is_detached=True)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("derive from main" in e for e in v.errors)
+
+def test_prewrite_push_branch_mismatch_fails(monkeypatch):
+    """Push branch differs from declared branch → HARD_STOP."""
+    v = BindingValidator(state(), live_mode=True)
+    push_env(monkeypatch, branch="hermes/wrong-push-branch")
+    patch_runtime(monkeypatch, v, is_detached=True)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert any("differs from declared branch" in e for e in v.errors)
+
+def test_prewrite_normal_branch_pass(monkeypatch):
+    """Normal local branch matching declaration → PASS."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    v.parsed = v.parse()
+    v.check_prewrite_gate()
+    assert not v.errors
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: Candidate state distinction tests
+# ══════════════════════════════════════════════════════════════
+
+def test_candidate_state_local_draft_default():
+    """Default state without any checks → LOCAL_DRAFT."""
+    v = BindingValidator(state())
+    v.validate()
+    assert v.candidate_state == "LOCAL_DRAFT"
+
+def test_candidate_state_write_authorized(monkeypatch):
+    """Candidate mode with no errors → WRITE_AUTHORIZED (before commits)."""
+    v = BindingValidator(state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    v.validate()
+    assert v.candidate_state in ("WRITE_AUTHORIZED", "COMMITTED_CANDIDATE")
+
+def test_candidate_state_formal_in_pr(monkeypatch, tmp_path):
+    """PR event with all checks passing → FORMAL_CANDIDATE or AUDIT_ELIGIBLE."""
+    v = BindingValidator(state(), live_mode=True)
+    pr_env(monkeypatch, tmp_path)
+    patch_runtime(monkeypatch, v)
+    v.validate()
+    assert v.candidate_state in ("FORMAL_CANDIDATE", "AUDIT_ELIGIBLE")
+
+def test_candidate_state_not_audit_eligible_without_pr():
+    """Without PR → cannot be AUDIT_ELIGIBLE."""
+    v = BindingValidator(state())
+    v.runtime_fields = fields()
+    v.runtime_fingerprint = BindingValidator.candidate_fingerprint(fields())
+    # No errors
+    result = v.determine_candidate_state()
+    assert result != "AUDIT_ELIGIBLE"
+
+def test_candidate_state_not_formal_without_commits():
+    """No changed files → cannot be FORMAL_CANDIDATE."""
+    v = BindingValidator(state())
+    v.runtime_fields = fields(changed_files=[])
+    v.runtime_fingerprint = BindingValidator.candidate_fingerprint(fields(changed_files=[]))
+    result = v.determine_candidate_state()
+    assert result != "FORMAL_CANDIDATE"
+
+def test_candidate_state_no_fingerprint_no_audit():
+    """Without fingerprint → cannot be AUDIT_ELIGIBLE."""
+    v = BindingValidator(state())
+    v.runtime_fields = fields()
+    v.runtime_fingerprint = None
+    result = v.determine_candidate_state()
+    assert result != "AUDIT_ELIGIBLE"
+
+def test_candidate_state_errors_force_local_draft(monkeypatch):
+    """Any error → LOCAL_DRAFT regardless of other conditions."""
+    v = BindingValidator(state(), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v)
+    v.errors.append("SOME_ERROR")
+    result = v.determine_candidate_state()
+    assert result == "LOCAL_DRAFT"
+
+def test_candidate_state_all_valid_states_defined():
+    """All declared candidate states are valid strings."""
+    for s in CANDIDATE_STATES:
+        assert isinstance(s, str) and len(s) > 0
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: Explicit scope override tests
+# ══════════════════════════════════════════════════════════════
+
+def test_explicit_scope_overrides_binding():
+    """--scope CLI flag overrides authorized_write_scope in binding."""
+    explicit = ["a.py", "b.py"]
+    v = BindingValidator(state(), explicit_scope=explicit)
+    assert v._scope() == sorted(explicit)
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: CI file comparison modes
+# ══════════════════════════════════════════════════════════════
+
+def test_ci_pull_request_uses_base_vs_head(monkeypatch, tmp_path):
+    """CI pull_request mode compares candidate vs target base."""
+    v = BindingValidator(state(), live_mode=True)
+    pr_env(monkeypatch, tmp_path, base_sha=BASE, head_sha=HEAD)
+    patch_runtime(monkeypatch, v)
+    # _ci_changed_files should be called with "pull_request"
+    called_with = []
+    def track_ci(ev):
+        called_with.append(ev)
+        return list(SCOPE)
+    monkeypatch.setattr(v, "_ci_changed_files", track_ci)
+    v.validate()
+    assert "pull_request" in called_with
+
+def test_ci_branch_push_uses_main_comparison(monkeypatch):
+    """CI branch push compares push branch vs main."""
+    v = BindingValidator(state(), live_mode=True)
+    push_env(monkeypatch, branch=BRANCH, sha=HEAD)
+    patch_runtime(monkeypatch, v)
+    called_with = []
+    def track_ci(ev):
+        called_with.append(ev)
+        return list(SCOPE)
+    monkeypatch.setattr(v, "_ci_changed_files", track_ci)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    v.validate()
+    assert "push" in called_with
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: Scope enforcement survives legacy baseline
+# ══════════════════════════════════════════════════════════════
+
+def test_scope_enforcement_does_not_break_static_validation():
+    """Static validation of a valid binding still passes with scope checks."""
+    v = BindingValidator(state())
+    result = v.validate()
+    assert result, f"Static validation failed: {v.errors}"
+    assert v.candidate_state == "LOCAL_DRAFT"

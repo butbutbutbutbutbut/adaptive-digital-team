@@ -231,6 +231,68 @@ At every critical node, the Holder distinguishes planned, dispatched, receipt-re
 
 Merge methods, mergeability, required checks, protection, and permissions are live facts. The Holder re-reads them before presenting or executing a merge decision. A method mismatch may route only to precise Human method reauthorization when the candidate fingerprint and every other binding remain unchanged. Automatic merge, scheduling, Hermes R1, and persistent runtime remain unauthorized.
 
+## Candidate state machine
+
+Every formal candidate transitions through this state machine:
+
+```
+TASK_AUTHORIZED
+    → MACHINE_PRECHECK
+    → WRITE_AUTHORIZED
+    → COMMITTED
+    → PUSHED
+    → DRAFT_PR
+    → CI_PASS
+    → FORMAL_CANDIDATE
+    → INDEPENDENT_AUDIT
+```
+
+### State definitions
+
+| State | Condition |
+|-------|-----------|
+| `LOCAL_DRAFT` | Local branch; no machine precheck passed or precheck failed. Not a formal candidate. |
+| `TASK_AUTHORIZED` | Human has pre-granted conditional write authorization (AUTHORIZATION_ID + scope). |
+| `WRITE_AUTHORIZED` | Machine precheck passed; write authorization activated. Local writes permitted within scope. |
+| `COMMITTED_CANDIDATE` | At least one commit beyond exact base; pushed to remote. |
+| `FORMAL_CANDIDATE` | Formal task branch, non-zero commits, exact base ancestry valid, scope compliant, candidate fingerprint computable. PR event: Head/Base match declaration. |
+| `AUDIT_ELIGIBLE` | FORMAL_CANDIDATE + has open PR + CI passed + fingerprint exists. Ready for independent audit. |
+
+### State rules
+
+- Human can pre-grant conditional write permission; only machine precheck activates it.
+- Human does not need to re-carry precheck results between windows.
+- Agent self-reported PASS cannot substitute for machine facts.
+- Local drafts are not formal candidates and cannot be audited.
+- `LOCAL_DRAFT` cannot declare `AUDIT_ELIGIBLE`.
+- Zero commits cannot declare `FORMAL_CANDIDATE`.
+- No fingerprint cannot declare `AUDIT_ELIGIBLE`.
+- No PR or CI cannot declare `AUDIT_ELIGIBLE`.
+
+### Pre-write execution gate
+
+The Holder and Validator enforce before any local write:
+
+1. Detached HEAD → `HARD_STOP` (except CI checkout using `GITHUB_REF` / `GITHUB_HEAD_REF` / `GITHUB_BASE_REF`)
+2. Current branch must match task-declared branch
+3. Exact Base must exist as a commit
+4. Exact Base must be an ancestor of current HEAD
+5. Candidate must derive from `main` (no non-main parent)
+6. Base drift (main advanced beyond declared base) → `HARD_STOP`
+
+### Scope enforcement
+
+The Validator reads `authorized_write_scope` and verifies all actual changed
+files are within the authorized set:
+
+- Supports explicit file paths and controlled glob patterns
+- Duplicate paths → `SCOPE_VIOLATION`
+- Absolute paths → `SCOPE_VIOLATION`
+- Path traversal (`..`) → `SCOPE_VIOLATION`
+- Files outside scope → `SCOPE_VIOLATION`
+- Missing or empty scope in live candidate mode → fail-closed
+- Static text validation must not depend on Git
+
 ## Compatibility preservation matrix
 
 The Candidate Lifecycle R1 registrar operates inside the previously adopted

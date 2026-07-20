@@ -225,3 +225,23 @@ remain normative and must be interpreted together with this file:
 The pre-existing regression set remains a compatibility baseline. New R1 tests
 are additive coverage; passing new identity tests cannot waive an older safety
 or authority rule.
+
+## ADT Roadmap
+
+`docs/ADT_ROADMAP_P0_P5.md` 记录 P0–P5 路线图：各阶段目标、交付物、依赖、
+状态、门禁和模型挡位分配。
+
+### Read requirement
+
+Every new Holder, Maker, or Checker receiving a task involving ADT governance
+scope, deployment, or phase planning SHALL read
+`docs/ADT_ROADMAP_P0_P5.md` during the mandatory startup protocol to
+understand the current phase and NOT_AUTHORIZED boundaries.
+
+### Authority
+
+The roadmap is a reference document only. It does not grant execution
+authority, override existing gates, or expand authorized write scope.
+PLANNED ≠ AUTHORIZED ≠ IMPLEMENTED ≠ OPERATIONAL. Each phase requires
+its own independent task: design → authorization → implementation →
+audit → merge. A roadmap entry is not implementation authorization.

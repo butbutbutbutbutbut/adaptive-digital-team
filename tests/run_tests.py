@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_FILE = ROOT / "tests/test_binding_validation.py"
-MINIMUM_TESTS = 49
+MINIMUM_TESTS = 65
 
 
 def run(*args: str) -> subprocess.CompletedProcess[str]:

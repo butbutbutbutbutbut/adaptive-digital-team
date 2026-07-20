@@ -6,19 +6,25 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-PREWRITE-EXECUTION-AND-SCOPE-GATE-HARDENING-R1
+task_id: ADT-PUBLIC-CORE-REMEDIATION-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-prewrite-scope-gate-r1
-starting_base_sha: 3272a565576ec41db99d427efb9ed687b765ac06
+branch: hermes/adt-public-core-remediation-r1
+starting_base_sha: c8a6577bb89073e1ceb0056641ec288c6eb3792d
 authorized_write_scope:
+  - LICENSE
+  - README.md
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - CODE_OF_CONDUCT.md
+  - .gitignore
+  - config.example.yaml
+  - docs/PUBLIC_CORE_OPS_SECRETS_BOUNDARY.md
   - scripts/validate_binding.py
   - tests/test_binding_validation.py
-  - tests/run_tests.py
-  - protocols/LIGHTWEIGHT_EXECUTION_FLOW.md
-  - protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md
+  - .github/workflows/validate.yml
   - PROJECT_STATE.md
 authority:
-  authorization_id: ADT-PREWRITE-SCOPE-GATE-20260721-001
+  authorization_id: ADT-PUBLIC-CORE-REMEDIATION-20260721-001
   holder: HUMAN_HOLDER
   maker: SOLE_MAKER
   checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER

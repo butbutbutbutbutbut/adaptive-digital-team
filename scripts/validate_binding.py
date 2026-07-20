@@ -301,8 +301,13 @@ class BindingValidator:
         missing = [x for x in required if self.get(x) in (None, "", [])]
         if missing:
             self.errors.append("VALIDATION-STATE: missing stable fields: " + ", ".join(missing))
-        if self.get("repository") and self.get("repository") != "butbutbutbutbutbut/adaptive-digital-team":
-            self.errors.append("VALIDATION-STATE: repository binding is incorrect")
+        declared_repo = str(self.get("repository") or "")
+        ci_repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+        if declared_repo:
+            if not re.fullmatch(r"[^/\s]+/[^/\s]+", declared_repo):
+                self.errors.append("VALIDATION-STATE: repository must be in owner/repo format")
+            elif ci_repo and declared_repo != ci_repo:
+                self.errors.append("VALIDATION-STATE: repository binding does not match GITHUB_REPOSITORY")
         if self.get("implementation_status") != "NOT_AUTHORIZED":
             self.errors.append("VALIDATION-STATE: implementation_status must be NOT_AUTHORIZED")
         scope = self._scope()

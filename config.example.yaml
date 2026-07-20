@@ -1,0 +1,47 @@
+# ADT Configuration Template
+# ==========================
+# Copy this file to config.yaml and fill in your values.
+# Never commit config.yaml — it is gitignored.
+#
+# All secrets MUST be injected via environment variables or an external vault.
+# Do NOT put real tokens, keys, or passwords in this file.
+
+# ── Repository identity ──────────────────────────────────────
+repository:
+  # GitHub owner/repo (e.g., "your-org/adaptive-digital-team")
+  # Set via: export ADT_REPOSITORY="owner/repo"
+  owner_repo: "${ADT_REPOSITORY}"
+
+# ── CI / GitHub Actions ──────────────────────────────────────
+github:
+  # In CI, these are auto-detected from the Actions environment.
+  # For local use, leave as-is; the validator falls back to static mode.
+
+# ── Feishu / Lark integration (OPTIONAL, not yet implemented) ─
+feishu:
+  # App ID — inject via: export FEISHU_APP_ID="cli_xxxxxxxxxxxx"
+  app_id: "${FEISHU_APP_ID}"
+  # App Secret — inject via: export FEISHU_APP_SECRET="..."
+  app_secret: "${FEISHU_APP_SECRET}"
+
+# ── Model provider (OPTIONAL) ────────────────────────────────
+model:
+  # Provider name (e.g., "openai", "anthropic", "deepseek")
+  provider: "${MODEL_PROVIDER}"
+  # API key — inject via provider-specific env var
+  # OpenAI:    export OPENAI_API_KEY="sk-..."
+  # Anthropic: export ANTHROPIC_API_KEY="sk-ant-..."
+  # DeepSeek:  export DEEPSEEK_API_KEY="sk-..."
+  api_key: "${API_KEY}"
+
+# ── Memory backup (OPTIONAL, not yet implemented) ────────────
+memory:
+  # Encryption key for memory snapshots — inject via vault only
+  encryption_key: "${MEMORY_ENCRYPTION_KEY}"
+
+# ── Gateway (OPTIONAL, not yet implemented) ──────────────────
+gateway:
+  # Gateway API base URL
+  base_url: "${GATEWAY_BASE_URL}"
+  # Gateway token
+  token: "${GATEWAY_TOKEN}"

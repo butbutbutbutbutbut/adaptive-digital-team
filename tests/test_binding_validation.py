@@ -15,7 +15,7 @@ from validate_binding import (  # noqa: E402
     CANDIDATE_STATES,
 )
 
-REPO = "butbutbutbutbutbut/adaptive-digital-team"
+REPO = os.environ.get("GITHUB_REPOSITORY", "test-owner/test-repo")
 BASE, HEAD = "a" * 40, "b" * 40
 BRANCH = "hermes/adt-candidate-identity-single-pr-gate-r1"
 SCOPE = [
@@ -114,7 +114,9 @@ def test_scope_empty_fails():
     v = BindingValidator(state(authorized_write_scope=[]))
     assert not v.validate()
 
-def test_wrong_repo_fails(): assert not BindingValidator(state(repository="other/repo")).validate()
+def test_wrong_repo_fails(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+    assert not BindingValidator(state(repository="other/repo")).validate()
 def test_status_prewritten_fails(): assert not BindingValidator(state(implementation_status="IMPLEMENTED")).validate()
 
 @pytest.mark.parametrize("ref,expected", [("refs/heads/main", "main"), (f"refs/heads/{BRANCH}", BRANCH)])
@@ -245,9 +247,9 @@ def test_project_state_and_protocol_contracts():
     scope = parsed["authorized_write_scope"]
     assert "scripts/validate_binding.py" in scope
     assert "tests/test_binding_validation.py" in scope
-    assert "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md" in scope
-    assert "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md" in scope
     assert "PROJECT_STATE.md" in scope
+    assert "LICENSE" in scope
+    assert "README.md" in scope
     docs = "\n".join((ROOT / p).read_text() for p in ["AGENTS.md", "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md", "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md"])
     assert "ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN" in docs
     assert "PRE_MERGE_REALTIME_GATE" in docs

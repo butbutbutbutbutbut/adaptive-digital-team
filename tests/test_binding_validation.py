@@ -19,6 +19,7 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "butbutbutbutbutbut/adaptive-digital-
 BASE, HEAD = "0" * 40, "1" * 40
 BRANCH = "hermes/adt-beginner-bootstrap-clean-r1"
 SCOPE = [
+    ".github/workflows/validate.yml",
     "AGENTS.md",
     "PROJECT_STATE.md",
     "README.md",

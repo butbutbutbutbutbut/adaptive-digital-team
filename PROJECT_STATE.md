@@ -11,6 +11,7 @@ repository: butbutbutbutbutbut/adaptive-digital-team
 branch: hermes/adt-beginner-bootstrap-clean-r1
 starting_base_sha: daddf4a7ad073d80474d8e99038cf1d8e6b6475c
 authorized_write_scope:
+  - .github/workflows/validate.yml
   - AGENTS.md
   - PROJECT_STATE.md
   - README.md

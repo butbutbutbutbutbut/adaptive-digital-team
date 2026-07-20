@@ -1,4 +1,4 @@
-# Adaptive Digital Team
+# Adaptive Digital Team（自适应数字团队|ADT）
 
 The governance root for the Adaptive Digital Team (ADT).
 

@@ -2,6 +2,21 @@
 
 Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
+## Canonical Roadmap
+
+The canonical ADT roadmap is maintained at:
+
+```text
+docs/ADT_ROADMAP_P0_P5.md
+```
+
+Every agent must read the roadmap before starting a phase-level task, to
+verify phase dependencies, current status, entry gates, and Human-only gates.
+The roadmap itself does not constitute implementation authorization. A phase
+listed as `PLANNED` / `NOT_AUTHORIZED` in the roadmap requires a separate
+Human authorization with exact repository, branch, base, and scope before
+any write may occur.
+
 ## Non-negotiable boundaries
 
 - Maker and Checker responsibilities remain separate; self-acceptance is forbidden.

@@ -236,12 +236,69 @@ Coverage modes:
 - **CI push (branch)**: push branch vs `origin/main`
 - **CI push (main)**: merge commit vs parent commit
 
+## Remote candidate history immutability
+
+Candidate branches are protected by a two-layer defense:
+
+### Layer 1 — Ruleset (physical block)
+
+The `candidate-history-protection` ruleset blocks `non_fast_forward` pushes and
+branch `deletion` on all formal candidate prefixes (`hermes/**`, `codex/**`,
+`agent/**`, `maker/**`). This is the primary enforcement layer. CI MUST NOT claim
+it prevents force-push — the ruleset does.
+
+### Layer 2 — CI detection and audit
+
+The `validate_candidate_history.py` validator runs on `push`, `delete`, and
+`pull_request` events. It detects:
+
+- forced pushes (`event.forced == true`);
+- branch deletions;
+- non-fast-forward ancestry (before is not ancestor of after);
+- missing or unresolvable `before` / `after` fields;
+- `before` commit missing (history was demolished);
+- illegal branch-creation base (new branch not derived from `main`).
+
+All detection paths fail closed: unresolvable ancestry, missing event fields,
+and unresolvable origin/main produce `HARD_STOP`.
+
+### Permanent disqualification
+
+Once a candidate branch is determined to have suffered a history rewrite:
+
+1. The branch is **permanently** disqualified.
+2. The associated PR permanently loses Audit, Ready, and Merge eligibility.
+3. Subsequent normal commits on the same branch do **not** auto-recover.
+4. A new branch and new PR are required.
+
+Disqualification is persisted in a durable evidence layer outside the candidate
+branch: `refs/adt/disqualified/<safe-branch-name>`. This ref is a permanent
+marker that survives branch deletion and force-push.  Commit status, temporary
+CI artifacts, and runtime logs alone are insufficient for disqualification
+evidence.
+
+### PR eligibility gate
+
+On every `pull_request` event, the `pr-eligibility` job reads the
+disqualification registry. A PR whose head branch is disqualified is
+`BLOCKED_BY_HISTORY` and cannot proceed to Audit, Ready, or Merge.
+
+### Public repository security
+
+- `pull_request_target` is **not** used to execute untrusted fork code.
+- Write permission (`contents: write`) is scoped exclusively to the
+  `history-check` job on trusted same-repository `push` / `delete` events.
+- Fork PRs receive only `contents: read` — no Secrets or write Token exposure.
+- The `GITHUB_TOKEN` is passed only to jobs that require it for disqualification
+  persistence; other jobs run with minimal default permissions.
+
 ## Compatibility preservation
 
 This R1 flow is an additive narrowing of candidate topology, not permission to
 remove prior gates. Dispatch Cards, Progress Receipts, valid-vs-invalid audit
 receipt classification, finite repair handling, Human-action clarity, live
-merge-capability preflight, reviewed revert rollback, and counter-objective
-checks remain required wherever their conditions apply. The existing baseline
-regression cases remain part of the complete suite; the single-PR, fingerprint,
-and realtime-gate cases extend that suite.
+merge-capability preflight, reviewed revert rollback, counter-objective checks,
+and remote history immutability remain required wherever their conditions apply.
+The existing baseline regression cases remain part of the complete suite; the
+single-PR, fingerprint, realtime-gate, and history-immutability cases extend
+that suite.

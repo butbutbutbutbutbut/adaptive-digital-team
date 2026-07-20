@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEST_FILE = ROOT / "tests/test_binding_validation.py"
-MINIMUM_TESTS = 65
+TESTS_DIR = ROOT / "tests"
+MINIMUM_TESTS = 110
 
 
 def run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -24,7 +24,7 @@ def run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def main() -> int:
-    collected = run("--collect-only", "-q", str(TEST_FILE))
+    collected = run("--collect-only", "-q", str(TESTS_DIR))
     sys.stdout.write(collected.stdout)
     sys.stderr.write(collected.stderr)
     if collected.returncode != 0:
@@ -39,7 +39,7 @@ def main() -> int:
         print(f"FAIL: {count} tests collected; minimum is {MINIMUM_TESTS}", file=sys.stderr)
         return 1
 
-    result = run("-q", str(TEST_FILE))
+    result = run("-q", str(TESTS_DIR))
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
     return result.returncode

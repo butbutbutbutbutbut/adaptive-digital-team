@@ -13,6 +13,29 @@ Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 - Rollback uses a new revert branch and a reviewed revert commit.
 - Repository facts take priority over chat summaries. The repository is the durable prompt; chat carries only current delta.
 - `BLACKBOX_STATUS: PROHIBITED`. No unverified claim that work is running, completed, accepted, or safe.
+- Upstream repositories (including this ADT governance repo) are read-only by default for external users.
+- Without explicit write authorization for a specific upstream task, no commits, pushes, PRs, Issues, or branch operations are permitted on upstream repositories.
+- In A/B mode, no GitHub operations are permitted on any repository — links are reference material only.
+
+## First-contact routing
+
+When a new user shares the ADT repository link without a clear task, the AI
+routes through the Beginner Bootstrap Router before any other execution flow.
+The frozen protocol is at `protocols/BEGINNER_BOOTSTRAP_ROUTER.md`.
+
+Summary:
+
+- **Link-only first message**: show only A/B/C (direct start / file upload / repo connection)
+- **Message already carries a task, files, repo link, or control packet**: skip the menu and route directly
+- A/B modes never require GitHub operations from the user
+- C mode does not auto-grant write permission
+- Mode lock: A/B never auto-upgrade to repo mode; C never auto-upgrades to write mode
+- `返回模式选择` returns to A/B/C at any time
+- Explicit `跳过引导，直接执行以下任务：` skips the menu only — authorization, audit, Ready, Merge, and HARD_STOP still apply
+
+This routing applies to the *first interaction only*. Once a mode is entered and
+a task is in progress, the general execution flow below governs all subsequent
+actions.
 
 ## Repository-as-prompt startup
 

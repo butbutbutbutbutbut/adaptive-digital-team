@@ -6,6 +6,36 @@ ADT is a **governance tool system and control plane** — a set of protocols, va
 and reusable checks that help humans and AI agents work together safely on multi-agent
 projects. It is not a runtime, not a scheduler, and not a single AI personality.
 
+[中文说明与项目结构](./中文内容/README.md)
+
+## 快速开始 · Quick Start
+
+**菜单自动跳过**：第一条消息已包含明确任务、附件、仓库链接或控制包时，自动跳过菜单。
+
+### A｜直接开始
+
+你可以直接告诉我想完成什么。建议包含：想得到什么结果、已经有哪些信息、希望以什么形式交付。
+
+→ 此模式不涉及仓库操作，所有内容在对话中完成。
+
+### B｜我会上传文件
+
+请把文件上传到当前对话，然后告诉我们需要修改、分析还是整理。可以一次上传多个文件，不需要上传到 GitHub。
+
+### C｜连接我自己拥有或管理的项目仓库
+
+请提供你自己拥有或管理的项目仓库链接，然后选择只读分析或允许创建候选变更。最终提交和合并仍由你确认。
+
+→ 上游仓库（包括本 ADT 治理仓库）不能被外部用户当作项目仓库。Fork 操作仅限 Fork 本身。
+
+输入 **返回模式选择** 可随时重新显示菜单。
+
+### 推荐运行方式
+
+建议至少使用 **1 名人类 + 2 个独立 AI 窗口** 运行 ADT：一个窗口负责推进和执行，另一个窗口负责独立检查；人类保留授权、方向和最终决定权。推荐双窗口 ≠ 强制双窗口，单窗口仍可进入 A 或 B。
+
+---
+
 ## What ADT provides
 
 - **Repository-as-prompt** — durable context that any fresh agent window reads before acting

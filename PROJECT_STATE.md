@@ -6,32 +6,27 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-REMOTE-CANDIDATE-HISTORY-IMMUTABILITY-R1
+task_id: ADT-BEGINNER-BOOTSTRAP-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-remote-history-immutability-clean-r1
-starting_base_sha: 74c596bbc97288f3b84f1d57cf4bed035250cbc7
+branch: hermes/adt-beginner-bootstrap-clean-r1
+starting_base_sha: daddf4a7ad073d80474d8e99038cf1d8e6b6475c
 authorized_write_scope:
   - .github/workflows/validate.yml
-  - scripts/validate_binding.py
-  - scripts/validate_candidate_history.py
-  - tests/test_binding_validation.py
-  - tests/test_candidate_history.py
-  - tests/run_tests.py
-  - protocols/LIGHTWEIGHT_EXECUTION_FLOW.md
-  - protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md
+  - AGENTS.md
   - PROJECT_STATE.md
+  - README.md
+  - protocols/BEGINNER_BOOTSTRAP_ROUTER.md
+  - tests/test_beginner_bootstrap.py
+  - tests/test_binding_validation.py
+  - 中文内容/README.md
 authority:
-  authorization_id: ADT-REMOTE-CANDIDATE-HISTORY-IMMUTABILITY-20260721-001
-  stage_2_authorization_id: ADT-REMOTE-CANDIDATE-HISTORY-IMMUTABILITY-STAGE2-20260721-001
-  disposition_authorization_id: ADT-REMOTE-HISTORY-IMMUTABILITY-CLEAN-REBUILD-POINT-06
-  holder: HUMAN_HOLDER
-  maker: SOLE_MAKER
-  checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER
-  pr_creation: AUTHORIZED
-  ready: HUMAN_ONLY
-  merge: HUMAN_ONLY
-  failed_pr: "32"
-  failed_pr_disposition: CLOSED_UNMERGED_PRESERVED_AS_EVIDENCE
-current_gate: IMPLEMENTATION
+  holder: HE-WEIZHI
+  maker: HERMES_TEMPORARY_GOVERNANCE_MAKER
+  checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024
+current_gate: FINAL_CANDIDATE_FREEZE
 implementation_status: NOT_AUTHORIZED
 ```
+
+This file does not activate Runtime, Hermes R1, automatic scheduling,
+product implementation, Ready, Merge, branch deletion, or final visual or
+engineering acceptance.

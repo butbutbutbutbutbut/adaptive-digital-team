@@ -33,5 +33,5 @@ authority:
   failed_pr: "32"
   failed_pr_disposition: CLOSED_UNMERGED_PRESERVED_AS_EVIDENCE
 current_gate: IMPLEMENTATION
-implementation_status: CLEAN_REBUILD_IN_PROGRESS
+implementation_status: NOT_AUTHORIZED
 ```

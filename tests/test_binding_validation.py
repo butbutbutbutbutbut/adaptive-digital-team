@@ -240,21 +240,238 @@ def test_workflow_push_branches_and_no_soft_fail():
     assert all(x in text for x in ("main", "hermes/**", "codex/**", "agent/**", "maker/**"))
     assert "continue-on-error" not in text
 
-def test_project_state_and_protocol_contracts():
+def test_project_state_and_protocol_contracts() -> None:
+    """PROJECT_STATE.md must conform to universal governance invariants.
+
+    This test asserts structural rules that apply to every task, not the
+    specific files of any one task.  Task-scoped fields (task_id, branch,
+    starting_base_sha, authorized_write_scope contents) vary per candidate
+    and must not be asserted as permanent invariants here.
+    """
     state_text = (ROOT / "PROJECT_STATE.md").read_text()
-    assert all(x not in state_text for x in ("current_head_sha", "candidate_fingerprint", "runtime_fingerprint"))
+
+    # --- runtime cache prohibition (AGENTS.md §Durable state boundary) ---
+    assert all(
+        x not in state_text
+        for x in ("current_head_sha", "candidate_fingerprint", "runtime_fingerprint")
+    ), "PROJECT_STATE.md must not cache runtime SHA/fingerprint fields"
+
     parsed = BindingValidator(state_text).parse_yaml()
-    scope = parsed["authorized_write_scope"]
-    assert "scripts/validate_binding.py" in scope
-    assert "tests/test_binding_validation.py" in scope
-    assert "PROJECT_STATE.md" in scope
-    assert "tests/run_tests.py" in scope
-    # Scope is task-specific; verify core governance files present
+
+    # --- required stable fields ---
+    required = [
+        "task_id",
+        "repository",
+        "branch",
+        "starting_base_sha",
+        "authorized_write_scope",
+        "authority",
+        "current_gate",
+        "implementation_status",
+    ]
+    for field in required:
+        assert field in parsed, f"missing required field: {field}"
+
+    # --- authorized_write_scope invariants ---
+    scope: list[str] = parsed["authorized_write_scope"]
+    assert isinstance(scope, list), "authorized_write_scope must be a list"
     assert len(scope) > 0, "authorized_write_scope must not be empty"
-    docs = "\n".join((ROOT / p).read_text() for p in ["AGENTS.md", "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md", "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md"])
+    assert "PROJECT_STATE.md" in scope, (
+        "every task must include PROJECT_STATE.md in its scope"
+    )
+    for path in scope:
+        assert not path.startswith("/"), f"scope path must be relative: {path}"
+        assert not path.startswith("\\"), f"scope path must be relative: {path}"
+        assert ".." not in path, f"scope path must not traverse: {path}"
+
+    # --- authority sub-fields ---
+    auth = parsed["authority"]
+    assert isinstance(auth, dict), "authority must be a dict"
+    assert "holder" in auth
+    assert "maker" in auth
+    assert "checker" in auth
+
+    # --- valid implementation_status ---
+    valid_statuses = {
+        "NOT_AUTHORIZED",
+        "IN_PROGRESS",
+        "IMPLEMENTATION_COMPLETE",
+        "AUDIT_PASSED",
+        "READY_FOR_REVIEW",
+    }
+    assert parsed["implementation_status"] in valid_statuses, (
+        f"invalid implementation_status: {parsed['implementation_status']}"
+    )
+
+    # --- core governance document references ---
+    docs = "\n".join(
+        (ROOT / p).read_text()
+        for p in [
+            "AGENTS.md",
+            "protocols/LIGHTWEIGHT_EXECUTION_FLOW.md",
+            "protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md",
+        ]
+    )
     assert "ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN" in docs
     assert "PRE_MERGE_REALTIME_GATE" in docs
     assert "Candidate state machine" in docs
+
+
+_ILLEGAL_STATES: list[str] = [
+    # missing required field (authorized_write_scope)
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+""",
+    # empty scope
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authorized_write_scope: []
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+implementation_status: NOT_AUTHORIZED
+""",
+    # absolute path in scope
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authorized_write_scope:
+  - README.md
+  - /etc/passwd
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+implementation_status: NOT_AUTHORIZED
+""",
+    # traversal in scope
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authorized_write_scope:
+  - README.md
+  - ../../../secrets
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+implementation_status: NOT_AUTHORIZED
+""",
+    # PROJECT_STATE.md missing from own scope
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authorized_write_scope:
+  - README.md
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+implementation_status: NOT_AUTHORIZED
+""",
+    # illegal implementation_status
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authorized_write_scope:
+  - README.md
+  - PROJECT_STATE.md
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+implementation_status: BAD_VALUE
+""",
+    # runtime cache field leaked
+    """schema_version: "2"
+task_id: X
+repository: r
+branch: b
+starting_base_sha: "0000000000000000000000000000000000000000"
+authorized_write_scope:
+  - README.md
+  - PROJECT_STATE.md
+authority:
+  holder: h
+  maker: m
+  checker: c
+current_gate: g
+implementation_status: NOT_AUTHORIZED
+current_head_sha: "1111111111111111111111111111111111111111"
+""",
+]
+
+
+@pytest.mark.parametrize("illegal_yaml", _ILLEGAL_STATES)
+def test_project_state_rejects_illegal_values(illegal_yaml: str) -> None:
+    """Universal invariants must reject known-illegal PROJECT_STATE inputs."""
+    parsed = BindingValidator(illegal_yaml).parse_yaml()
+
+    # At least one invariant should trip; the exact failure is
+    # secondary — what matters is that bad states don't silently pass.
+    failures: list[str] = []
+
+    required = [
+        "task_id", "repository", "branch", "starting_base_sha",
+        "authorized_write_scope", "authority", "current_gate", "implementation_status",
+    ]
+    for field in required:
+        if field not in parsed:
+            failures.append(f"missing {field}")
+
+    if "authorized_write_scope" in parsed:
+        scope = parsed["authorized_write_scope"]
+        if not isinstance(scope, list) or len(scope) == 0:
+            failures.append("empty or invalid scope")
+        else:
+            if "PROJECT_STATE.md" not in scope:
+                failures.append("PROJECT_STATE.md missing from scope")
+            for p in scope:
+                if p.startswith("/") or p.startswith("\\") or ".." in p:
+                    failures.append(f"illegal path in scope: {p}")
+                    break
+
+    if "implementation_status" in parsed:
+        valid = {
+            "NOT_AUTHORIZED", "IN_PROGRESS", "IMPLEMENTATION_COMPLETE",
+            "AUDIT_PASSED", "READY_FOR_REVIEW",
+        }
+        if parsed["implementation_status"] not in valid:
+            failures.append(f"bad status: {parsed['implementation_status']}")
+
+    if "current_head_sha" in parsed or "candidate_fingerprint" in parsed or "runtime_fingerprint" in parsed:
+        failures.append("runtime cache field leaked")
+
+    assert failures, (
+        f"illegal PROJECT_STATE was not rejected\n"
+        f"input:\n{illegal_yaml}\n"
+        f"parsed: {parsed}"
+    )
 
 
 # ══════════════════════════════════════════════════════════════

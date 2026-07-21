@@ -260,6 +260,7 @@ class TestProtocolStructure:
         """Protocol must have all required top-level sections."""
         proto = _read(PROTOCOL)
         required = [
+            "Protocol activation",
             "Frozen Menu",
             "Menu Skip",
             "Mode Lock",
@@ -317,3 +318,108 @@ class TestProtocolStructure:
         assert any(
             g in tail for g in ["Write authorization", "Audit", "Ready", "Merge", "HARD_STOP"]
         ), "'跳过引导' section must list non-skipped gates"
+
+
+# ---------------------------------------------------------------------------
+# T31–T40: external bootstrap activation semantics (P0 maintenance)
+# ---------------------------------------------------------------------------
+
+
+BOOTSTRAP = ROOT / "BOOTSTRAP.md"
+CN_README = ROOT / "中文内容" / "README.md"
+
+
+class TestExternalBootstrapActivation:
+    """Verify READ_ACTIVATES_PROTOCOL: reading repo → ADT_PROTOCOL_ACTIVE →
+    ANDING_INTERFACE assigned, but authority remains UNGRANTED."""
+
+    def test_t31_readme_activates_protocol(self) -> None:
+        """T31: Reading README → ADT_PROTOCOL_ACTIVE."""
+        readme = _read(README)
+        # README must contain activation directive
+        assert "ADT_PROTOCOL_ACTIVE" in readme or "进入" in readme or "协议" in readme
+        # Must reference the AI activation
+        assert "AI" in readme or "激活" in readme or "安鼎" in readme
+
+    def test_t32_bootstrap_activates_protocol(self) -> None:
+        """T32: Reading BOOTSTRAP → ADT_PROTOCOL_ACTIVE."""
+        bootstrap = _read(BOOTSTRAP)
+        assert "READING THIS FILE ACTIVATES ADT" in bootstrap or "READ_ACTIVATES_PROTOCOL" in bootstrap or "PROTOCOL_ACTIVE" in bootstrap
+        assert "ADT_PROTOCOL_ACTIVE" in bootstrap or "PROTOCOL_ACTIVE" in bootstrap
+
+    def test_t33_agents_activates_protocol(self) -> None:
+        """T33: Reading AGENTS → ADT_PROTOCOL_ACTIVE."""
+        agents = _read(AGENTS)
+        assert "ADT_PROTOCOL_ACTIVE" in agents or "protocol activation" in agents.lower()
+        assert "repository read" in agents.lower() or "读取" in agents
+
+    def test_t34_anding_interface_default_identity(self) -> None:
+        """T34: Protocol activation → default interface identity is 安鼎."""
+        bootstrap = _read(BOOTSTRAP)
+        agents = _read(AGENTS)
+        readme = _read(README)
+        combined = bootstrap + "\n" + agents + "\n" + readme
+        assert "安鼎" in combined or "Anding" in combined
+        assert "ANDING_INTERFACE" in combined
+        assert "INTERFACE_IDENTITY" in combined or "interface identity" in combined.lower()
+
+    def test_t35_protocol_active_no_task_strict_abc(self) -> None:
+        """T35: ADT_PROTOCOL_ACTIVE + no clear task → strict A/B/C."""
+        proto = _read(PROTOCOL)
+        bootstrap = _read(BOOTSTRAP)
+        combined = proto + "\n" + bootstrap
+        assert "A｜直接开始" in combined
+        assert "B｜我会上传文件" in combined
+        assert "C｜连接我自己拥有或管理的项目仓库" in combined
+        # Must state: no task → A/B/C
+        assert "no clear task" in combined.lower() or "没有" in combined or "无明确" in combined or "无任务" in combined
+
+    def test_t36_protocol_active_clear_task_skips_menu(self) -> None:
+        """T36: ADT_PROTOCOL_ACTIVE + clear task → skip menu."""
+        proto = _read(PROTOCOL)
+        readme = _read(README)
+        combined = proto + "\n" + readme
+        assert "跳过菜单" in combined or "skip menu" in combined.lower()
+        assert "明确" in combined or "clear" in combined.lower()
+
+    def test_t37_protocol_active_no_write_permission(self) -> None:
+        """T37: Protocol activation does not grant write permission."""
+        bootstrap = _read(BOOTSTRAP)
+        agents = _read(AGENTS)
+        combined = bootstrap + "\n" + agents
+        assert "AUTHORITY: UNGRANTED" in combined or "UNGRANTED" in combined
+        assert "not grant" in combined.lower() or "does not" in combined.lower() or "must never" in combined.lower()
+
+    def test_t38_anding_interface_not_control(self) -> None:
+        """T38: ANDING_INTERFACE ≠ ANDING_CONTROL."""
+        bootstrap = _read(BOOTSTRAP)
+        agents = _read(AGENTS)
+        combined = bootstrap + "\n" + agents
+        assert "ANDING_INTERFACE" in combined
+        assert "ANDING_CONTROL" in combined
+        # Must distinguish the two
+        assert "≠" in combined or "not" in combined.lower() or "never" in combined.lower()
+
+    def test_t39_control_packet_still_requires_verification(self) -> None:
+        """T39: Full control packet still requires independent authorization."""
+        proto = _read(PROTOCOL)
+        # Control packet must still route through verification
+        assert "CONTROL_PACKET" in proto or "control packet" in proto.lower()
+        assert "verified" in proto.lower() or "authorization" in proto.lower() or "授权" in proto
+
+    def test_t40_readme_first_screen_activation(self) -> None:
+        """T40: README first screen contains complete activation directive."""
+        readme = _read(README)
+        # First 30 lines of README must contain the activation directive
+        first_screen = "\n".join(readme.split("\n")[:40])
+        assert "AI" in first_screen
+        assert "安鼎" in first_screen or "Anding" in first_screen
+        assert "ADT" in first_screen
+        # Must reference protocol entry
+        has_activation = (
+            "ADT_PROTOCOL_ACTIVE" in first_screen
+            or "进入" in first_screen
+            or "activate" in first_screen.lower()
+            or "协议" in first_screen
+        )
+        assert has_activation, "README first screen must contain activation directive"

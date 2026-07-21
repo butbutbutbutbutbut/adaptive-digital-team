@@ -6,13 +6,13 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-BEGINNER-BOOTSTRAP-R1
+task_id: ADT-EXTERNAL-BOOTSTRAP-ACTIVATION-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-beginner-bootstrap-clean-r1
-starting_base_sha: daddf4a7ad073d80474d8e99038cf1d8e6b6475c
+branch: hermes/adt-external-bootstrap-activation-r1
+starting_base_sha: c4b7dcc079a764a1e76012428536ac3c37549be5
 authorized_write_scope:
-  - .github/workflows/validate.yml
   - AGENTS.md
+  - BOOTSTRAP.md
   - PROJECT_STATE.md
   - README.md
   - protocols/BEGINNER_BOOTSTRAP_ROUTER.md
@@ -21,10 +21,18 @@ authorized_write_scope:
   - 中文内容/README.md
 authority:
   holder: HE-WEIZHI
-  maker: HERMES_TEMPORARY_GOVERNANCE_MAKER
-  checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024
-current_gate: FINAL_CANDIDATE_FREEZE
-implementation_status: NOT_AUTHORIZED
+  maker: HERMES_TEMPORARY_MAKER
+  checker: PENDING_INDEPENDENT_CHECKER
+current_gate: IMPLEMENTATION_IN_PROGRESS
+implementation_status: IN_PROGRESS
+phase: P0_CONTINUING_MAINTENANCE
+summary: >
+  External bootstrap activation semantic repair — corrected approach.
+  Product goal: READ_ACTIVATES_PROTOCOL. Any interactive AI reading the
+  repository enters ADT_PROTOCOL_ACTIVE with ANDING_INTERFACE assigned.
+  Authority (write/Ready/Merge/Control) remains UNGRANTED.
+  ANDING_INTERFACE ≠ ANDING_CONTROL.
+  P1–P5 remain NOT_AUTHORIZED.
 ```
 
 This file does not activate Runtime, Hermes R1, automatic scheduling,

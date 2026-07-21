@@ -16,6 +16,7 @@ authorized_write_scope:
   - PROJECT_STATE.md
   - README.md
   - protocols/BEGINNER_BOOTSTRAP_ROUTER.md
+  - scripts/validate_binding.py
   - tests/test_beginner_bootstrap.py
   - tests/test_binding_validation.py
   - 中文内容/README.md

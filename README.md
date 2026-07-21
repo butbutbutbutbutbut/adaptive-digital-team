@@ -112,7 +112,8 @@ python tests/run_tests.py
 | Phase | Status |
 |-------|--------|
 | P0 — Operational Baseline | `OPERATIONAL_BASELINE` / `CONTINUING_MAINTENANCE` |
-| P1–P3 — Dynamic Governance R1 | `PLANNED` / `NOT_AUTHORIZED` |
+| P1 — Dynamic Governance Router R1 | `AUTHORIZED` / `IMPLEMENTATION_IN_PROGRESS` |
+| P2–P3 — Model Allocation, Sub-Agent Orchestration | `PLANNED` / `NOT_AUTHORIZED` |
 | P4 — Public Release Readiness | `DESIGN_BASELINE_PARTIAL` / `IMPLEMENTATION_NOT_AUTHORIZED` |
 | P5 — ADT Ops Org Bootstrap | `PLANNED` / `NOT_AUTHORIZED` |
 

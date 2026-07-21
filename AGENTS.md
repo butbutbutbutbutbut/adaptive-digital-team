@@ -272,6 +272,10 @@ remain normative and must be interpreted together with this file:
 - bounded Publish Lease semantics, independent receipt validation, capability
   preflight, merge-method reauthorization limits, rollback by reviewed revert,
   and Human-only Ready, Merge, deletion, and acceptance;
+- dynamic governance routing that classifies task type, assesses risk,
+  decomposes tasks into ordered execution units, and produces Candidate
+  Control Packets — never AUTHORIZED without Human Holder approval
+  (`protocols/DYNAMIC_GOVERNANCE_ROUTER.md`);
 - adaptive counter-objectives against duplicate candidates, duplicate state
   systems, stacked repair topology, and governance work that displaces the
   authorized task.

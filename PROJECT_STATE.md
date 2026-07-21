@@ -23,7 +23,7 @@ authority:
   holder: HE-WEIZHI
   maker: HERMES_TEMPORARY_MAKER
   checker: PENDING_INDEPENDENT_CHECKER
-current_gate: IMPLEMENTATION_IN_PROGRESS
+current_gate: DRAFT_PR
 implementation_status: IN_PROGRESS
 phase: P0_CONTINUING_MAINTENANCE
 summary: >

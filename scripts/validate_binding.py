@@ -34,6 +34,14 @@ CANDIDATE_STATES = [
     "AUDIT_ELIGIBLE",
 ]
 
+VALID_IMPLEMENTATION_STATUSES = {
+    "NOT_AUTHORIZED",
+    "IN_PROGRESS",
+    "IMPLEMENTATION_COMPLETE",
+    "AUDIT_PASSED",
+    "READY_FOR_REVIEW",
+}
+
 
 def canonical_fields(fields: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -308,8 +316,14 @@ class BindingValidator:
                 self.errors.append("VALIDATION-STATE: repository must be in owner/repo format")
             elif ci_repo and declared_repo != ci_repo:
                 self.errors.append("VALIDATION-STATE: repository binding does not match GITHUB_REPOSITORY")
-        if self.get("implementation_status") != "NOT_AUTHORIZED":
-            self.errors.append("VALIDATION-STATE: implementation_status must be NOT_AUTHORIZED")
+        status = str(self.get("implementation_status") or "")
+        if status and status not in VALID_IMPLEMENTATION_STATUSES:
+            self.errors.append(
+                f"VALIDATION-STATE: invalid implementation_status: {status}. "
+                f"Must be one of: {', '.join(sorted(VALID_IMPLEMENTATION_STATUSES))}"
+            )
+        elif not status:
+            self.errors.append("VALIDATION-STATE: implementation_status is missing or empty")
         scope = self._scope()
         if not scope:
             self.errors.append("VALIDATION-SCOPE: authorized_write_scope is missing or empty")

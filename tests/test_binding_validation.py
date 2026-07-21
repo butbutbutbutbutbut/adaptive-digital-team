@@ -17,10 +17,10 @@ from validate_binding import (  # noqa: E402
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "butbutbutbutbutbut/adaptive-digital-team")
 BASE, HEAD = "0" * 40, "1" * 40
-BRANCH = "hermes/adt-beginner-bootstrap-clean-r1"
+BRANCH = "hermes/adt-external-bootstrap-activation-r1"
 SCOPE = [
-    ".github/workflows/validate.yml",
     "AGENTS.md",
+    "BOOTSTRAP.md",
     "PROJECT_STATE.md",
     "README.md",
     "protocols/BEGINNER_BOOTSTRAP_ROUTER.md",
@@ -32,7 +32,7 @@ SCOPE = [
 
 def state(**changes):
     value = {
-        "schema_version": "2", "task_id": "ADT-BEGINNER-BOOTSTRAP-R1",
+        "schema_version": "2", "task_id": "ADT-EXTERNAL-BOOTSTRAP-ACTIVATION-R1",
         "repository": REPO, "branch": BRANCH, "starting_base_sha": BASE,
         "authorized_write_scope": list(SCOPE),
         "authority": {

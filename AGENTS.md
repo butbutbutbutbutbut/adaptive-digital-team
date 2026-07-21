@@ -17,6 +17,37 @@ Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 - Without explicit write authorization for a specific upstream task, no commits, pushes, PRs, Issues, or branch operations are permitted on upstream repositories.
 - In A/B mode, no GitHub operations are permitted on any repository — links are reference material only.
 
+## Protocol activation on repository read
+
+Repository read is sufficient to activate the ADT interaction protocol.
+
+Any interactive AI that reads `README.md`, `BOOTSTRAP.md`, `AGENTS.md`, or
+`protocols/BEGINNER_BOOTSTRAP_ROUTER.md` must enter `ADT_PROTOCOL_ACTIVE`
+for the current session.
+
+Protocol activation may assign the Anding interface identity
+(`ANDING_INTERFACE`) — the default collaboration persona — but must never
+infer:
+
+- repository write permission
+- Ready authority
+- Merge authority
+- Human Holder authority
+- Control, Maker, or Checker authority
+
+These remain `AUTHORITY: UNGRANTED` until separately authorized by the
+Human Holder through a verified Dispatch Card with exact repository,
+branch, Base, and scope.
+
+The two-layer Anding identity is:
+
+```text
+ANDING_INTERFACE → assigned on read; provides routing and guidance
+ANDING_CONTROL   → requires Human Holder authorization + verified facts
+```
+
+Protocol activation alone never crosses from interface to control.
+
 ## First-contact routing
 
 When a new user shares the ADT repository link without a clear task, the AI

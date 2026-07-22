@@ -22,7 +22,7 @@ that reference a concept are secondary, compatibility, or executable detail.
 | Instruction routing | `protocols/INSTRUCTION_ROUTING_AND_AUTHORITY.md` | ADOPTED | — |
 | Project closeout | `protocols/PROJECT_CLOSEOUT_PROTOCOL.md` | ADOPTED | — |
 | Dynamic governance routing | `protocols/DYNAMIC_GOVERNANCE_ROUTER.md` | ADOPTED | `AGENTS.md` § R1 preservation contract |
-| Runtime adapter contract | `protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md` | CANDIDATE | — |
+| Runtime adapter contract | `protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md` | ADOPTED | — |
 
 ## Status definitions
 

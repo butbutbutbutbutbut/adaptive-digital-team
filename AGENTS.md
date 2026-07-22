@@ -2,6 +2,20 @@
 
 Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
+## Governance index
+
+This repository's governance is organized as:
+
+| Document | Purpose |
+|----------|---------|
+| `METHODOLOGY.md` | What ADT is and is not — the methodology baseline |
+| `governance/ROLE_MODEL.md` | Complete role topology, authority matrix, separation rules |
+| `governance/AUTHORITY_AND_FACTS.md` | Fact authority, action authority, FACT_SOURCE_REBIND |
+| `AGENTS.md` | Agent-facing rules, candidate lifecycle, CI gates (this file) |
+| `protocols/*.md` | Detailed protocol specifications |
+
+These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
+
 ## Non-negotiable boundaries
 
 - Maker and Checker responsibilities remain separate; self-acceptance is forbidden.
@@ -16,6 +30,7 @@ Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 - Upstream repositories (including this ADT governance repo) are read-only by default for external users.
 - Without explicit write authorization for a specific upstream task, no commits, pushes, PRs, Issues, or branch operations are permitted on upstream repositories.
 - In A/B mode, no GitHub operations are permitted on any repository — links are reference material only.
+- Project Control is the single Human-facing entry point. It routes to Task Holders but does not directly implement candidates and defaults to no repository write access.
 
 ## Protocol activation on repository read
 
@@ -90,6 +105,14 @@ The Human Holder is the only authority for Ready, final Merge, merge method sele
 ### Persistent Holder
 
 The Persistent Holder is the resident control-plane interface and State Registrar, not a third Maker. It verifies facts, prepares exact packets, routes work, validates receipts, and presents executable Human actions. It does not directly Push unless separately appointed as Maker for the task, and it never self-authorizes.
+
+### Project Control
+
+The Project Control is the single Human-facing entry window. It receives Human intent, verifies repository facts, classifies tasks, dispatches to Task Holders, validates receipts, and presents executable Human actions. By default, Project Control has no repository write access. Write access requires separate explicit authorization per task.
+
+### Task Holder
+
+A Task Holder is a bounded sub-window spawned by Project Control for a single task. It freezes the Checker Target Packet before Maker execution, creates Maker and independent Checker sub-agents, validates their receipts, and returns only conclusions and exact facts to Project Control. A Task Holder does not directly implement candidates.
 
 ### Maker
 
@@ -250,7 +273,7 @@ A non-blocking metadata defect does not justify a new PR. A real pre-audit candi
 
 ## Runtime and automation boundaries
 
-Persistent Holder runtime, Hermes R1, automatic scheduling, automatic merge, Persona, Memory, Token, Profile, Gateway, Feishu integration, memory bridge, and credential operations remain unimplemented and unauthorized unless separately adopted and explicitly activated.
+Persistent Holder runtime, Hermes R1, automatic scheduling, automatic merge, Persona, Memory, Token, Profile, Gateway, Feishu integration, memory bridge, and credential operations remain unimplemented and unauthorized unless separately adopted and explicitly activated. The target architecture converges toward a single Human-facing Project Control window that internally orchestrates Task Holders, Makers, and Checkers. The current multi-window model remains a valid fallback but is not the design target.
 
 ## Adaptive counter-objective governance
 

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/task-intake.schema.json",
+  "title": "ADT Task Intake Schema",
+  "description": "Input contract for the Dynamic Governance Router. Defines the minimum required fields for task intake classification, risk assessment, and route determination.",
+  "type": "object",
+  "required": ["request"],
+  "properties": {
+    "request": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user's natural-language task description."
+    },
+    "repository": {
+      "type": "string",
+      "description": "Owner/repository string (e.g., 'owner/project'). Required for repo-scoped tasks.",
+      "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$"
+    },
+    "attachments": {
+      "type": "array",
+      "description": "List of attached file references (names or paths).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "claimed_authority": {
+      "type": "string",
+      "description": "The authority the user claims (e.g., 'repository_owner', 'contributor', 'viewer')."
+    },
+    "base_sha": {
+      "type": "string",
+      "description": "The full 40-character Git SHA of the base commit.",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "branch": {
+      "type": "string",
+      "description": "The target branch for the task."
+    },
+    "control_packet": {
+      "type": "object",
+      "description": "An optional pre-existing Control Packet (Dispatch Card).",
+      "properties": {
+        "authorization_id": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "executor": { "type": "string" },
+        "checker": { "type": "string" },
+        "repository": { "type": "string" },
+        "base_sha": { "type": "string" },
+        "files_in_scope": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "actions_in_scope": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "write_intent": {
+      "type": "boolean",
+      "description": "Explicitly declared write intent. If absent, inferred from request text."
+    },
+    "audit_request": {
+      "type": "boolean",
+      "description": "Whether this is explicitly an audit/check request."
+    },
+    "cancellation": {
+      "type": "boolean",
+      "description": "Whether the user is cancelling an active task."
+    },
+    "auto_ready": {
+      "type": "boolean",
+      "description": "Whether the user is requesting automatic Ready. Must be rejected."
+    },
+    "auto_merge": {
+      "type": "boolean",
+      "description": "Whether the user is requesting automatic Merge. Must be rejected."
+    },
+    "auto_delete_branch": {
+      "type": "boolean",
+      "description": "Whether the user is requesting automatic branch deletion. Must be rejected."
+    },
+    "scope_expansion": {
+      "type": "boolean",
+      "description": "Whether the user is requesting scope expansion beyond current authorization."
+    },
+    "conflicting_facts": {
+      "type": "array",
+      "description": "List of conflicting fact pair descriptions.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fact_a": { "type": "string" },
+          "fact_b": { "type": "string" },
+          "conflict_description": { "type": "string" }
+        }
+      }
+    }
+  }
+}

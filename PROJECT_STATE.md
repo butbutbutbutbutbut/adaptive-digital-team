@@ -21,9 +21,9 @@ authority:
   project_control: CURRENT_WINDOW
   task_holder: CURRENT_WINDOW
   maker: HERMES_TEMPORARY_MAKER_A
-  checker: PENDING_INDEPENDENT_CHECKER
-current_gate: MAKER_EXECUTION
-implementation_status: IN_PROGRESS
+  checker: HERMES_TEMPORARY_CHECKER_B
+current_gate: POST_CI_REVALIDATION_COMPLETE
+implementation_status: AUDIT_PASSED
 summary: >
   ADT Methodology and Role Baseline R1 — establishes the formal definition of
   ADT, the complete role topology (Human Holder → Project Control → Task Holder

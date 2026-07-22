@@ -536,3 +536,408 @@ authorized_write_scope:
         )
         content = fixture.read_text()
         assert "e2e-test-pass" in content
+
+
+# ===========================================================================
+# Dual-scope repo action tests (C5 repair)
+# ===========================================================================
+
+class TestDualScopeRepoActions:
+    """Tests for independent dual-scope enforcement on repo write actions."""
+
+    # ------------------------------------------------------------------
+    # git_add_authorized_paths: dual-scope gate
+    # ------------------------------------------------------------------
+
+    def test_add_missing_plan_scope_blocked(self, tmp_path: Path):
+        """git_add with no plan_write_scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ):
+            result = guarded_repo_actions_handler(action="git_add_authorized_paths")
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert result["adapter_error"] == "PLAN_WRITE_SCOPE_UNAVAILABLE"
+
+    def test_add_missing_auth_scope_blocked(self, tmp_path: Path):
+        """git_add with no authorized_write_scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ):
+            result = guarded_repo_actions_handler(action="git_add_authorized_paths")
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert result["adapter_error"] == "AUTHORIZED_WRITE_SCOPE_UNAVAILABLE"
+
+    def test_add_explicit_path_outside_plan_scope_blocked(self, tmp_path: Path):
+        """git_add with explicit path in auth but not plan scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/fixtures/
+authorized_write_scope:
+  - tests/
+  - scripts/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_add_authorized_paths",
+                paths=["scripts/route_task.py"],
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]
+
+    def test_add_explicit_path_in_both_scopes_allowed(self, tmp_path: Path):
+        """git_add with path in both plan and auth scopes → COMPLETED."""
+        # Create the file to stage
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir(parents=True, exist_ok=True)
+        (test_dir / "test_x.py").write_text("# test")
+
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_add_authorized_paths",
+                paths=["tests/test_x.py"],
+            )
+            # May fail if tmp_path isn't a git repo, but should not be scope-blocked
+            assert result["adapter_error"] != "ATTEMPTED_SCOPE_VIOLATION"
+
+    def test_add_only_intersection_staged(self, tmp_path: Path):
+        """git_add with different plan/auth scopes: only intersection files staged."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir(parents=True, exist_ok=True)
+        (test_dir / "allowed.py").write_text("# ok")
+
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
+        (scripts_dir / "route_task.py").write_text("# task")
+
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+  - scripts/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_add_authorized_paths",
+                paths=["tests/allowed.py", "scripts/route_task.py"],
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]
+            assert "scripts/route_task.py" in result.get("gate_error", "")
+
+    # ------------------------------------------------------------------
+    # git_commit: staged-file dual-scope gate
+    # ------------------------------------------------------------------
+
+    def test_commit_plan_scope_unavailable_blocked(self, tmp_path: Path):
+        """Commit with no plan_write_scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_staged_files",
+            return_value=["tests/test_x.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_commit",
+                message="test commit",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "PLAN_WRITE_SCOPE_UNAVAILABLE" in result.get("gate_error", "")
+
+    def test_commit_auth_scope_unavailable_blocked(self, tmp_path: Path):
+        """Commit with no authorized_write_scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_staged_files",
+            return_value=["tests/test_x.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_commit",
+                message="test commit",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "AUTHORIZED_WRITE_SCOPE_UNAVAILABLE" in result.get("gate_error", "")
+
+    def test_commit_staged_unauthorized_file_blocked(self, tmp_path: Path):
+        """Commit with a staged file outside both scopes → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_staged_files",
+            return_value=["tests/test_x.py", "scripts/route_task.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_commit",
+                message="test commit",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]
+            assert "scripts/route_task.py" in result.get("gate_error", "")
+
+    def test_commit_staged_file_in_plan_not_auth_blocked(self, tmp_path: Path):
+        """Commit with staged file in plan but NOT auth scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+  - scripts/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_staged_files",
+            return_value=["scripts/route_task.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_commit",
+                message="test commit",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]
+
+    # ------------------------------------------------------------------
+    # git_push: changed-files dual-scope gate
+    # ------------------------------------------------------------------
+
+    def test_push_plan_scope_unavailable_blocked(self, tmp_path: Path):
+        """Push with no plan_write_scope → BLOCKED (scope check on changed files)."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_changed_files_base_head",
+            return_value=["tests/test_x.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_push_authorized_branch",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "PLAN_WRITE_SCOPE_UNAVAILABLE" in result.get("gate_error", "")
+
+    def test_push_branch_history_unauthorized_file_blocked(self, tmp_path: Path):
+        """Push when base..HEAD contains unauthorized file → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_changed_files_base_head",
+            return_value=["tests/test_x.py", "scripts/route_task.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_push_authorized_branch",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]
+            assert "scripts/route_task.py" in result.get("gate_error", "")
+
+    # ------------------------------------------------------------------
+    # create_draft_pr: PR-diff dual-scope gate
+    # ------------------------------------------------------------------
+
+    def test_pr_diff_unauthorized_file_blocked(self, tmp_path: Path):
+        """create_draft_pr when branch diff contains unauthorized file → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_changed_files_base_head",
+            return_value=["tests/test_x.py", "scripts/route_task.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="create_draft_pr",
+                pr_title="Test PR",
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]
+            assert "scripts/route_task.py" in result.get("gate_error", "")
+
+    def test_pr_diff_all_in_scope_allowed(self, tmp_path: Path):
+        """create_draft_pr when all branch-changed files are in dual scope → passes gate."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - tests/
+authorized_write_scope:
+  - tests/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ), patch(
+            "guarded_adapter.tools.guarded_repo_actions._get_changed_files_base_head",
+            return_value=["tests/test_x.py"],
+        ):
+            result = guarded_repo_actions_handler(
+                action="create_draft_pr",
+                pr_title="Test PR",
+            )
+            # May fail on gh CLI not found, but not on scope
+            assert result["adapter_error"] != "ATTEMPTED_SCOPE_VIOLATION"
+
+    # ------------------------------------------------------------------
+    # Intersection semantics: only files in BOTH scopes allowed
+    # ------------------------------------------------------------------
+
+    def test_add_path_in_auth_not_plan_blocked(self, tmp_path: Path):
+        """Path in authorized_write_scope but not plan_write_scope → BLOCKED."""
+        project_state = tmp_path / "PROJECT_STATE.md"
+        project_state.write_text("""```yaml
+task_id: ADT-TEST-001
+repository: test-owner/test-repo
+branch: hermes/test-branch
+starting_base_sha: aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd
+plan_write_scope:
+  - .hermes/
+authorized_write_scope:
+  - .hermes/
+  - scripts/
+```""")
+
+        with patch(
+            "guarded_adapter.tools.guarded_repo_actions._REPO_ROOT",
+            tmp_path,
+        ):
+            result = guarded_repo_actions_handler(
+                action="git_add_authorized_paths",
+                paths=["scripts/route_task.py"],
+            )
+            assert result["adapter_execution_status"] == "BLOCKED"
+            assert "ATTEMPTED_SCOPE_VIOLATION" in result["adapter_error"]

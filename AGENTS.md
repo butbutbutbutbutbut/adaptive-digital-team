@@ -170,6 +170,34 @@ Full rules: `protocols/CANDIDATE_LIFECYCLE.md` § Durable state boundary.
 
 Persistent Holder runtime, Hermes R1, automatic scheduling, automatic merge, Persona, Memory, Token, Profile, Gateway, Feishu integration, memory bridge, and credential operations remain unimplemented and unauthorized unless separately adopted and explicitly activated. The target architecture converges toward a single Human-facing Project Control window that internally orchestrates Task Holders, Makers, and Checkers. The current multi-window model remains a valid fallback but is not the design target.
 
+### Runtime adapter boundary
+
+The Runtime Adapter Contract (`protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md`,
+status: CANDIDATE) defines a three-layer isolation boundary between tool-native
+runtimes (Hermes, Codex, etc.) and the ADT Governance Core:
+
+- **Layer 1** (Tool-Native Context): process state, API keys, and credential
+  values that NEVER enter ADT Core.
+- **Layer 2** (Adapter Envelope): tool identity, session metadata, capability
+  tags, and credential tags (descriptive only — no values). Stripped before
+  reaching Layer 3.
+- **Layer 3** (TaskIntake): the existing ADT Core input contract — UNCHANGED.
+
+Key constraints:
+- `SESSION_PRINCIPAL` (tool login) is NOT the Human Holder — zero mappings.
+- Authorization comes ONLY from external `ExecutionAuthorizationBinding`, never
+  from the adapter or tool identity.
+- `plan.write_scope ⊆ auth.authorized_write_scope` (subset, not equality).
+- Every file-targeting action is gated by scope; out-of-scope attempts →
+  `ATTEMPTED_SCOPE_VIOLATION`, credential capability irrelevant.
+- Checker independence uses two-phase evidence (5 fields), not a single boolean.
+- Default-forbidden actions (ready, merge, close_pr, delete_branch) MUST NOT
+  appear in `authorized_actions`.
+- `plan.route` is NEVER overwritten by `adapter_error`.
+
+The adapter (`scripts/validate_adapter.py`) performs validation ONLY — no
+authorization generation, no action execution.
+
 ## Adaptive counter-objective governance
 
 Governance must not multiply candidates, duplicate state systems, or create formally correct but unnecessary work. When governance cost exceeds product or safety value, use the smallest safe path. Activity completion never equals product progress, and tooling work never inherits product acceptance.

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/execution-authorization-binding.schema.json",
+  "title": "ADT Execution Authorization Binding Schema",
+  "description": "External authorization evidence that gates execution AFTER the Governance Router. Binds repository, base SHA, branch, authorized actions, and authorized write scope. The adapter MUST NOT self-set human_holder_approved: true.",
+  "type": "object",
+  "required": [
+    "authorization_id",
+    "authority_source",
+    "human_role",
+    "repository",
+    "base_sha",
+    "branch",
+    "authorized_actions",
+    "authorized_write_scope"
+  ],
+  "properties": {
+    "authorization_id": {
+      "type": "string",
+      "description": "Unique authorization identifier (e.g., 'ADT-RUNTIME-ADAPTER-CONTRACT-20260723-001')."
+    },
+    "authority_source": {
+      "type": "string",
+      "description": "Citation or summary of the authority source (e.g., 'Human Holder directive #42', 'Project Control authorization record')."
+    },
+    "human_role": {
+      "type": "string",
+      "description": "The governance role of the authorizing human (e.g., 'HUMAN_HOLDER', 'PROJECT_CONTROL'). Must be a recognized ADT role."
+    },
+    "repository": {
+      "type": "string",
+      "description": "Owner/repository string (e.g., 'owner/project'). Must match TaskIntake.repository and live git origin.",
+      "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$"
+    },
+    "base_sha": {
+      "type": "string",
+      "description": "Full 40-character Git SHA of the base commit. Must match TaskIntake.base_sha and live git origin.",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Target branch for the task. Must match TaskIntake.branch and live git origin."
+    },
+    "authorized_actions": {
+      "type": "array",
+      "description": "Actions permitted under this authorization. Default-forbidden actions (ready, merge, close_pr, delete_branch) MUST NOT appear here unless separately authorized.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "read",
+          "write_file",
+          "commit",
+          "push",
+          "create_draft_pr"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "authorized_write_scope": {
+      "type": "array",
+      "description": "Files this authorization permits writing to. plan.write_scope MUST be a subset (⊆) of this — not equality. Paths are relative to repository root.",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "human_holder_approved": {
+      "type": "boolean",
+      "description": "EXTERNAL ONLY. The adapter MUST NOT self-set this to true. Must be set by an external governance process prior to adapter receipt."
+    },
+    "risk_boundary": {
+      "type": "string",
+      "enum": ["LOW", "MODERATE", "HIGH"],
+      "description": "Maximum permitted risk level. CRITICAL risk tasks require separate Human Holder authorization and cannot be authorized by this binding alone."
+    },
+    "task_id": {
+      "type": "string",
+      "description": "The task ID this authorization binds to (e.g., 'ADT-RUNTIME-ADAPTER-CONTRACT-R1')."
+    }
+  }
+}

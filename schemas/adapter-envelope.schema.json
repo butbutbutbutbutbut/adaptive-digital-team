@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/adapter-envelope.schema.json",
+  "title": "ADT Adapter Envelope Schema (Layer 2)",
+  "description": "Structured metadata carried alongside the task intake. Contains tool identity, session metadata, and credential tags (descriptive only — never credential values). Stripped before reaching ADT Core Layer 3.",
+  "type": "object",
+  "required": [
+    "tool_identity",
+    "tool_session_id",
+    "tool_capability_tags",
+    "session_principal",
+    "credential_tags"
+  ],
+  "properties": {
+    "tool_identity": {
+      "type": "string",
+      "description": "Tool name and version (e.g., 'hermes/4.2.1', 'codex/stable')."
+    },
+    "tool_session_id": {
+      "type": "string",
+      "description": "Opaque tool-specific session identifier. Used for audit trail; carries no authority."
+    },
+    "tool_capability_tags": {
+      "type": "array",
+      "description": "Descriptive tags of tool capabilities. NOT authority grants — presence does not imply permission.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "git",
+          "file_write",
+          "file_read",
+          "browser",
+          "terminal",
+          "github_api",
+          "network"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "session_principal": {
+      "type": "string",
+      "description": "The identity under which the tool session is running (tag only, e.g., 'xiaohe', 'alice@example.com'). NOT the Human Holder."
+    },
+    "claimed_actor": {
+      "type": "string",
+      "description": "The actor the session claims to represent (tag only). May equal session_principal. NOT the Human Holder."
+    },
+    "credential_tags": {
+      "type": "array",
+      "description": "Tag descriptions of available credentials (e.g., 'github_pat', 'openai_api_key'). NEVER contains actual credential values. Actual credentials exist ONLY in Layer 1.",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "independence_evidence": {
+      "type": "object",
+      "description": "Two-phase Checker independence evidence. May be null for non-Checker roles. See ADT_RUNTIME_ADAPTER_CONTRACT.md §7.",
+      "required": [
+        "separate_execution_context",
+        "maker_context_inherited",
+        "participated_in_implementation",
+        "independent_fact_read",
+        "independent_conclusion"
+      ],
+      "properties": {
+        "separate_execution_context": {
+          "type": "boolean",
+          "description": "Phase 1: Checker runs in a separate execution context."
+        },
+        "maker_context_inherited": {
+          "type": "boolean",
+          "description": "Phase 1: MUST be false. Checker does NOT inherit Maker's session state."
+        },
+        "participated_in_implementation": {
+          "type": "boolean",
+          "description": "Phase 2: MUST be false. Checker did not design, write, or contribute."
+        },
+        "independent_fact_read": {
+          "type": "boolean",
+          "description": "Phase 2: MUST be true. Checker read facts from independent sources."
+        },
+        "independent_conclusion": {
+          "type": "boolean",
+          "description": "Phase 2: MUST be true. Checker reached its own conclusion. NOT required pre-execution."
+        }
+      }
+    }
+  }
+}

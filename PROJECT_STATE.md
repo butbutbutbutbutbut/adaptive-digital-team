@@ -6,34 +6,29 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-EXTERNAL-BOOTSTRAP-ACTIVATION-R1
+task_id: ADT-METHODOLOGY-ROLE-BASELINE-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-external-bootstrap-activation-r1
-starting_base_sha: c4b7dcc079a764a1e76012428536ac3c37549be5
+branch: hermes/adt-methodology-role-baseline-r1
+starting_base_sha: c2f992b9855581a95aa4eae52b7d079560217d10
 authorized_write_scope:
+  - METHODOLOGY.md
+  - governance/ROLE_MODEL.md
+  - governance/AUTHORITY_AND_FACTS.md
   - AGENTS.md
-  - BOOTSTRAP.md
   - PROJECT_STATE.md
-  - README.md
-  - protocols/BEGINNER_BOOTSTRAP_ROUTER.md
-  - scripts/validate_binding.py
-  - tests/test_beginner_bootstrap.py
-  - tests/test_binding_validation.py
-  - 中文内容/README.md
 authority:
   holder: HE-WEIZHI
-  maker: HERMES_TEMPORARY_MAKER
+  project_control: CURRENT_WINDOW
+  task_holder: CURRENT_WINDOW
+  maker: HERMES_TEMPORARY_MAKER_A
   checker: PENDING_INDEPENDENT_CHECKER
-current_gate: DRAFT_PR
+current_gate: MAKER_EXECUTION
 implementation_status: IN_PROGRESS
-phase: P0_CONTINUING_MAINTENANCE
 summary: >
-  External bootstrap activation semantic repair — corrected approach.
-  Product goal: READ_ACTIVATES_PROTOCOL. Any interactive AI reading the
-  repository enters ADT_PROTOCOL_ACTIVE with ANDING_INTERFACE assigned.
-  Authority (write/Ready/Merge/Control) remains UNGRANTED.
-  ANDING_INTERFACE ≠ ANDING_CONTROL.
-  P1–P5 remain NOT_AUTHORIZED.
+  ADT Methodology and Role Baseline R1 — establishes the formal definition of
+  ADT, the complete role topology (Human Holder → Project Control → Task Holder
+  → Maker/Checker), the authority matrix, fact/action separation, and governance
+  layering. Authorization: ADT-METHODOLOGY-ROLE-BASELINE-20260723-001.
 ```
 
 This file does not activate Runtime, Hermes R1, automatic scheduling,

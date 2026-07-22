@@ -18,10 +18,10 @@ authority:
   holder: HE-WEIZHI
   project_control: CURRENT_WINDOW
   task_holder: CURRENT_WINDOW
-  maker: CURRENT_WINDOW
-  checker: PENDING_INDEPENDENT_CHECKER
-current_gate: MAKER_EXECUTION
-implementation_status: IN_PROGRESS
+  maker: HERMES_MAKER
+  checker: INDEPENDENT_CHECKER
+current_gate: POST_CI_REVALIDATION_COMPLETE
+implementation_status: AUDIT_PASSED
 summary: >
   ADT Candidate Lifecycle Adoption Status R1 — promotes
   protocols/CANDIDATE_LIFECYCLE.md from CANDIDATE to ADOPTED status,

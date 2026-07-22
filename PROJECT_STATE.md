@@ -27,7 +27,7 @@ authority:
   maker: PENDING
   checker: PENDING_INDEPENDENT_CHECKER
 current_gate: MAKER_IMPLEMENTATION
-implementation_status: IMPLEMENTED
+implementation_status: IMPLEMENTATION_COMPLETE
 system_next_step: COMMIT_PUSH_DRAFT_PR
 summary: >
   Implement ADT Runtime Adapter Contract R1. Architecture frozen at Phase A R2.

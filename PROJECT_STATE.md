@@ -6,26 +6,29 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-CANDIDATE-LIFECYCLE-ADOPTION-STATUS-R1
+task_id: ADT-BOOTSTRAP-ENTRYPOINT-CONSOLIDATION-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-candidate-lifecycle-adoption-status-r1
-starting_base_sha: ddaac86bc86220e3435dd0cc32c2093bc9f9356e
+branch: hermes/adt-bootstrap-entrypoint-consolidation-r1
+starting_base_sha: 708f14bd1dbdbc374b4061182e4b82a086125c51
 authorized_write_scope:
-  - protocols/CANDIDATE_LIFECYCLE.md
-  - governance/NORMATIVE_MAP.md
+  - README.md
+  - BOOTSTRAP.md
+  - AGENTS.md
+  - protocols/BEGINNER_BOOTSTRAP_ROUTER.md
+  - 中文内容/README.md
   - PROJECT_STATE.md
 authority:
   holder: HE-WEIZHI
-  project_control: CURRENT_WINDOW
   task_holder: CURRENT_WINDOW
-  maker: HERMES_MAKER
-  checker: INDEPENDENT_CHECKER
-current_gate: POST_CI_REVALIDATION_COMPLETE
+  maker: CURRENT_WINDOW
+  checker: HERMES_CHECKER (deleg_887cdce4)
+current_gate: CHECKER_PASSED_AWAITING_HUMAN_READY
 implementation_status: AUDIT_PASSED
 summary: >
-  ADT Candidate Lifecycle Adoption Status R1 — promotes
-  protocols/CANDIDATE_LIFECYCLE.md from CANDIDATE to ADOPTED status,
-  updates governance/NORMATIVE_MAP.md accordingly.
+  ADT Bootstrap Entrypoint Consolidation R1 — unified Human and Agent
+  first-entry paths, deduplicated protocol activation and A/B/C routing
+  across five entrypoint files. All 158 tests pass. CI green. Independent
+  Checker PASS on all C1-C10.
 ```
 
 This file does not activate Runtime, Hermes R1, automatic scheduling,

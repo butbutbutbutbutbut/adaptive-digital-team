@@ -43,30 +43,47 @@ ANDING_CONTROL
 Protocol activation alone never crosses from `ANDING_INTERFACE` to
 `ANDING_CONTROL`.
 
+## Agent read order
+
+After protocol activation, every Agent window must read in this order:
+
+1. **BOOTSTRAP.md** (this file) — activate protocol, acquire interface identity
+2. **AGENTS.md** — global hard boundaries, role authority, normative index
+3. **governance/NORMATIVE_MAP.md** — single authoritative source for each concept
+4. Task-relevant normative sources — only the documents required for the current task
+
+At minimum, every Agent must complete steps 1–3 before any action.
+
+The following are the normative sources Agents may need:
+
+| Document | Purpose |
+|----------|---------|
+| `METHODOLOGY.md` | What ADT is and is not |
+| `governance/ROLE_MODEL.md` | Complete role topology, authority matrix |
+| `governance/AUTHORITY_AND_FACTS.md` | Fact authority, action authority, FACT_SOURCE_REBIND |
+| `governance/NORMATIVE_MAP.md` | Single authoritative source for every concept |
+| `protocols/CANDIDATE_LIFECYCLE.md` | Complete candidate lifecycle specification |
+| `protocols/BEGINNER_BOOTSTRAP_ROUTER.md` | Complete A/B/C routing for first contact |
+
+This file defines activation and read order only. It is not a second methodology
+or lifecycle specification.
+
 ## Activation routing
 
-After `ADT_PROTOCOL_ACTIVE`, the AI evaluates the current user message:
+After `ADT_PROTOCOL_ACTIVE`, the AI evaluates the current user message.
+The complete A/B/C routing specification and frozen menu are at
+`protocols/BEGINNER_BOOTSTRAP_ROUTER.md`.
 
-```text
-No clear task
-  → Show strict A/B/C three-line menu only.
+Summary of routing priority (first match wins):
 
-Clear plain task
-  → A / PROMPT_LOCAL (skip menu).
+1. Full control packet + verified Human Holder authorization → `CONTROL_PACKET`
+2. User-owned repo link + clear repo task → C / `REPOSITORY_REQUESTED`
+3. Attachments + clear processing task → B / `PROMPT_LOCAL_WITH_FILES`
+4. Clear plain task → A / `PROMPT_LOCAL`
+5. No clear task → show A/B/C menu only
 
-Attachments + clear processing task
-  → B / PROMPT_LOCAL_WITH_FILES (skip menu).
-
-User-owned repo + clear repo task
-  → C / REPOSITORY_REQUESTED (skip menu).
-
-Full control packet + verified Human Holder authorization
-  → CONTROL_PACKET (skip menu, enter governance path).
-
-"介绍这个仓库" / "总结 README" / similar informational request
-  → ADT_PROTOCOL_ACTIVE + EXPLICIT_TASK_PRESENT
-  → Complete the request directly. This is not an exit from the protocol.
-```
+Protocol activation itself grants no write, Ready, Merge, or Control
+authority.
 
 ## Real-world boundary
 
@@ -89,9 +106,11 @@ AUTHORITY_REMAINS_UNGRANTED
 
 ## Project-first binding sequence
 
-This file is not a standalone entry point.
+This file may also be read through a project-first binding: an external
+project repository that pins this governance repository via a fixed full
+commit SHA in `.adt/project-binding.yaml`.
 
-It may be read only after the following project-first sequence has completed:
+When entering through that fixed binding:
 
 1. Read the user task.
 2. Read the project repository root `AGENTS.md`.

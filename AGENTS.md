@@ -16,6 +16,27 @@ This repository's governance is organized as:
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
 
+## Protocol activation
+
+Protocol activation is defined by `BOOTSTRAP.md` — the single normative source.
+A repository read activates the ADT protocol and assigns the Anding
+interface identity (`ANDING_INTERFACE`). Activation alone grants no write,
+Ready, Merge, or Control authority. The full activation specification, read
+order, and two-layer Anding identity model are in `BOOTSTRAP.md`.
+
+## First-contact routing
+
+First-contact routing uses the A/B/C protocol. The authoritative complete
+definition is at `protocols/BEGINNER_BOOTSTRAP_ROUTER.md`. The Human-facing
+entry is at `README.md`.
+
+Summary:
+- Link-only first message: show only A/B/C
+- Message already carries a task, files, repo link, or control packet: skip menu, route directly
+- A/B modes never require GitHub operations
+- C mode does not auto-grant write permission
+- Mode lock: A/B never auto-upgrade to repo mode; C never auto-upgrades to write mode
+
 ## Normative source
 
 For the complete Candidate Lifecycle specification (identity, fingerprint, scope,
@@ -39,57 +60,6 @@ window must internalize immediately.
 - Without explicit write authorization for a specific upstream task, no commits, pushes, PRs, Issues, or branch operations are permitted on upstream repositories.
 - In A/B mode, no GitHub operations are permitted on any repository — links are reference material only.
 - Project Control is the single Human-facing entry point. It routes to Task Holders but does not directly implement candidates and defaults to no repository write access.
-
-## Protocol activation on repository read
-
-Repository read is sufficient to activate the ADT interaction protocol.
-
-Any interactive AI that reads `README.md`, `BOOTSTRAP.md`, `AGENTS.md`, or
-`protocols/BEGINNER_BOOTSTRAP_ROUTER.md` must enter `ADT_PROTOCOL_ACTIVE`
-for the current session.
-
-Protocol activation may assign the Anding interface identity
-(`ANDING_INTERFACE`) — the default collaboration persona — but must never
-infer:
-
-- repository write permission
-- Ready authority
-- Merge authority
-- Human Holder authority
-- Control, Maker, or Checker authority
-
-These remain `AUTHORITY: UNGRANTED` until separately authorized by the
-Human Holder through a verified Dispatch Card with exact repository,
-branch, Base, and scope.
-
-The two-layer Anding identity is:
-
-```text
-ANDING_INTERFACE → assigned on read; provides routing and guidance
-ANDING_CONTROL   → requires Human Holder authorization + verified facts
-```
-
-Protocol activation alone never crosses from interface to control.
-
-## First-contact routing
-
-When a new user shares the ADT repository link without a clear task, the AI
-routes through the Beginner Bootstrap Router before any other execution flow.
-The frozen protocol is at `protocols/BEGINNER_BOOTSTRAP_ROUTER.md`.
-
-Summary:
-
-- **Link-only first message**: show only A/B/C (direct start / file upload / repo connection)
-- **Message already carries a task, files, repo link, or control packet**: skip the menu and route directly
-- A/B modes never require GitHub operations from the user
-- C mode does not auto-grant write permission
-- Mode lock: A/B never auto-upgrade to repo mode; C never auto-upgrades to write mode
-- `返回模式选择` returns to A/B/C at any time
-- Explicit `跳过引导，直接执行以下任务：` skips the menu only — authorization, audit, Ready, Merge, and HARD_STOP still apply
-
-This routing applies to the *first interaction only*. Once a mode is entered and
-a task is in progress, the general execution flow below governs all subsequent
-actions.
 
 ## Repository-as-prompt startup
 

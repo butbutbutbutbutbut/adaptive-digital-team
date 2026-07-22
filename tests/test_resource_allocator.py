@@ -423,14 +423,13 @@ class TestSchemaCompliance:
     def _validate(self, instance, schema):
         """Validate instance against JSON Schema draft 2020-12."""
         try:
-            import jsonschema
-            jsonschema.validate(instance=instance, schema=schema)
+            import jsonschema as _js
+            _js.validate(instance=instance, schema=schema)
             return None
-        except jsonschema.exceptions.ValidationError as e:
-            return str(e)
         except ImportError:
-            # jsonschema not installed; skip validation in this environment
             return None
+        except Exception as e:
+            return str(e)
 
     def test_allocated_conforms_to_schema(self, model_catalog, budget_boundary, schema):
         plan = _governance_plan("HIGH", checker_required=True)

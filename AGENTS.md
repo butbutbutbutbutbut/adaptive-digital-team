@@ -16,6 +16,14 @@ This repository's governance is organized as:
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
 
+## Normative source
+
+For the complete Candidate Lifecycle specification (identity, fingerprint, scope,
+state machine, CI gates, audit receipt, pre-merge gate, repair), see
+`protocols/CANDIDATE_LIFECYCLE.md` — the single normative source for these rules.
+AGENTS.md retains only the core boundaries and role authority that every agent
+window must internalize immediately.
+
 ## Non-negotiable boundaries
 
 - Maker and Checker responsibilities remain separate; self-acceptance is forbidden.
@@ -104,7 +112,10 @@ The Human Holder is the only authority for Ready, final Merge, merge method sele
 
 ### Persistent Holder
 
-The Persistent Holder is the resident control-plane interface and State Registrar, not a third Maker. It verifies facts, prepares exact packets, routes work, validates receipts, and presents executable Human actions. It does not directly Push unless separately appointed as Maker for the task, and it never self-authorizes.
+> **Role update**: The Persistent Holder role has been split into Project Control and Task Holder.
+> See `governance/ROLE_MODEL.md` for the complete role model and authority matrix.
+> The original Holder specification in `protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` is retained
+> as a compatibility entry and for the Dispatch Card / Progress Receipt format definitions.
 
 ### Project Control
 
@@ -145,131 +156,45 @@ SYSTEM_NEXT_STEP
 
 A planned action is not an executed action. A receipt is not independent verification. CI success is not Human acceptance. Waiting does not increase progress. Numeric progress requires a pre-bound finite denominator and verified units.
 
-## Candidate Lifecycle R1
+## Candidate Lifecycle
 
-### Single formal candidate topology
+The complete lifecycle specification is at `protocols/CANDIDATE_LIFECYCLE.md`.
+Every Maker, Checker, and Holder must follow it. This section summarizes the
+non-negotiable constraints that apply in every agent context.
 
-The normative equation is:
+### Core topology
 
 ```text
 ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
 ```
 
-Rules:
-
 - Every formal candidate PR targets `main` directly.
-- A PR whose `base_ref` is not `main` fails as `STACKED_PR_PROHIBITED`.
-- CI must trigger for every pull request, including a pull request aimed at another candidate branch; a stacked PR cannot hide by avoiding validation.
-- Do not repair an unmerged parent candidate through a child PR.
-- Before independent audit, append repair commits directly to the original candidate branch and audit the new Head.
-- After a candidate is merged, a newly discovered problem starts from the latest `main` as a new task, new branch, and new PR.
-- A former child PR must not be retargeted to `main` after its parent is squash-merged.
-- One task may contain multiple append-only commits on its single branch, but it still has exactly one PR and one direct Base: `main`.
+- `base_ref != main` → `STACKED_PR_PROHIBITED`.
+- Pre-audit repair: append-only commit on same branch.
+- Post-merge defect: new task from latest main.
 
-### Runtime-derived identity
+### Identity
 
-Current identity is never trusted from committed state.
+Current identity is resolved live — never trusted from committed state.
+Full rules: `protocols/CANDIDATE_LIFECYCLE.md` § Runtime-derived identity.
 
-#### Push
+### Fingerprint
 
-- `push_branch` is derived only from `GITHUB_REF`.
-- Only `refs/heads/<branch>` is accepted.
-- Missing, empty, tag, notes, pull-merge, or any other ref format is `HARD_STOP`.
-- The identity chain is exact: `git HEAD = GITHUB_SHA = origin/<push_branch>`.
-- There is no fallback to a branch cached in `PROJECT_STATE.md`.
+Every candidate has a deterministic SHA-256 fingerprint.
+Algorithm: `protocols/CANDIDATE_LIFECYCLE.md` § Candidate fingerprint.
 
-#### Pull request
+### Durable state
 
-- `head_ref` and `head_sha` come from the pull-request event source Head.
-- `base_ref` and `base_sha` come from the pull-request event Base.
-- `base_ref` must be `main`.
-- `refs/pull/*/merge` and synthetic merge commits are not candidate identity.
-- The source Head must equal `origin/<head_ref>` and the checkout used for validation must be that source Head.
+`PROJECT_STATE.md` stores stable task facts only. Live facts (Head, main,
+CI state) are resolved at every gate.
+Full rules: `protocols/CANDIDATE_LIFECYCLE.md` § Durable state boundary.
 
-#### Local and pre-merge
+### Gates
 
-- Current Head is `git rev-parse HEAD`.
-- Current main is `origin/main`.
-- Candidate remote is `origin/<candidate_branch>`.
-- Current Base, Head, remote refs, changed files, and fingerprint must not be read from committed cache fields.
-
-### Durable state boundary
-
-`PROJECT_STATE.md` stores stable task facts only:
-
-- `task_id`
-- `repository`
-- `branch`
-- `starting_base_sha`
-- `authorized_write_scope`
-- `authority`
-- `current_gate`
-- `implementation_status`
-
-It must not store the current Head, current main, current event SHA, current remote branch SHA, or current candidate hash. A `resolved_head`, when present in historical material, is only a historical anchor: it need not equal the current Head, but it must be a commit reachable from current history. It must never reintroduce SHA self-reference.
-
-### Candidate fingerprint
-
-A deterministic SHA-256 fingerprint binds the normalized fields:
-
-```text
-repository
-base_ref
-base_sha
-head_ref
-head_sha
-sorted(changed_files)
-```
-
-Validation output must show both the raw normalized fields and the hash. The hash is runtime evidence and is not committed into the candidate it identifies.
-
-The independent audit receipt, Holder Ready authorization, and Holder Merge authorization must bind the same runtime fingerprint. A change to repository, branch, Base SHA, Head SHA, or changed files immediately produces:
-
-```text
-AUDIT_BINDING: INVALID
-READY_AUTHORIZATION: INVALID
-MERGE_AUTHORIZATION: INVALID
-```
-
-Old audit or authorization cannot be silently rebound to a new candidate identity.
-
-### Final realtime gate
-
-Immediately before Ready or Merge, the control plane executes `PRE_MERGE_REALTIME_GATE` with the expected audit fingerprint and freshly resolves:
-
-- repository;
-- `origin/main`;
-- `origin/<candidate_branch>`;
-- current Head;
-- Base ref and SHA;
-- candidate branch and Head SHA;
-- sorted changed files;
-- workspace cleanliness;
-- exact authorized scope coverage.
-
-It must confirm Base is still `main`, Base SHA unchanged, Head unchanged, files unchanged, runtime fingerprint equals the expected fingerprint, workspace is clean, and actual changed files equal the authorized path list. Any mismatch is `HARD_STOP` and invalidates old audit, Ready authorization, and Merge authorization.
-
-### CI gate
-
-The control plane must verify live that:
-
-- push CI is attached to the current source Head and succeeded;
-- pull-request CI is attached to the current source Head and succeeded;
-- static validation, complete tests, and live validation all actually ran;
-- no required step was skipped or soft-failed;
-- `continue-on-error` occurrences are zero.
-
-CI success does not grant Ready or Merge authority.
-
-## Audit receipt validation
-
-Before registering a receipt, the Holder verifies task, authorization, repository, PR, `base_ref`, Base SHA, `head_ref`, Head SHA, sorted changed files, Checker identity, PR state, and candidate fingerprint. A transcription or target mismatch is `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH`; it is a receipt defect, not automatically a candidate defect, and it consumes no audit or repair budget.
-
-A valid receipt becomes invalid as soon as any fingerprint field changes. A corrected receipt for unchanged candidate facts is a retry within the same gate. Authority conflict, scope violation, candidate drift, Checker conflict, runtime activation, or history rewrite remains fail-closed.
-
-## Lightweight repair and merge safety
-
-A non-blocking metadata defect does not justify a new PR. A real pre-audit candidate defect is repaired on the same branch. Scope expansion requires new Human authorization. Merge capability must be read live before presenting options. Merge-method capability mismatch alone may route to precise method reauthorization only when repository, PR, Base, Head, fingerprint, scope, state, mergeability, checks, and valid audit are unchanged.
+- **CI gate**: `protocols/CANDIDATE_LIFECYCLE.md` § CI gate
+- **Audit receipt validation**: `protocols/CANDIDATE_LIFECYCLE.md` § Audit receipt validation
+- **PRE_MERGE_REALTIME_GATE**: `protocols/CANDIDATE_LIFECYCLE.md` § Final realtime gate
+- **Lightweight repair**: `protocols/CANDIDATE_LIFECYCLE.md` § Lightweight repair and merge safety
 
 ## Runtime and automation boundaries
 
@@ -281,9 +206,10 @@ Governance must not multiply candidates, duplicate state systems, or create form
 
 ## R1 preservation contract
 
-Candidate Lifecycle R1 consolidates identity rules; it does not revoke existing
-adopted governance outside an explicit conflict. The following earlier controls
-remain normative and must be interpreted together with this file:
+Candidate Lifecycle R1 consolidates identity rules into `protocols/CANDIDATE_LIFECYCLE.md`;
+it does not revoke existing adopted governance outside an explicit conflict. The
+following earlier controls remain normative and must be interpreted together with
+this file:
 
 - repository-as-prompt startup, fact-source rebinding, and the distinction
   between governance Base and product truth;

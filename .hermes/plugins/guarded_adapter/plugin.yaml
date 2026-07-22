@@ -1,0 +1,5 @@
+name: guarded_adapter
+version: 1.0.0
+description: "ADT Runtime Adapter guard plugin — scope enforcement gate for write and repo actions. Validates every operation against plan.write_scope, authorized_write_scope, and the Execution Authorization Binding before execution."
+toolsets:
+  - guarded_adapter

@@ -6,29 +6,28 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-RUNTIME-ADAPTER-CONTRACT-ADOPTION-STATUS-R1
-authorization_id: ADT-RUNTIME-ADAPTER-CONTRACT-ADOPTION-STATUS-20260723-001
+task_id: ADT-HERMES-RUNTIME-ADAPTER-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-runtime-adapter-contract-adoption-status-r1
-starting_base_sha: 8ace9f7fafc8f662c55e6f93cfe9e3b391dc1a59
+branch: hermes/adt-hermes-runtime-adapter-r1
+starting_base_sha: 9ec8cc80d6b2b4120100e4751263f833bd12229c
 authorized_write_scope:
-  - protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md
-  - governance/NORMATIVE_MAP.md
+  - .hermes/plugins/guarded_adapter/__init__.py
+  - .hermes/plugins/guarded_adapter/plugin.yaml
+  - .hermes/plugins/guarded_adapter/tools/guarded_write.py
+  - .hermes/plugins/guarded_adapter/tools/guarded_repo_actions.py
+  - .hermes/plugins/guarded_adapter/gate.py
+  - .hermes/plugins/guarded_adapter/runtime_models.py
+  - tests/test_guarded_adapter_enforcement.py
+  - tests/fixtures/adapter_e2e_allowed.txt
   - PROJECT_STATE.md
 authority:
-  holder: HE-WEIZHI
-  maker: HERMES_TEMPORARY_TASK_HOLDER-003
-  checker: PENDING_INDEPENDENT_CHECKER
-current_gate: MAKER_IMPLEMENTATION
+  authorization_id: ADT-HERMES-RUNTIME-ADAPTER-20260723-001
+  holder: HUMAN_HOLDER
+  maker: SOLE_MAKER
+  checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER
+  pr_creation: AUTHORIZED
+  ready: HUMAN_ONLY
+  merge: HUMAN_ONLY
+current_gate: IMPLEMENTATION
 implementation_status: IN_PROGRESS
-system_next_step: COMMIT_PUSH_DRAFT_PR
-summary: >
-  Elevate Runtime Adapter Contract from CANDIDATE to ADOPTED status.
-  Protocol implemented, independently audited (12/12 PASS), and merged
-  via PR #46. This task changes adoption status only — no semantic,
-  implementation, schema, or test changes.
 ```
-
-This file does not activate Runtime, Hermes R1, automatic scheduling,
-product implementation, Ready, Merge, branch deletion, or final visual or
-engineering acceptance.

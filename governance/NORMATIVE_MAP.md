@@ -21,7 +21,7 @@ that reference a concept are secondary, compatibility, or executable detail.
 | Multimodal evidence | `protocols/MULTIMODAL_EVIDENCE_ACCEPTANCE_GATE.md` | ADOPTED | — |
 | Instruction routing | `protocols/INSTRUCTION_ROUTING_AND_AUTHORITY.md` | ADOPTED | — |
 | Project closeout | `protocols/PROJECT_CLOSEOUT_PROTOCOL.md` | ADOPTED | — |
-| Dynamic governance routing | `protocols/DYNAMIC_GOVERNANCE_ROUTER.md` | CANDIDATE | `AGENTS.md` § R1 preservation contract |
+| Dynamic governance routing | `protocols/DYNAMIC_GOVERNANCE_ROUTER.md` | ADOPTED | `AGENTS.md` § R1 preservation contract |
 
 ## Status definitions
 

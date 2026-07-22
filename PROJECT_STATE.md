@@ -21,10 +21,10 @@ authority:
   holder: HE-WEIZHI
   project_control: CURRENT_WINDOW
   task_holder: CURRENT_WINDOW
-  maker: PENDING
-  checker: PENDING_INDEPENDENT_CHECKER
-current_gate: MAKER_EXECUTION
-implementation_status: IN_PROGRESS
+  maker: HERMES_MAKER
+  checker: INDEPENDENT_CHECKER
+current_gate: POST_CI_REVALIDATION_COMPLETE
+implementation_status: AUDIT_PASSED
 summary: >
   ADT Protocol Dedup Normative Map R1 — establishes protocols/CANDIDATE_LIFECYCLE.md
   as the single normative source for candidate lifecycle rules, creates

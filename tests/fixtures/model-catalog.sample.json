@@ -1,5 +1,5 @@
 {
-  "fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "fingerprint": "sha256:9e9a1bdbd752491704f36794f1ba7f32b0937a0caca4bd5e0a2050548a3c6d44",
   "resolved_at": "2026-07-23T00:00:00Z",
   "providers": {
     "deepseek": {
@@ -7,14 +7,31 @@
         "deepseek-v4-flash": {
           "tier": "economy",
           "context_length": 1000000,
-          "reasoning_effort_support": ["minimal", "low", "medium"],
-          "capabilities": ["code", "chat"]
+          "reasoning_effort_support": [
+            "minimal",
+            "low",
+            "medium"
+          ],
+          "capabilities": [
+            "code",
+            "chat"
+          ]
         },
         "deepseek-v4-pro": {
           "tier": "standard",
           "context_length": 1000000,
-          "reasoning_effort_support": ["minimal", "low", "medium", "high", "xhigh"],
-          "capabilities": ["code", "chat", "repo"]
+          "reasoning_effort_support": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "capabilities": [
+            "code",
+            "chat",
+            "repo"
+          ]
         }
       }
     },
@@ -23,21 +40,55 @@
         "gpt-5.4": {
           "tier": "standard",
           "context_length": 128000,
-          "reasoning_effort_support": ["minimal", "low", "medium", "high", "xhigh", "max"],
-          "capabilities": ["code", "chat", "repo", "audit"]
+          "reasoning_effort_support": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "capabilities": [
+            "code",
+            "chat",
+            "repo",
+            "audit"
+          ]
         },
         "gpt-5.5": {
           "tier": "strong",
           "context_length": 200000,
-          "reasoning_effort_support": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
-          "capabilities": ["code", "chat", "repo", "audit"]
+          "reasoning_effort_support": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "capabilities": [
+            "code",
+            "chat",
+            "repo",
+            "audit"
+          ]
         }
       }
     }
   },
   "defaults": {
-    "economy": {"provider": "deepseek", "model": "deepseek-v4-flash"},
-    "standard": {"provider": "deepseek", "model": "deepseek-v4-pro"},
-    "strong": {"provider": "openai-codex", "model": "gpt-5.5"}
+    "economy": {
+      "provider": "deepseek",
+      "model": "deepseek-v4-flash"
+    },
+    "standard": {
+      "provider": "deepseek",
+      "model": "deepseek-v4-pro"
+    },
+    "strong": {
+      "provider": "openai-codex",
+      "model": "gpt-5.5"
+    }
   }
 }

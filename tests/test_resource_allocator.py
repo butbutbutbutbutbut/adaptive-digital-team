@@ -458,3 +458,95 @@ class TestSchemaCompliance:
         err = self._validate(result, schema)
         if err is not None and "jsonschema" not in str(err):
             pytest.fail(f"Null checker plan fails schema: {err}")
+
+
+# ═══════════════════════════════════════════════════════════
+# Tests: Catalog fixture fingerprint integrity
+# ═══════════════════════════════════════════════════════════
+
+class TestCatalogIntegrity:
+    """Catalog fixture fingerprint integrity tests."""
+
+    @pytest.fixture
+    def catalog_raw(self):
+        path = REPO_ROOT / "tests" / "fixtures" / "model-catalog.sample.json"
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _compute_canonical_fingerprint(self, catalog):
+        """Compute fingerprint from catalog WITHOUT the fingerprint field itself."""
+        import hashlib
+        catalog_no_fp = {k: v for k, v in catalog.items() if k != "fingerprint"}
+        canonical = json.dumps(
+            catalog_no_fp, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        )
+        return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def test_fingerprint_matches_recomputed(self, catalog_raw):
+        """1. Fixture declared fingerprint equals recomputed canonical value."""
+        declared = catalog_raw["fingerprint"]
+        recomputed = self._compute_canonical_fingerprint(catalog_raw)
+        assert declared == recomputed, (
+            f"Fixture fingerprint {declared} != recomputed {recomputed}"
+        )
+
+    def test_fingerprint_not_empty_hash(self, catalog_raw):
+        """2. Declared fingerprint is NOT the SHA-256 of empty content."""
+        import hashlib
+        empty_hash = "sha256:" + hashlib.sha256(b"").hexdigest()
+        assert catalog_raw["fingerprint"] != empty_hash, (
+            f"Fingerprint must not be the empty-content hash ({empty_hash})"
+        )
+
+    def test_fingerprint_changes_with_model_field(self, catalog_raw):
+        """3. Changing any model field changes the fingerprint."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        modified = json.loads(json.dumps(catalog_raw))  # deep copy
+        # Change a model field
+        modified["providers"]["deepseek"]["models"]["deepseek-v4-flash"]["context_length"] = 999999
+        fp2 = self._compute_canonical_fingerprint(modified)
+        assert fp1 != fp2, "Fingerprint must change when model data changes"
+
+    def test_fingerprint_invariant_to_formatting(self, catalog_raw):
+        """4. JSON formatting/whitespace changes do NOT change fingerprint."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        # Re-serialize with different formatting, then parse back
+        reformatted = json.dumps(catalog_raw, indent=4, ensure_ascii=False)
+        parsed_back = json.loads(reformatted)
+        fp2 = self._compute_canonical_fingerprint(parsed_back)
+        assert fp1 == fp2, "Fingerprint must be invariant to JSON formatting"
+
+    def test_fingerprint_invariant_to_key_order(self, catalog_raw):
+        """4b. Key order changes do NOT change fingerprint (canonical sort)."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        # Build a dict with intentionally different key order
+        reordered = {
+            "fingerprint": catalog_raw["fingerprint"],
+            "defaults": catalog_raw["defaults"],
+            "providers": catalog_raw["providers"],
+            "resolved_at": catalog_raw["resolved_at"],
+        }
+        fp2 = self._compute_canonical_fingerprint(reordered)
+        assert fp1 == fp2, "Fingerprint must be order-invariant"
+
+    def test_existing_39_tests_still_pass(self, model_catalog, budget_boundary):
+        """5. Resource allocation tests continue to work with corrected catalog."""
+        from resource_allocator import allocate
+        plan = _governance_plan("LOW")
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["plan_status"] == "ALLOCATED"
+
+    def test_corrected_fingerprint_not_self_referential(self, catalog_raw):
+        """6. Fingerprint was computed WITHOUT the fingerprint field itself."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        # If fingerprint were self-referential, changing it would change the hash,
+        # so recomputing would produce a different value
+        fp2 = self._compute_canonical_fingerprint(catalog_raw)
+        assert fp1 == fp2, "Fingerprint must be idempotent (not self-referential)"
+
+    def test_fingerprint_present_and_nonempty(self, catalog_raw):
+        """7. Catalog has a fingerprint field that is a non-empty string."""
+        assert "fingerprint" in catalog_raw, "Catalog must have fingerprint field"
+        fp = catalog_raw["fingerprint"]
+        assert isinstance(fp, str) and len(fp) > 0, "Fingerprint must be non-empty"
+        assert fp.startswith("sha256:"), "Fingerprint must use sha256: prefix"

@@ -2,23 +2,38 @@
 
 Status: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
+> This document defines execution flow and routing. For the complete Candidate
+> Lifecycle specification (identity, fingerprint, scope, state machine, CI,
+> audit, pre-merge gate), see `protocols/CANDIDATE_LIFECYCLE.md` — the single
+> normative source.
+
 ## Purpose
 
-This protocol provides a bounded execution route while preserving exact authority, candidate identity, independent audit, and Human-only Ready and Merge gates. It does not authorize runtime activation, automatic scheduling, automatic merge, or product-repository write.
+This protocol provides a bounded execution route while preserving exact authority,
+candidate identity, independent audit, and Human-only Ready and Merge gates. It
+does not authorize runtime activation, automatic scheduling, automatic merge,
+or product-repository write.
 
 ## Risk routing
 
 - `L0_GOVERNANCE_DOCUMENTATION`: bounded documentation-only work.
-- `L1_CONTROL_PLANE_CHANGE`: routing, identity, validation, authorization, audit, workflow, script, or state behavior; requires independent governance audit.
-- `L2_RUNTIME_OR_EXTERNAL_ACTION`: runtime, permissions, dependency, destructive action, or product change; requires separate explicit authority.
+- `L1_CONTROL_PLANE_CHANGE`: routing, identity, validation, authorization,
+  audit, workflow, script, or state behavior; requires independent governance audit.
+- `L2_RUNTIME_OR_EXTERNAL_ACTION`: runtime, permissions, dependency, destructive
+  action, or product change; requires separate explicit authority.
 
 This Candidate Lifecycle R1 task is L1.
 
 ## Delta-only operation
 
-The repository carries stable context. Chat carries only task delta and new evidence. A full startup is required for a new task or window, binding change, gate change, fact conflict, or new candidate receipt. When facts conflict, enter `FACT_SOURCE_REBIND` and block write.
+The repository carries stable context. Chat carries only task delta and new
+evidence. A full startup is required for a new task or window, binding change,
+gate change, fact conflict, or new candidate receipt. When facts conflict, enter
+`FACT_SOURCE_REBIND` and block write.
 
 ## One-task execution topology
+
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Single formal candidate topology
 
 ```text
 ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
@@ -35,262 +50,91 @@ ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
 ## Maker path
 
 1. Verify exact Base, branch, repository, authority, and scope.
-2. Machine precheck must pass before any write (see Candidate state machine below).
+2. Machine precheck must pass before any write (see `protocols/CANDIDATE_LIFECYCLE.md` § Pre-write execution gate).
 3. Create the one authorized candidate branch from exact main.
 4. Modify only exact authorized paths.
 5. Stage explicit paths; wildcard staging is prohibited.
 6. Run static validation and the complete regression suite.
-7. Verify actual changed files are within authorized scope (scope enforcement).
+7. Verify actual changed files are within authorized scope (see `protocols/CANDIDATE_LIFECYCLE.md` § Scope enforcement).
 8. Push the same branch and create one Draft PR targeting main.
 9. Keep Draft; do not Ready or Merge.
 10. Obtain push and pull-request CI attached to the source Head.
 11. Route to an independent Checker.
 
-A Maker cannot create a subtask, stacked PR, self-audit, or self-acceptance path to complete the same candidate.
+A Maker cannot create a subtask, stacked PR, self-audit, or self-acceptance
+path to complete the same candidate.
 
 ## Runtime candidate identity
 
-Identity is derived at execution time:
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Runtime-derived identity
 
-### Push events
-
-```text
-push_branch := parse(GITHUB_REF)
-accepted format := refs/heads/<branch>
-required equality := git HEAD = GITHUB_SHA = origin/<push_branch>
-```
-
-Missing, empty, tag, notes, or pull-merge refs are `HARD_STOP`. No `PROJECT_STATE.md` branch fallback is allowed.
-
-### Pull-request events
-
-```text
-head_ref, head_sha := pull_request.head
-base_ref, base_sha := pull_request.base
-required base_ref := main
-required source equality := head_sha = origin/<head_ref> = checked-out HEAD
-```
-
-The synthetic `refs/pull/*/merge` identity is excluded.
-
-### Local and final gate
-
-```text
-current Head := git rev-parse HEAD
-current main := origin/main
-candidate remote := origin/<candidate_branch>
-changed files := sorted(git diff base...head)
-```
+Identity is derived at execution time from `GITHUB_REF` (push), pull-request
+event Head/Base (PR), or `git rev-parse HEAD` + `origin/*` (local). The full
+algorithm with push, PR, and local modes is defined in
+`protocols/CANDIDATE_LIFECYCLE.md`.
 
 ## Candidate fingerprint
 
-`CANDIDATE_FINGERPRINT` is SHA-256 over canonical normalized JSON containing:
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Candidate fingerprint
 
-- repository;
-- base ref;
-- Base SHA;
-- head ref;
-- Head SHA;
-- sorted changed files.
-
-Output includes the complete `FINGERPRINT_FIELDS` and `CANDIDATE_FINGERPRINT`. The hash is not written into the commit it identifies.
+The fingerprint is SHA-256 over canonical JSON of `{repository, base_ref,
+base_sha, head_ref, head_sha, sorted(changed_files)}`. Full description and
+the canonical Python implementation are in `protocols/CANDIDATE_LIFECYCLE.md`.
 
 ## Receipt and authorization binding
 
-The audit receipt and Holder authorizations for Ready and Merge must bind the same fingerprint.
-
-Any repository, Base SHA, Head SHA, branch, or changed-file drift yields:
-
-```text
-AUDIT_BINDING: INVALID
-READY_AUTHORIZATION: INVALID
-MERGE_AUTHORIZATION: INVALID
-```
-
-Old evidence cannot cross a Head change, repair commit, Base update, branch change, file change, or repository change. A new Head requires new runtime fields, new fingerprint, and new independent audit.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Receipt and authorization binding
 
 ## PRE_MERGE_REALTIME_GATE
 
-Input: the expected fingerprint from the valid independent audit.
-
-Freshly resolve:
-
-- repository;
-- Base ref and `origin/main` SHA;
-- candidate branch and `origin/<candidate_branch>` SHA;
-- current Head;
-- sorted changed files;
-- clean workspace;
-- exact authorized scope.
-
-Required result:
-
-```text
-base_ref == main
-base_sha unchanged
-head_sha unchanged
-changed_files unchanged
-runtime fingerprint == expected fingerprint
-workspace clean
-sorted(changed_files) == sorted(authorized_write_scope)
-```
-
-Any mismatch is `HARD_STOP / FINGERPRINT_MISMATCH`. No Ready or Merge decision may continue on old evidence.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Final realtime gate (PRE_MERGE_REALTIME_GATE)
 
 ## CI evidence gate
 
-The Holder verifies, from live GitHub facts:
-
-- push workflow run exists for current source Head and succeeded;
-- pull-request workflow run exists for current source Head and succeeded;
-- static validator ran;
-- complete tests ran with at least the bound minimum and zero failures;
-- live CI validator ran;
-- no required job or step was skipped;
-- no soft-fail path exists;
-- `continue-on-error = 0`.
-
-Waiting on CI is not candidate failure and does not advance progress. CI success is evidence only, not acceptance.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § CI gate
 
 ## Incremental repair
 
-A valid audit finding may be repaired only after authority is verified. The repair remains on the original branch and PR, inside scope. The new Head invalidates the previous fingerprint and audit. The Checker reviews the new Head and new fingerprint. A second PR is prohibited for the same unmerged candidate.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Lightweight repair and merge safety
 
 ## Audit receipt validation
 
-Before registration, verify task, authorization, repository, PR, Base ref/SHA, head ref/SHA, changed files, Checker independence, PR state, and fingerprint. A target transcription mismatch is `INVALID_AUDIT_RECEIPT`, not automatically `CANDIDATE_FAILURE`, and consumes no audit or repair budget. Real authority, scope, Base, Head, branch, repository, file, runtime, or history drift fails closed.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Audit receipt validation
 
 ## Progress accounting
 
-Numeric progress requires a finite pre-bound plan. Only independently verified units or registered Human decisions count. Planned, dispatched, receipt-received, waiting, elapsed time, token use, and unverified background claims do not count. Recalculation must show old percentage, new percentage, and exact reason. Progress never substitutes for audit, Ready, Merge, or acceptance.
+> **Normative principle**: Numeric progress requires a finite pre-bound plan.
+> Only independently verified units or registered Human decisions count.
+> Planned, dispatched, receipt-received, waiting, elapsed time, token use, and
+> unverified background claims do not count. Recalculation must show old
+> percentage, new percentage, and exact reason. Progress never substitutes for
+> audit, Ready, Merge, or acceptance.
+>
+> See also `protocols/CANDIDATE_LIFECYCLE.md` § Progress accounting.
 
 ## Human interaction and merge
 
-Human normally provides initial exact scope and final high-risk decisions. Ready, merge method, Merge, branch deletion, final acceptance, runtime activation, and destructive external action remain Human-only. Merge settings, mergeability, checks, permissions, and protection are live facts and are re-read immediately before authorization and execution.
+Human normally provides initial exact scope and final high-risk decisions.
+Ready, merge method, Merge, branch deletion, final acceptance, runtime
+activation, and destructive external action remain Human-only. Merge settings,
+mergeability, checks, permissions, and protection are live facts and are
+re-read immediately before authorization and execution.
 
 ## Candidate state machine
 
-Every formal candidate transitions through this state machine:
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Candidate state machine
 
-```
-TASK_AUTHORIZED
-    → MACHINE_PRECHECK
-    → WRITE_AUTHORIZED
-    → COMMITTED
-    → PUSHED
-    → DRAFT_PR
-    → CI_PASS
-    → FORMAL_CANDIDATE
-    → INDEPENDENT_AUDIT
-```
+## Pre-write execution gate
 
-### State definitions
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Pre-write execution gate
 
-| State | Condition |
-|-------|-----------|
-| `LOCAL_DRAFT` | Local branch; no machine precheck passed or precheck failed. Not a formal candidate. |
-| `TASK_AUTHORIZED` | Human has pre-granted conditional write authorization (AUTHORIZATION_ID + scope). |
-| `WRITE_AUTHORIZED` | Machine precheck passed; write authorization activated. Local writes permitted within scope. |
-| `COMMITTED_CANDIDATE` | At least one commit beyond exact base; pushed to remote. |
-| `FORMAL_CANDIDATE` | Formal task branch, non-zero commits, exact base ancestry valid, scope compliant, candidate fingerprint computable. PR event: Head/Base match declaration. |
-| `AUDIT_ELIGIBLE` | FORMAL_CANDIDATE + has open PR + CI passed + fingerprint exists. Ready for independent audit. |
+## Scope enforcement
 
-### State rules
-
-- Human can pre-grant conditional write permission; only machine precheck activates it.
-- Human does not need to re-carry precheck results between windows.
-- Agent self-reported PASS cannot substitute for machine facts.
-- Local drafts are not formal candidates and cannot be audited.
-- `LOCAL_DRAFT` cannot declare `AUDIT_ELIGIBLE`.
-- Zero commits cannot declare `FORMAL_CANDIDATE`.
-- No fingerprint cannot declare `AUDIT_ELIGIBLE`.
-- No PR or CI cannot declare `AUDIT_ELIGIBLE`.
-
-### Pre-write execution gate (machine-enforceable)
-
-Before any local write, the validator enforces:
-
-1. Detached HEAD → `HARD_STOP` (except CI checkout using `GITHUB_REF` / `GITHUB_HEAD_REF` / `GITHUB_BASE_REF`)
-2. Current branch must match task-declared branch
-3. Exact Base must exist as a commit
-4. Exact Base must be an ancestor of current HEAD
-5. Candidate must derive from `main` (no non-main parent)
-6. Base drift (main advanced beyond declared base) → `HARD_STOP`
-
-### Scope enforcement (machine-enforceable)
-
-The Validator reads `authorized_write_scope` and verifies all actual changed
-files are within the authorized set:
-
-- Supports explicit file paths and controlled glob patterns (`fnmatch`)
-- Duplicate paths in scope → `SCOPE_VIOLATION`
-- Absolute paths in scope → `SCOPE_VIOLATION`
-- `..` traversal paths → `SCOPE_VIOLATION`
-- Files outside scope → `SCOPE_VIOLATION`
-- Missing or empty scope in live candidate mode → fail-closed
-- Static text validation does not depend on Git
-
-Coverage modes:
-- **Local live**: committed + staged + unstaged + untracked files
-- **CI `pull_request`**: candidate Head vs target Base
-- **CI push (branch)**: push branch vs `origin/main`
-- **CI push (main)**: merge commit vs parent commit
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Scope enforcement
 
 ## Remote candidate history immutability
 
-Candidate branches are protected by a two-layer defense:
-
-### Layer 1 — Ruleset (physical block)
-
-The `candidate-history-protection` ruleset blocks `non_fast_forward` pushes and
-branch `deletion` on all formal candidate prefixes (`hermes/**`, `codex/**`,
-`agent/**`, `maker/**`). This is the primary enforcement layer. CI MUST NOT claim
-it prevents force-push — the ruleset does.
-
-### Layer 2 — CI detection and audit
-
-The `validate_candidate_history.py` validator runs on `push`, `delete`, and
-`pull_request` events. It detects:
-
-- forced pushes (`event.forced == true`);
-- branch deletions;
-- non-fast-forward ancestry (before is not ancestor of after);
-- missing or unresolvable `before` / `after` fields;
-- `before` commit missing (history was demolished);
-- illegal branch-creation base (new branch not derived from `main`).
-
-All detection paths fail closed: unresolvable ancestry, missing event fields,
-and unresolvable origin/main produce `HARD_STOP`.
-
-### Permanent disqualification
-
-Once a candidate branch is determined to have suffered a history rewrite:
-
-1. The branch is **permanently** disqualified.
-2. The associated PR permanently loses Audit, Ready, and Merge eligibility.
-3. Subsequent normal commits on the same branch do **not** auto-recover.
-4. A new branch and new PR are required.
-
-Disqualification is persisted in a durable evidence layer outside the candidate
-branch: `refs/adt/disqualified/<safe-branch-name>`. This ref is a permanent
-marker that survives branch deletion and force-push.  Commit status, temporary
-CI artifacts, and runtime logs alone are insufficient for disqualification
-evidence.
-
-### PR eligibility gate
-
-On every `pull_request` event, the `pr-eligibility` job reads the
-disqualification registry. A PR whose head branch is disqualified is
-`BLOCKED_BY_HISTORY` and cannot proceed to Audit, Ready, or Merge.
-
-### Public repository security
-
-- `pull_request_target` is **not** used to execute untrusted fork code.
-- Write permission (`contents: write`) is scoped exclusively to the
-  `history-check` job on trusted same-repository `push` / `delete` events.
-- Fork PRs receive only `contents: read` — no Secrets or write Token exposure.
-- The `GITHUB_TOKEN` is passed only to jobs that require it for disqualification
-  persistence; other jobs run with minimal default permissions.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Remote candidate history immutability
 
 ## Compatibility preservation
 

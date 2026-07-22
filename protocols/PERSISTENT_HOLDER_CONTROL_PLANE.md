@@ -6,13 +6,34 @@ RUNTIME_STATUS: `NOT_IMPLEMENTED`
 RUNTIME_ACTIVATION: `NOT_AUTHORIZED`
 HERMES_R1: `NOT_AUTHORIZED`
 
+> **Role update**: The Persistent Holder role defined in this document has been
+> split into Project Control and Task Holder. See `governance/ROLE_MODEL.md`
+> for the complete role model and authority matrix.
+>
+> **Lifecycle update**: Candidate lifecycle, identity, fingerprint, state
+> machine, and CI/audit/merge gates are now defined in
+> `protocols/CANDIDATE_LIFECYCLE.md` — the single normative source.
+>
+> This document is retained as a compatibility entry and for the Dispatch Card /
+> Progress Receipt format definitions that remain in active use.
+
 ## Purpose and boundary
 
-The Persistent Holder is the resident control-plane interface, Task Router, and State Registrar for the Adaptive Digital Team. It is not a third Maker, does not infer missing authority, and does not convert CI success into acceptance. Temporary Makers create candidates; independent Checkers verify them; Human retains Ready, Merge, branch deletion, final acceptance, and runtime activation.
+The Persistent Holder is the resident control-plane interface, Task Router, and
+State Registrar for the Adaptive Digital Team. It is not a third Maker, does not
+infer missing authority, and does not convert CI success into acceptance.
+Temporary Makers create candidates; independent Checkers verify them; Human
+retains Ready, Merge, branch deletion, final acceptance, and runtime activation.
 
-This protocol records governance behavior only. It does not implement a service, scheduler, autonomous agent creator, product change, Persona, Memory, Token, Profile, Gateway, Feishu integration, memory bridge, or credential operation.
+This protocol records governance behavior only. It does not implement a service,
+scheduler, autonomous agent creator, product change, Persona, Memory, Token,
+Profile, Gateway, Feishu integration, memory bridge, or credential operation.
 
 ## Holder responsibilities
+
+> **Role update**: These responsibilities are now allocated to Project Control
+> and Task Holder per `governance/ROLE_MODEL.md`. The list below is retained as
+> a historical reference.
 
 The Holder:
 
@@ -27,9 +48,12 @@ The Holder:
 - verifies CI and final realtime gate facts;
 - presents concise Human-facing status without black-box claims.
 
-The Holder does not silently Push, widen a lease, retarget a candidate, Ready, Merge, delete branches, or accept evidence.
+The Holder does not silently Push, widen a lease, retarget a candidate, Ready,
+Merge, delete branches, or accept evidence.
 
 ## Durable and live state separation
+
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Durable state boundary
 
 `PROJECT_STATE.md` contains only stable task facts:
 
@@ -44,7 +68,8 @@ current_gate
 implementation_status
 ```
 
-The following are live facts and must be resolved at every relevant gate rather than committed as current values:
+The following are live facts and must be resolved at every relevant gate rather
+than committed as current values:
 
 - current Head;
 - current main;
@@ -55,125 +80,50 @@ The following are live facts and must be resolved at every relevant gate rather 
 - checks and protection;
 - current user action and blockers.
 
-A historical `resolved_head` may be retained only as an ancestor anchor. It is never required to equal current Head and must not cause candidate-SHA self-reference.
+A historical `resolved_head` may be retained only as an ancestor anchor. It is
+never required to equal current Head and must not cause candidate-SHA self-reference.
 
 ## Candidate registry topology
 
-The Holder enforces:
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Single formal candidate topology
 
-```text
-ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN
-```
-
-Before dispatch and before receipt registration, it verifies the candidate PR directly targets `main`. Any other Base is `STACKED_PR_PROHIBITED`. The Holder does not route a child PR as repair for an unmerged parent. A pre-audit repair is appended to the same branch and invalidates prior Head-bound evidence. A post-merge defect starts a new task from latest main. Former child PRs are not retargeted after parent squash merge.
+The Holder enforces `ONE_TASK = ONE_BRANCH = ONE_PR = BASE_MAIN`. Before
+dispatch and receipt registration, it verifies the candidate PR directly targets
+`main`. Any other Base is `STACKED_PR_PROHIBITED`. Pre-audit repair is appended
+to the same branch; post-merge defects start a new task from latest main.
 
 ## Runtime identity registrar
 
-### Push registration
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Runtime-derived identity
 
-The Holder accepts branch identity only from `GITHUB_REF=refs/heads/<branch>`. Missing, empty, tag, notes, pull merge, or other formats fail closed. It verifies:
-
-```text
-git HEAD = GITHUB_SHA = origin/<push_branch>
-```
-
-There is no committed-state branch fallback.
-
-### Pull-request registration
-
-The Holder reads source and Base identities from the pull-request event:
-
-```text
-head_ref / head_sha := pull_request.head
-base_ref / base_sha := pull_request.base
-```
-
-`base_ref` must be main. Source Head must match `origin/<head_ref>` and the checked-out source commit. `refs/pull/*/merge` is not candidate identity.
-
-### Local registration
-
-The Holder derives current Head from `git rev-parse HEAD`, current main from `origin/main`, candidate remote from `origin/<branch>`, and changed files from the runtime diff.
+Identity is resolved live from `GITHUB_REF` (push), pull-request event (PR),
+or local Git facts. No committed-state branch fallback. Full specification in
+`protocols/CANDIDATE_LIFECYCLE.md`.
 
 ## Candidate fingerprint registrar
 
-The Holder canonicalizes and prints:
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Candidate fingerprint
 
-```text
-FINGERPRINT_FIELDS:
-  repository
-  base_ref
-  base_sha
-  head_ref
-  head_sha
-  changed_files (sorted)
-CANDIDATE_FINGERPRINT: SHA-256(canonical fields)
-```
-
-The fingerprint is a live evidence identifier. It is not committed into the candidate. Repository, Base, Head, branch, or changed-file drift creates a different fingerprint.
+The fingerprint is SHA-256 over canonical JSON of `{repository, base_ref,
+base_sha, head_ref, head_sha, sorted(changed_files)}`. It is a live evidence
+identifier, not committed into the candidate. Full specification and the
+canonical Python implementation are in `protocols/CANDIDATE_LIFECYCLE.md`.
 
 ## Audit receipt registration
 
-An audit receipt is registrable only when all target facts match live facts:
-
-- task and authorization;
-- repository and PR;
-- Base ref and exact Base SHA;
-- head ref and exact Head SHA;
-- exact sorted changed files;
-- candidate fingerprint;
-- Checker identity and independence;
-- current PR state.
-
-A target transcription error produces `INVALID_AUDIT_RECEIPT / TARGET_FACT_MISMATCH` without changing candidate state or consuming audit/repair budget. A valid receipt is Head- and fingerprint-bound. Once the candidate identity changes, the old receipt is invalid.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Audit receipt validation
 
 ## Ready and Merge authorization registry
 
-Ready and Merge authorizations must bind the same fingerprint as the valid independent audit. The Holder reports, separately:
-
-```text
-AUDIT_BINDING: VALID | INVALID
-READY_AUTHORIZATION: VALID | INVALID
-MERGE_AUTHORIZATION: VALID | INVALID
-```
-
-Any Base SHA, Head SHA, branch, changed-file set, or repository change invalidates all three old bindings. No old authorization may be silently rebound.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Receipt and authorization binding
 
 ## PRE_MERGE_REALTIME_GATE
 
-Immediately before presenting Ready or Merge, and again immediately before execution, the Holder performs the final realtime gate.
-
-Input:
-
-- expected fingerprint from the valid audit;
-- candidate branch;
-- exact authorized write scope.
-
-Fresh facts:
-
-- repository identity;
-- `origin/main` and Base ref;
-- `origin/<candidate_branch>`;
-- current Head;
-- sorted changed files;
-- workspace clean status;
-- live PR state, mergeability, checks, permissions, and protections when relevant.
-
-Required checks:
-
-1. Base remains `main`.
-2. Base SHA is unchanged.
-3. Head SHA is unchanged and equals candidate remote.
-4. Changed files are unchanged.
-5. Runtime fingerprint equals expected fingerprint.
-6. Workspace clean is true.
-7. Authorized write scope exactly equals actual changed files.
-8. Audit, Ready authorization, and Merge authorization fingerprints are all identical when their gates are invoked.
-
-Any mismatch produces `HARD_STOP`, `STATE_DRIFT`, or `FINGERPRINT_MISMATCH` as applicable. The Holder does not continue to Ready or Merge.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Final realtime gate (PRE_MERGE_REALTIME_GATE)
 
 ## CI verification
 
-The Holder verifies live that both push and pull-request workflow runs are attached to current source Head and succeeded. Static validation, complete tests, and live validation must all run. Skipped required work, soft failure, missing runs, or any `continue-on-error` occurrence fails closed. CI does not grant Human authority.
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § CI gate
 
 ## Dispatch Card
 
@@ -216,101 +166,56 @@ A Progress Receipt is Maker evidence only. It is not an audit receipt or accepta
 
 ## Human-facing control plane
 
-At every critical node, the Holder distinguishes planned, dispatched, receipt-received, execution-verified, and completed states. It states whether Human action is required and provides an exact executable action when required. Waiting is never presented as a Human action. `BLACKBOX_STATUS: PROHIBITED` remains mandatory.
+At every critical node, the Holder distinguishes planned, dispatched,
+receipt-received, execution-verified, and completed states. It states whether
+Human action is required and provides an exact executable action when required.
+Waiting is never presented as a Human action. `BLACKBOX_STATUS: PROHIBITED`
+remains mandatory.
 
 ## Failure routing
 
 - `STACKED_PR_PROHIBITED`: PR Base is not main; no audit or authorization can proceed.
-- `INVALID_AUDIT_RECEIPT`: target facts or Checker submission are invalid; candidate is not automatically defective.
+- `INVALID_AUDIT_RECEIPT`: target facts or Checker submission are invalid;
+  candidate is not automatically defective.
 - `CANDIDATE_FAILURE`: implementation or evidence itself violates requirements.
-- `STATE_DRIFT`: live Base, Head, branch, repository, files, PR, checks, or protection changed.
+- `STATE_DRIFT`: live Base, Head, branch, repository, files, PR, checks, or
+  protection changed.
 - `FINGERPRINT_MISMATCH`: runtime identity differs from audited identity.
-- `BLOCKED_BY_HISTORY`: candidate branch or associated PR has been permanently disqualified due to prior history rewrite (forced push, deletion, or non-fast-forward update). A new branch and new PR are required.
-- `CAPABILITY_UNKNOWN`: required live capability cannot be read; stop without guessing.
+- `BLOCKED_BY_HISTORY`: candidate branch or associated PR has been permanently
+  disqualified due to prior history rewrite (forced push, deletion, or
+  non-fast-forward update). A new branch and new PR are required.
+- `CAPABILITY_UNKNOWN`: required live capability cannot be read; stop without
+  guessing.
 
 ## Remote candidate history immutability
+
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Remote candidate history immutability
 
 Candidate branches are protected by a two-layer defense: (1) the
 `candidate-history-protection` ruleset physically blocks force pushes and
 deletions; (2) the CI history validator detects violations and persists
-permanent disqualification.
-
-Once a candidate branch is determined to have suffered a history rewrite,
-the branch and any associated PR are permanently disqualified.  The
-disqualification record lives in `refs/adt/disqualified/<safe-name>` —
-outside the candidate branch, surviving branch deletion and force-push.
-Commit status, temporary CI artifacts, and runtime logs alone are
-insufficient for disqualification evidence.
-
-On every PR event, the Holder verifies the head branch is not in the
-disqualification registry. A `BLOCKED_BY_HISTORY` result stops the
-candidate at the eligibility gate.
+permanent disqualification. Full specification in
+`protocols/CANDIDATE_LIFECYCLE.md`.
 
 ## Merge capability and runtime boundaries
 
-Merge methods, mergeability, required checks, protection, and permissions are live facts. The Holder re-reads them before presenting or executing a merge decision. A method mismatch may route only to precise Human method reauthorization when the candidate fingerprint and every other binding remain unchanged. Automatic merge, scheduling, Hermes R1, and persistent runtime remain unauthorized.
+Merge methods, mergeability, required checks, protection, and permissions are
+live facts. The Holder re-reads them before presenting or executing a merge
+decision. A method mismatch may route only to precise Human method reauthorization
+when the candidate fingerprint and every other binding remain unchanged.
+Automatic merge, scheduling, Hermes R1, and persistent runtime remain unauthorized.
 
 ## Candidate state machine
 
-Every formal candidate transitions through this state machine:
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Candidate state machine
 
-```
-TASK_AUTHORIZED
-    → MACHINE_PRECHECK
-    → WRITE_AUTHORIZED
-    → COMMITTED
-    → PUSHED
-    → DRAFT_PR
-    → CI_PASS
-    → FORMAL_CANDIDATE
-    → INDEPENDENT_AUDIT
-```
+## Pre-write execution gate
 
-### State definitions
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Pre-write execution gate
 
-| State | Condition |
-|-------|-----------|
-| `LOCAL_DRAFT` | Local branch; no machine precheck passed or precheck failed. Not a formal candidate. |
-| `TASK_AUTHORIZED` | Human has pre-granted conditional write authorization (AUTHORIZATION_ID + scope). |
-| `WRITE_AUTHORIZED` | Machine precheck passed; write authorization activated. Local writes permitted within scope. |
-| `COMMITTED_CANDIDATE` | At least one commit beyond exact base; pushed to remote. |
-| `FORMAL_CANDIDATE` | Formal task branch, non-zero commits, exact base ancestry valid, scope compliant, candidate fingerprint computable. PR event: Head/Base match declaration. |
-| `AUDIT_ELIGIBLE` | FORMAL_CANDIDATE + has open PR + CI passed + fingerprint exists. Ready for independent audit. |
+## Scope enforcement
 
-### State rules
-
-- Human can pre-grant conditional write permission; only machine precheck activates it.
-- Human does not need to re-carry precheck results between windows.
-- Agent self-reported PASS cannot substitute for machine facts.
-- Local drafts are not formal candidates and cannot be audited.
-- `LOCAL_DRAFT` cannot declare `AUDIT_ELIGIBLE`.
-- Zero commits cannot declare `FORMAL_CANDIDATE`.
-- No fingerprint cannot declare `AUDIT_ELIGIBLE`.
-- No PR or CI cannot declare `AUDIT_ELIGIBLE`.
-
-### Pre-write execution gate
-
-The Holder and Validator enforce before any local write:
-
-1. Detached HEAD → `HARD_STOP` (except CI checkout using `GITHUB_REF` / `GITHUB_HEAD_REF` / `GITHUB_BASE_REF`)
-2. Current branch must match task-declared branch
-3. Exact Base must exist as a commit
-4. Exact Base must be an ancestor of current HEAD
-5. Candidate must derive from `main` (no non-main parent)
-6. Base drift (main advanced beyond declared base) → `HARD_STOP`
-
-### Scope enforcement
-
-The Validator reads `authorized_write_scope` and verifies all actual changed
-files are within the authorized set:
-
-- Supports explicit file paths and controlled glob patterns
-- Duplicate paths → `SCOPE_VIOLATION`
-- Absolute paths → `SCOPE_VIOLATION`
-- Path traversal (`..`) → `SCOPE_VIOLATION`
-- Files outside scope → `SCOPE_VIOLATION`
-- Missing or empty scope in live candidate mode → fail-closed
-- Static text validation must not depend on Git
+> **Normative source**: `protocols/CANDIDATE_LIFECYCLE.md` § Scope enforcement
 
 ## Compatibility preservation matrix
 
@@ -322,3 +227,7 @@ anti-inflation, Publish Lease limits, merge-capability preflight, and reviewed
 revert rollback. None of those controls is satisfied merely by a matching
 fingerprint. Existing regression cases are retained as the compatibility layer;
 R1 identity and drift cases are additive.
+
+For the single normative source of lifecycle rules, see `protocols/CANDIDATE_LIFECYCLE.md`.
+For the complete role model replacing the Persistent Holder, see `governance/ROLE_MODEL.md`.
+For concept-to-source mapping, see `governance/NORMATIVE_MAP.md`.

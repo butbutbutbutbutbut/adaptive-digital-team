@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/adapter-output.schema.json",
+  "title": "ADT Adapter Output Schema",
+  "description": "Output contract for the Runtime Adapter. Wraps the Governance Plan (via $ref — no duplicate definition) with adapter-level error state. The route field mirrors governance_plan.route for convenience but is NOT authoritative.",
+  "type": "object",
+  "required": [
+    "governance_plan",
+    "adapter_error",
+    "route"
+  ],
+  "properties": {
+    "governance_plan": {
+      "$ref": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/governance-plan.schema.json",
+      "description": "The Governance Plan produced by the Dynamic Governance Router. $ref to the single normative GovernancePlan schema — no duplicate definition."
+    },
+    "adapter_error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "string",
+          "enum": [
+            "SCOPE_VIOLATION",
+            "UNAUTHORIZED_ACTION",
+            "BINDING_MISSING",
+            "BINDING_INVALID",
+            "CREDENTIAL_LEAK",
+            "INDEPENDENCE_FAILED",
+            "ATTEMPTED_SCOPE_VIOLATION"
+          ]
+        }
+      ],
+      "description": "Adapter-level error. Distinct from governance_plan.route — the router's route determination is NEVER overwritten. null when no adapter error."
+    },
+    "route": {
+      "type": "string",
+      "enum": [
+        "DIRECT_LOCAL_EXECUTION",
+        "FILE_LOCAL_EXECUTION",
+        "READ_ONLY_REPOSITORY_ANALYSIS",
+        "CANDIDATE_IMPLEMENTATION",
+        "INDEPENDENT_AUDIT",
+        "HUMAN_DECISION_REQUIRED",
+        "FACT_SOURCE_REBIND",
+        "HARD_STOP"
+      ],
+      "description": "Mirrors governance_plan.route for convenience. NOT the authoritative source — see governance_plan.route."
+    }
+  }
+}

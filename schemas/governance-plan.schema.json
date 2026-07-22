@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/governance-plan.schema.json",
+  "title": "ADT Governance Plan Schema",
+  "description": "Output contract for the Dynamic Governance Router. A Candidate Control Packet containing route, risk, task decomposition steps, and authorization boundaries.",
+  "type": "object",
+  "required": [
+    "route",
+    "risk",
+    "task_type",
+    "facts_status",
+    "control_packet_status",
+    "write_scope",
+    "steps",
+    "checker_required",
+    "human_authorization_required",
+    "write_actions_permitted"
+  ],
+  "properties": {
+    "route": {
+      "type": "string",
+      "enum": [
+        "DIRECT_LOCAL_EXECUTION",
+        "FILE_LOCAL_EXECUTION",
+        "READ_ONLY_REPOSITORY_ANALYSIS",
+        "CANDIDATE_IMPLEMENTATION",
+        "INDEPENDENT_AUDIT",
+        "HUMAN_DECISION_REQUIRED",
+        "FACT_SOURCE_REBIND",
+        "HARD_STOP"
+      ],
+      "description": "The determined governance route."
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["LOW", "MODERATE", "HIGH", "CRITICAL"],
+      "description": "The assessed risk level."
+    },
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "PROMPT_LOCAL",
+        "PROMPT_LOCAL_WITH_FILES",
+        "REPOSITORY_READ_ONLY",
+        "REPOSITORY_CANDIDATE",
+        "CONTROL_PACKET",
+        "AMBIGUOUS_REQUEST",
+        "CONFLICTING_FACTS"
+      ],
+      "description": "The classified task type."
+    },
+    "facts_status": {
+      "type": "string",
+      "enum": ["VERIFIED", "REQUIRES_VERIFICATION", "CONFLICTING", "INCOMPLETE"],
+      "description": "Status of fact verification."
+    },
+    "control_packet_status": {
+      "type": "string",
+      "enum": ["CANDIDATE", "NOT_AUTHORIZED"],
+      "description": "The control packet status. Must never be AUTHORIZED from the router."
+    },
+    "write_scope": {
+      "type": "array",
+      "description": "The authorized write scope (list of file paths). Empty if no writes are permitted.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "Ordered execution units.",
+      "items": {
+        "type": "object",
+        "required": [
+          "step_id",
+          "objective",
+          "dependencies",
+          "required_facts",
+          "authorized_write_scope",
+          "executor_role",
+          "checker_required",
+          "pass_conditions",
+          "fail_closed_action",
+          "next_gate"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "description": "Unique step identifier (e.g., 'STEP-001')."
+          },
+          "objective": {
+            "type": "string",
+            "description": "What this step accomplishes."
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of STEP_IDs that must complete first."
+          },
+          "required_facts": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Facts that must be verified before execution."
+          },
+          "authorized_write_scope": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Files this step may modify."
+          },
+          "executor_role": {
+            "type": "string",
+            "enum": ["TASK_HOLDER", "MAKER", "CHECKER", "HUMAN"],
+            "description": "The role authorized to execute this step. TASK_HOLDER is normative; the legacy value HOLDER is accepted as a backward-compatible input alias and normalized to TASK_HOLDER on intake."
+          },
+          "checker_required": {
+            "type": "boolean",
+            "description": "Whether an independent Checker must audit this step."
+          },
+          "pass_conditions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Criteria for step success."
+          },
+          "fail_closed_action": {
+            "type": "string",
+            "enum": ["RETRY", "ESCALATE", "HARD_STOP", "HUMAN"],
+            "description": "Action to take on step failure."
+          },
+          "next_gate": {
+            "type": "string",
+            "description": "Next decision point after step completion."
+          }
+        }
+      }
+    },
+    "checker_required": {
+      "type": "boolean",
+      "description": "Whether an independent Checker is required for the overall plan."
+    },
+    "human_authorization_required": {
+      "type": "boolean",
+      "description": "Whether Human Holder authorization is required before any execution."
+    },
+    "write_actions_permitted": {
+      "type": "boolean",
+      "description": "Whether any write actions are permitted under the current plan."
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Known limitations or constraints of the generated plan."
+    },
+    "hard_stop_reason": {
+      "type": "string",
+      "description": "If route is HARD_STOP, the specific reason."
+    },
+    "authorization_id": {
+      "type": "string",
+      "description": "The authorization ID bound to this plan."
+    },
+    "task_id": {
+      "type": "string",
+      "description": "The task ID generated for this plan."
+    }
+  }
+}

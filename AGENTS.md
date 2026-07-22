@@ -193,7 +193,11 @@ this file:
   and Human-only Ready, Merge, deletion, and acceptance;
 - adaptive counter-objectives against duplicate candidates, duplicate state
   systems, stacked repair topology, and governance work that displaces the
-  authorized task.
+  authorized task;
+- dynamic governance routing that classifies task type, assesses risk,
+  decomposes tasks into ordered execution units, and produces Candidate
+  Control Packets — never AUTHORIZED without Human Holder approval
+  (`protocols/DYNAMIC_GOVERNANCE_ROUTER.md`).
 
 The pre-existing regression set remains a compatibility baseline. New R1 tests
 are additive coverage; passing new identity tests cannot waive an older safety

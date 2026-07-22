@@ -11,7 +11,7 @@ that reference a concept are secondary, compatibility, or executable detail.
 | ADT definition | `METHODOLOGY.md` | ADOPTED | `README.md` § What ADT provides |
 | Role model | `governance/ROLE_MODEL.md` | ADOPTED | `AGENTS.md` § Roles, `README.md` § Roles |
 | Fact/action separation | `governance/AUTHORITY_AND_FACTS.md` | ADOPTED | `AGENTS.md` § FACT_SOURCE_REBIND |
-| Candidate lifecycle | `protocols/CANDIDATE_LIFECYCLE.md` | CANDIDATE | `AGENTS.md`, `protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`, `protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` |
+| Candidate lifecycle | `protocols/CANDIDATE_LIFECYCLE.md` | ADOPTED | `AGENTS.md`, `protocols/LIGHTWEIGHT_EXECUTION_FLOW.md`, `protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` |
 | Agent-facing rules | `AGENTS.md` | ADOPTED | — |
 | Protocol activation | `BOOTSTRAP.md` | ADOPTED | `AGENTS.md` § Protocol activation, `README.md` § AI ACTIVATION DIRECTIVE |
 | First-contact routing | `README.md` | ADOPTED | `BOOTSTRAP.md`, `AGENTS.md` § First-contact routing |

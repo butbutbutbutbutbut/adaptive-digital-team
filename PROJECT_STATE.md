@@ -6,10 +6,10 @@ candidate hash are resolved live and are not durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-DYNAMIC-MODEL-RESOURCE-ALLOCATION-MVP-R1
+task_id: ADT-MODEL-CATALOG-FIXTURE-INTEGRITY-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-dynamic-model-resource-allocation-mvp-r1-clean
-starting_base_sha: ed648d90bbb230d76b969d28a153ac4a2ce5af5b
+branch: hermes/adt-model-catalog-fixture-integrity-r1
+starting_base_sha: b94c41e8882205592e129d21b826153042b05c0f
 authorized_write_scope:
   - scripts/resource_allocator.py
   - schemas/resource-plan.schema.json
@@ -17,7 +17,7 @@ authorized_write_scope:
   - tests/fixtures/model-catalog.sample.json
   - PROJECT_STATE.md
 authority:
-  authorization_id: ADT-DYNAMIC-MODEL-RESOURCE-ALLOCATION-20260723-001
+  authorization_id: ADT-MODEL-CATALOG-FIXTURE-INTEGRITY-20260723-001
   holder: HUMAN_HOLDER
   maker: XIAOHE_DEPUTY
   checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER

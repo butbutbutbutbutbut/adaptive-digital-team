@@ -1,29 +1,28 @@
 # Project State
 
-This file stores stable facts for the current ADT governance candidate. Current
-Base, Head, event SHA, remote refs, changed files, PR state, CI state, and the
-candidate hash are resolved live and are not durable fields in this record.
+This file stores durable project state for ADT governance. Per-candidate
+transient facts (branch, Base SHA, authorized write scope, authorization ID,
+task ID) are now held in `.hermes/CANDIDATE_BINDING.json`. Live facts (Head,
+main, CI state, remote refs, changed files, PR state) are resolved at every
+gate and are never durable fields in this record.
 
 ```yaml
 schema_version: "2"
-task_id: ADT-MODEL-CATALOG-FIXTURE-INTEGRITY-R1
 repository: butbutbutbutbutbut/adaptive-digital-team
-branch: hermes/adt-model-catalog-fixture-integrity-r1
-starting_base_sha: b94c41e8882205592e129d21b826153042b05c0f
-authorized_write_scope:
-  - scripts/resource_allocator.py
-  - schemas/resource-plan.schema.json
-  - tests/test_resource_allocator.py
-  - tests/fixtures/model-catalog.sample.json
-  - PROJECT_STATE.md
 authority:
-  authorization_id: ADT-MODEL-CATALOG-FIXTURE-INTEGRITY-20260723-001
-  holder: HUMAN_HOLDER
-  maker: XIAOHE_DEPUTY
-  checker: EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER
-  pr_creation: DRAFT_ONLY
-  ready: HUMAN_ONLY
-  merge: HUMAN_ONLY
-current_gate: IMPLEMENTATION
+  holder: HE-WEIZHI
+  maker: HERMES_TEMPORARY_TASK_HOLDER-003
+  checker: PENDING_INDEPENDENT_CHECKER
+current_gate: MAKER_IMPLEMENTATION
 implementation_status: IN_PROGRESS
+system_next_step: COMMIT_PUSH_DRAFT_PR
+summary: >
+  Elevate Runtime Adapter Contract from CANDIDATE to ADOPTED status.
+  Protocol implemented, independently audited (12/12 PASS), and merged
+  via PR #46. This task changes adoption status only — no semantic,
+  implementation, schema, or test changes.
 ```
+
+This file does not activate Runtime, Hermes R1, automatic scheduling,
+product implementation, Ready, Merge, branch deletion, or final visual or
+engineering acceptance.

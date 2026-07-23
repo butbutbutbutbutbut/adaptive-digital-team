@@ -69,6 +69,12 @@ def push_ref_branch(ref: str | None = None) -> str | None:
 
 
 class BindingValidator:
+    TRANSIENT_FIELDS = frozenset({
+        "branch", "task_id", "authorization_id", "starting_base_sha",
+        "authorized_write_scope",
+    })
+    BINDING_FIELD_MAP: dict[str, str] = {"starting_base_sha": "base_sha"}
+
     def __init__(
         self,
         text: str,
@@ -80,6 +86,7 @@ class BindingValidator:
         ready_authorization_fingerprint: str | None = None,
         merge_authorization_fingerprint: str | None = None,
         explicit_scope: list[str] | None = None,
+        binding_path: str = ".hermes/CANDIDATE_BINDING.json",
     ) -> None:
         self.text = text
         self.live_mode = live_mode or candidate_mode or pre_merge
@@ -90,6 +97,9 @@ class BindingValidator:
         self.ready_fingerprint = ready_authorization_fingerprint
         self.merge_fingerprint = merge_authorization_fingerprint
         self.explicit_scope = explicit_scope  # override scope from CLI
+        self.binding_path = binding_path
+        self._binding: dict[str, Any] | None = None
+        self._binding_file_exists: bool = False
         self.errors: list[str] = []
         self.warnings: list[str] = []
         self.parsed: dict[str, Any] = {}
@@ -109,12 +119,146 @@ class BindingValidator:
     candidate_fingerprint = staticmethod(candidate_fingerprint)
 
     def get(self, key: str, default: Any = None) -> Any:
+        # Check candidate binding first for transient fields
+        if self._binding is not None and key in self.TRANSIENT_FIELDS:
+            binding_key = self.BINDING_FIELD_MAP.get(key, key)
+            if binding_key in self._binding:
+                value = self._binding[binding_key]
+                if isinstance(value, list):
+                    return value
+                if value is not None and value != "":
+                    return value
+        # Fall back to parsed PROJECT_STATE.md
         node: Any = self.parsed
         for part in key.split("."):
             if not isinstance(node, dict) or part not in node:
                 return default
             node = node[part]
         return node
+
+    def _get_from_binding(self, key: str, default: Any = None) -> Any:
+        """Get a field from the loaded binding, returns None if no binding."""
+        if self._binding is None:
+            return default
+        binding_key = self.BINDING_FIELD_MAP.get(key, key)
+        return self._binding.get(binding_key, default)
+
+    def _load_binding(self) -> dict[str, Any] | None:
+        """Read .hermes/CANDIDATE_BINDING.json, validate against schema, return dict or None."""
+        binding_path = Path(self.binding_path)
+        if not binding_path.exists():
+            self._binding_file_exists = False
+            return None
+        self._binding_file_exists = True
+        try:
+            binding = json.loads(binding_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json is malformed: {exc}")
+            return None
+        if not isinstance(binding, dict):
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json root must be an object")
+            return None
+
+        # Validate required fields (from execution-authorization-binding.schema.json)
+        required = [
+            "authorization_id", "authority_source", "human_role",
+            "repository", "base_sha", "branch", "authorized_actions", "authorized_write_scope",
+        ]
+        missing = []
+        for r in required:
+            val = binding.get(r)
+            if isinstance(val, list):
+                if len(val) == 0:
+                    missing.append(r)
+            elif val in (None, ""):
+                missing.append(r)
+        if missing:
+            self.errors.append(
+                f"{HARD_STOP}: CANDIDATE_BINDING.json missing required fields: {', '.join(missing)}"
+            )
+            return None
+
+        # Validate field types
+        if not isinstance(binding["repository"], str) or "/" not in binding["repository"]:
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json: repository must be owner/repo format")
+            return None
+        if not isinstance(binding["base_sha"], str) or not re.fullmatch(r"^[0-9a-f]{40}$", binding["base_sha"]):
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json: base_sha must be a 40-char hex SHA")
+            return None
+        if not isinstance(binding["branch"], str):
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json: branch must be a string")
+            return None
+        if not isinstance(binding["authorized_actions"], list) or len(binding["authorized_actions"]) == 0:
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json: authorized_actions must be a non-empty list")
+            return None
+        if not isinstance(binding["authorized_write_scope"], list):
+            self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json: authorized_write_scope must be a list")
+            return None
+
+        return binding
+
+    def check_binding(self) -> None:
+        """Validate the binding file vs PROJECT_STATE.md.
+
+        - Binding present: ALL transient fields must come from binding.
+          Dual-source (transient fields also in PROJECT_STATE.md) → HARD_STOP.
+        - Binding absent: full legacy fallback required.
+          Missing transient fields in PROJECT_STATE.md → HARD_STOP.
+        """
+        if self._binding is not None:
+            # Binding loaded successfully — check for dual-source conflict
+            dual_source = []
+            for field in sorted(self.TRANSIENT_FIELDS):
+                val = self.parsed.get(field)
+                if isinstance(val, list):
+                    if len(val) > 0:
+                        dual_source.append(field)
+                elif val not in (None, ""):
+                    dual_source.append(field)
+            if dual_source:
+                self.errors.append(
+                    f"{HARD_STOP}: dual-source conflict — binding exists "
+                    f"but PROJECT_STATE.md also defines transient fields: {', '.join(dual_source)}"
+                )
+            # Cross-check: binding repository must match PROJECT_STATE.md repository
+            binding_repo = str(self._binding.get("repository") or "")
+            parsed_repo = str(self.parsed.get("repository") or "")
+            if binding_repo and parsed_repo and binding_repo != parsed_repo:
+                self.errors.append(
+                    f"{HARD_STOP}: CANDIDATE_BINDING.json repository ({binding_repo}) "
+                    f"does not match PROJECT_STATE.md repository ({parsed_repo})"
+                )
+            # Validate task_id in binding
+            task_id = self._get_from_binding("task_id")
+            if task_id in (None, ""):
+                self.errors.append(
+                    f"{HARD_STOP}: CANDIDATE_BINDING.json: task_id is missing or empty"
+                )
+            # Check binding required fields including type validation
+            scope = self._get_from_binding("authorized_write_scope", [])
+            if not isinstance(scope, list) or len(scope) == 0:
+                self.errors.append(
+                    f"{HARD_STOP}: CANDIDATE_BINDING.json: authorized_write_scope is missing or empty"
+                )
+        elif self._binding_file_exists:
+            # Binding file exists but failed to load — errors already added in _load_binding
+            return
+        else:
+            # No binding file — full legacy fallback from PROJECT_STATE.md
+            transient_required = ["branch", "task_id", "starting_base_sha", "authorized_write_scope"]
+            missing_transient = []
+            for field in transient_required:
+                val = self.parsed.get(field)
+                if isinstance(val, list):
+                    if len(val) == 0:
+                        missing_transient.append(field)
+                elif val in (None, ""):
+                    missing_transient.append(field)
+            if missing_transient:
+                self.errors.append(
+                    f"{HARD_STOP}: no CANDIDATE_BINDING.json and PROJECT_STATE.md "
+                    f"missing transient fields: {', '.join(missing_transient)}"
+                )
 
     def _git(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["git", *args], text=True, capture_output=True, check=False, timeout=30)
@@ -302,10 +446,16 @@ class BindingValidator:
     # ═══════════════════════════════════════════════════════════
 
     def check_static(self) -> None:
-        required = (
-            "task_id", "repository", "branch", "starting_base_sha",
-            "authorized_write_scope", "authority", "current_gate", "implementation_status",
-        )
+        if self._binding is not None:
+            # Binding present: only require stable fields from PROJECT_STATE.md
+            required = (
+                "repository", "authority", "current_gate", "implementation_status",
+            )
+        else:
+            required = (
+                "task_id", "repository", "branch", "starting_base_sha",
+                "authorized_write_scope", "authority", "current_gate", "implementation_status",
+            )
         missing = [x for x in required if self.get(x) in (None, "", [])]
         if missing:
             self.errors.append("VALIDATION-STATE: missing stable fields: " + ", ".join(missing))
@@ -655,6 +805,8 @@ class BindingValidator:
         except (ValueError, yaml.YAMLError) as exc:
             self.errors.append(f"VALIDATION-YAML: {exc}")
             return self._finish()
+        self._binding = self._load_binding()
+        self.check_binding()
         self.check_static()
         self.check_legacy()
         if self.live_mode:

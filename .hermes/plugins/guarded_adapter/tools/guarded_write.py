@@ -45,14 +45,14 @@ GUARDED_WRITE_SCHEMA = {
 
 
 def _resolve_scope_context() -> Dict[str, Any]:
-    """Resolve scope context from PROJECT_STATE.md and authorization binding.
+    """Resolve scope context from CANDIDATE_BINDING.json, falling back to PROJECT_STATE.md.
 
-    This is a lightweight resolver; in a full integration, these values
-    come from the Holder dispatch packet.
+    Binding-first: consumes ExecutionAuthorizationBinding via load_binding().
+    Falls back to PROJECT_STATE.md YAML parsing only when the binding file is missing.
+    No YAML/JSON dual interpretation.
     """
-    import json
+    from ..runtime_models import load_binding
 
-    project_state_path = _REPO_ROOT / "PROJECT_STATE.md"
     scope_context: Dict[str, Any] = {
         "plan_write_scope": [],
         "authorized_write_scope": [],
@@ -62,6 +62,27 @@ def _resolve_scope_context() -> Dict[str, Any]:
         "branch": "UNKNOWN",
         "base_sha": "UNKNOWN",
     }
+
+    # ------------------------------------------------------------------
+    # 1. Try the External Authorization Binding first
+    # ------------------------------------------------------------------
+    binding = load_binding()
+
+    if binding is not None:
+        # Populate ALL scope fields from the binding dataclass — no YAML parsing.
+        scope_context["authorized_write_scope"] = list(binding.authorized_write_scope)
+        scope_context["plan_write_scope"] = list(binding.authorized_write_scope)
+        scope_context["branch"] = binding.branch
+        scope_context["base_sha"] = binding.base_sha
+        scope_context["task_id"] = binding.task_id or "UNKNOWN"
+        scope_context["repository"] = binding.repository
+        scope_context["authorization_binding"] = binding.to_dict()
+        return scope_context
+
+    # ------------------------------------------------------------------
+    # 2. Fallback: PROJECT_STATE.md (legacy path — keep existing logic)
+    # ------------------------------------------------------------------
+    project_state_path = _REPO_ROOT / "PROJECT_STATE.md"
 
     if not project_state_path.exists():
         logger.warning("PROJECT_STATE.md not found; scope enforcement will be strict")
@@ -144,7 +165,7 @@ def _resolve_scope_context() -> Dict[str, Any]:
     except Exception as e:
         logger.warning("Failed to parse PROJECT_STATE.md: %s", e)
 
-    # Build synthetic authorization binding from PROJECT_STATE.md
+    # Build synthetic authorization binding from PROJECT_STATE.md (legacy)
     scope_context["authorization_binding"] = {
         "authorization_id": scope_context.get("task_id", "UNKNOWN"),
         "authority_source": "PROJECT_STATE.md",

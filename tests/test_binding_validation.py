@@ -31,6 +31,36 @@ SCOPE = [
 
 
 def state(**changes):
+    """Build a test PROJECT_STATE document WITHOUT transient-candidate fields.
+
+    Transient fields (task_id, branch, starting_base_sha, authorized_write_scope)
+    are NOT included — they now live in .hermes/CANDIDATE_BINDING.json.
+    Use state_legacy() for tests that need the old pre-decoupling format.
+    """
+    value = {
+        "schema_version": "2",
+        "repository": REPO,
+        "authority": {
+            "holder": "HE-WEIZHI",
+            "maker": "HERMES_TEMPORARY_GOVERNANCE_MAKER",
+            "checker": "EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024",
+        },
+        "current_gate": "FINAL_CANDIDATE_FREEZE",
+        "implementation_status": "NOT_AUTHORIZED",
+    }
+    for key, item in changes.items():
+        if item is DELETE:
+            value.pop(key, None)
+        else:
+            value[key] = item
+    return "```yaml\n" + yaml.safe_dump(value, sort_keys=False) + "```\n"
+
+
+def state_legacy(**changes):
+    """Build a test PROJECT_STATE document WITH transient-candidate fields.
+
+    This is the pre-decoupling format used by legacy fallback tests.
+    """
     value = {
         "schema_version": "2", "task_id": "ADT-EXTERNAL-BOOTSTRAP-ACTIVATION-R1",
         "repository": REPO, "branch": BRANCH, "starting_base_sha": BASE,
@@ -49,6 +79,55 @@ def state(**changes):
         else:
             value[key] = item
     return "```yaml\n" + yaml.safe_dump(value, sort_keys=False) + "```\n"
+
+
+# ── Binding file management for tests ──────────────────────────
+
+BINDING_PATH = ROOT / ".hermes" / "CANDIDATE_BINDING.json"
+BINDING_BAK = BINDING_PATH.with_suffix(".json.bak")
+
+
+@pytest.fixture(autouse=True)
+def _auto_hide_binding(request):
+    """Auto-hide CANDIDATE_BINDING.json for tests not marked @binding_required.
+
+    Legacy tests (pre-decoupling) expect PROJECT_STATE-only mode.
+    Tests marked @binding_required get the real binding file.
+    """
+    if request.node.get_closest_marker("binding_required"):
+        # Restore binding if it was hidden
+        if BINDING_BAK.exists() and not BINDING_PATH.exists():
+            BINDING_BAK.rename(BINDING_PATH)
+        yield
+    else:
+        # Hide binding for legacy tests
+        was_hidden = False
+        if BINDING_PATH.exists():
+            BINDING_PATH.rename(BINDING_BAK)
+            was_hidden = True
+        yield
+        if was_hidden and BINDING_BAK.exists():
+            BINDING_BAK.rename(BINDING_PATH)
+
+
+@pytest.fixture
+def hide_binding():
+    """Temporarily hide CANDIDATE_BINDING.json for legacy fallback tests."""
+    was_hidden = False
+    if BINDING_PATH.exists():
+        BINDING_PATH.rename(BINDING_BAK)
+        was_hidden = True
+    yield
+    if was_hidden and BINDING_BAK.exists():
+        BINDING_BAK.rename(BINDING_PATH)
+
+
+@pytest.fixture
+def require_binding():
+    """Ensure CANDIDATE_BINDING.json exists (restore from backup if hidden)."""
+    if BINDING_BAK.exists() and not BINDING_PATH.exists():
+        BINDING_BAK.rename(BINDING_PATH)
+    yield
 
 
 class Delete: pass
@@ -99,7 +178,7 @@ def pr_env(monkeypatch, tmp_path, base_ref="main", base_sha=BASE, head_ref=BRANC
 # Preserved baseline regression coverage
 # ══════════════════════════════════════════════════════════════
 
-def test_static_valid(): assert BindingValidator(state()).validate()
+def test_static_valid(): assert BindingValidator(state_legacy()).validate()
 
 @pytest.mark.parametrize("key", ["task_id", "repository", "branch", "starting_base_sha",
                                   "authorized_write_scope", "authority", "current_gate", "implementation_status"])
@@ -114,12 +193,12 @@ def test_no_runtime_cache(key):
 
 def test_scope_wildcard_warns_not_errors():
     """Glob patterns in scope now just warn in static mode; enforcement is live."""
-    v = BindingValidator(state(authorized_write_scope=["protocols/**"]))
+    v = BindingValidator(state_legacy(authorized_write_scope=["protocols/**"]))
     v.validate()
     assert any("VALIDATION-SCOPE" in w for w in v.warnings)
 
 def test_scope_empty_fails():
-    v = BindingValidator(state(authorized_write_scope=[]))
+    v = BindingValidator(state_legacy(authorized_write_scope=[]))
     assert not v.validate()
 
 def test_wrong_repo_fails(monkeypatch):
@@ -171,12 +250,12 @@ def test_legacy_baseline_cases(case):
 # ══════════════════════════════════════════════════════════════
 
 def test_push_feature_identity_pass(monkeypatch):
-    v = BindingValidator(state(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
+    v = BindingValidator(state_legacy(), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
     assert v.validate()
 
 def test_push_main_identity_pass(monkeypatch):
-    v = BindingValidator(state(branch="main"), live_mode=True); push_env(monkeypatch, "main"); patch_runtime(monkeypatch, v)
+    v = BindingValidator(state_legacy(branch="main"), live_mode=True); push_env(monkeypatch, "main"); patch_runtime(monkeypatch, v)
     monkeypatch.setattr(v, "_remote_head", lambda branch: HEAD)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
     assert v.validate() and v.runtime_fields["base_sha"] == BASE
@@ -187,7 +266,7 @@ def test_invalid_github_ref_hard_stop(monkeypatch):
     assert any(HARD_STOP in x for x in v.errors)
 
 def test_pr_base_main_pass(monkeypatch, tmp_path):
-    v = BindingValidator(state(), live_mode=True); pr_env(monkeypatch, tmp_path); patch_runtime(monkeypatch, v)
+    v = BindingValidator(state_legacy(), live_mode=True); pr_env(monkeypatch, tmp_path); patch_runtime(monkeypatch, v)
     assert v.validate()
 
 def test_stacked_pr_negative(monkeypatch, tmp_path):
@@ -212,7 +291,7 @@ def test_changed_files_drift(monkeypatch, changed):
     assert not v.validate()
 
 def premerge(monkeypatch, expected, **changes):
-    v = BindingValidator(state(), pre_merge=True, expected_fingerprint=expected,
+    v = BindingValidator(state_legacy(), pre_merge=True, expected_fingerprint=expected,
                          audit_fingerprint=changes.pop("audit", None),
                          ready_authorization_fingerprint=changes.pop("ready", None),
                          merge_authorization_fingerprint=changes.pop("merge", None))
@@ -235,7 +314,7 @@ def test_old_binding_invalid_after_new_commit(monkeypatch, binding):
     v = premerge(monkeypatch, fp, **kwargs); assert not v.validate() and any("INVALID" in x for x in v.errors)
 
 def test_resolved_head_anchor(monkeypatch):
-    v = BindingValidator(state(resolved_head="1" * 40), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
+    v = BindingValidator(state_legacy(resolved_head="1" * 40), live_mode=True); push_env(monkeypatch); patch_runtime(monkeypatch, v)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE}); assert v.validate()
 
 def test_workflow_all_pr_and_source_head():
@@ -267,12 +346,9 @@ def test_project_state_and_protocol_contracts() -> None:
     parsed = BindingValidator(state_text).parse_yaml()
 
     # --- required stable fields ---
+    # --- required stable fields (post-decoupling: no transient fields) ---
     required = [
-        "task_id",
         "repository",
-        "branch",
-        "starting_base_sha",
-        "authorized_write_scope",
         "authority",
         "current_gate",
         "implementation_status",
@@ -280,17 +356,15 @@ def test_project_state_and_protocol_contracts() -> None:
     for field in required:
         assert field in parsed, f"missing required field: {field}"
 
-    # --- authorized_write_scope invariants ---
-    scope: list[str] = parsed["authorized_write_scope"]
-    assert isinstance(scope, list), "authorized_write_scope must be a list"
-    assert len(scope) > 0, "authorized_write_scope must not be empty"
-    assert "PROJECT_STATE.md" in scope, (
-        "every task must include PROJECT_STATE.md in its scope"
-    )
-    for path in scope:
-        assert not path.startswith("/"), f"scope path must be relative: {path}"
-        assert not path.startswith("\\"), f"scope path must be relative: {path}"
-        assert ".." not in path, f"scope path must not traverse: {path}"
+    # --- authorized_write_scope is now in CANDIDATE_BINDING.json, not PROJECT_STATE.md ---
+    # Scope invariants are validated against the binding, not PROJECT_STATE
+    # PROJECT_STATE.md must NOT contain transient fields (checked below)
+    transient_forbidden = ["task_id", "branch", "starting_base_sha", "authorized_write_scope"]
+    for field in transient_forbidden:
+        assert field not in parsed, (
+            f"PROJECT_STATE.md must not contain transient field: {field}. "
+            f"It now lives in .hermes/CANDIDATE_BINDING.json"
+        )
 
     # --- authority sub-fields ---
     auth = parsed["authority"]
@@ -488,7 +562,7 @@ def test_project_state_rejects_illegal_values(illegal_yaml: str) -> None:
 
 def test_scope_normal_pass(monkeypatch):
     """Normal authorized scope: all changed files within scope → PASS."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     push_env(monkeypatch)
     patch_runtime(monkeypatch, v)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
@@ -497,7 +571,7 @@ def test_scope_normal_pass(monkeypatch):
 
 def test_scope_outside_file_fails(monkeypatch):
     """File outside authorized_write_scope → SCOPE_VIOLATION."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     push_env(monkeypatch)
     patch_runtime(monkeypatch, v, changed=[*SCOPE, "unauthorized/file.py"])
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
@@ -507,7 +581,7 @@ def test_scope_outside_file_fails(monkeypatch):
 
 def test_scope_staged_changes_checked(monkeypatch):
     """Staged changes must be checked against scope in candidate mode."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -517,7 +591,7 @@ def test_scope_staged_changes_checked(monkeypatch):
 
 def test_scope_unstaged_outside_fails(monkeypatch):
     """Unstaged changes outside scope → SCOPE_VIOLATION in candidate mode."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -538,7 +612,7 @@ def test_scope_untracked_outside_fails(monkeypatch):
 def test_scope_glob_legal_match(monkeypatch):
     """Glob pattern in scope that matches changed files → PASS."""
     scope_with_glob = ["tests/*.py", "protocols/*.md", "PROJECT_STATE.md"]
-    v = BindingValidator(state(authorized_write_scope=scope_with_glob), live_mode=True)
+    v = BindingValidator(state_legacy(authorized_write_scope=scope_with_glob), live_mode=True)
     push_env(monkeypatch)
     patch_runtime(monkeypatch, v, changed=["tests/test_binding_validation.py", "protocols/BEGINNER_BOOTSTRAP_ROUTER.md"])
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
@@ -548,7 +622,7 @@ def test_scope_glob_legal_match(monkeypatch):
 def test_scope_glob_overreach_fails(monkeypatch):
     """Glob matches authorized files but a changed file outside glob → SCOPE_VIOLATION."""
     scope_with_glob = ["tests/*.py", "protocols/*.md"]
-    v = BindingValidator(state(authorized_write_scope=scope_with_glob), live_mode=True)
+    v = BindingValidator(state_legacy(authorized_write_scope=scope_with_glob), live_mode=True)
     push_env(monkeypatch)
     patch_runtime(monkeypatch, v, changed=["tests/test_binding_validation.py", "AGENTS.md"])
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
@@ -558,7 +632,7 @@ def test_scope_glob_overreach_fails(monkeypatch):
 
 def test_scope_missing_fail_closed(monkeypatch):
     """Missing scope in candidate mode → fail-closed."""
-    v = BindingValidator(state(authorized_write_scope=[]), candidate_mode=True)
+    v = BindingValidator(state_legacy(authorized_write_scope=[]), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -566,7 +640,7 @@ def test_scope_missing_fail_closed(monkeypatch):
 
 def test_scope_empty_fail_closed_candidate(monkeypatch):
     """Empty scope in candidate mode → fail-closed."""
-    v = BindingValidator(state(authorized_write_scope=[]), candidate_mode=True)
+    v = BindingValidator(state_legacy(authorized_write_scope=[]), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -575,7 +649,7 @@ def test_scope_empty_fail_closed_candidate(monkeypatch):
 def test_scope_duplicate_path_fails(monkeypatch):
     """Duplicate paths in scope → SCOPE_VIOLATION."""
     dup_scope = SCOPE + ["AGENTS.md"]  # deliberate duplicate
-    v = BindingValidator(state(authorized_write_scope=dup_scope), live_mode=True)
+    v = BindingValidator(state_legacy(authorized_write_scope=dup_scope), live_mode=True)
     push_env(monkeypatch)
     patch_runtime(monkeypatch, v)
     monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
@@ -584,20 +658,20 @@ def test_scope_duplicate_path_fails(monkeypatch):
 
 def test_scope_absolute_path_fails():
     """Absolute path in scope → SCOPE_VIOLATION."""
-    v = BindingValidator(state(authorized_write_scope=["/etc/passwd"]))
+    v = BindingValidator(state_legacy(authorized_write_scope=["/etc/passwd"]))
     v.validate()
     assert any("absolute" in e.lower() for e in v.errors)
 
 def test_scope_traversal_path_fails():
     """Path with .. traversal → SCOPE_VIOLATION."""
-    v = BindingValidator(state(authorized_write_scope=["../outside/file.txt"]))
+    v = BindingValidator(state_legacy(authorized_write_scope=["../outside/file.txt"]))
     v.validate()
     assert any("traversal" in e.lower() for e in v.errors)
 
 def test_scope_static_no_git_dependency():
     """Static text validation must not depend on Git."""
     # In static mode (live_mode=False), scope entry validation works without git
-    v = BindingValidator(state(), live_mode=False)
+    v = BindingValidator(state_legacy(), live_mode=False)
     v.validate()
     # Should succeed without needing git
     assert not any("unresolved" in e.lower() for e in v.errors)
@@ -609,7 +683,7 @@ def test_scope_static_no_git_dependency():
 
 def test_prewrite_detached_head_fails(monkeypatch):
     """Local write mode with detached HEAD → HARD_STOP."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v, is_detached=True)
@@ -619,7 +693,7 @@ def test_prewrite_detached_head_fails(monkeypatch):
 
 def test_prewrite_branch_mismatch_fails(monkeypatch):
     """Current branch differs from declared branch → HARD_STOP."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v, branch="hermes/wrong-branch")
@@ -629,7 +703,7 @@ def test_prewrite_branch_mismatch_fails(monkeypatch):
 
 def test_prewrite_base_not_exist_fails(monkeypatch):
     """Exact base commit does not exist → HARD_STOP."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -640,7 +714,7 @@ def test_prewrite_base_not_exist_fails(monkeypatch):
 
 def test_prewrite_base_not_ancestor_fails(monkeypatch):
     """Exact base is not an ancestor of current HEAD → HARD_STOP."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -651,7 +725,7 @@ def test_prewrite_base_not_ancestor_fails(monkeypatch):
 
 def test_prewrite_non_main_derived_fails(monkeypatch):
     """Candidate base does not derive from main → HARD_STOP."""
-    v = BindingValidator(state(starting_base_sha="x" * 40), candidate_mode=True)
+    v = BindingValidator(state_legacy(starting_base_sha="x" * 40), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v, main=BASE, remote="x" * 40)
@@ -664,7 +738,7 @@ def test_prewrite_non_main_derived_fails(monkeypatch):
 def test_prewrite_base_drift_fails(monkeypatch):
     """Base drift (main advanced beyond declared base) → HARD_STOP."""
     advanced_main = "c" * 40
-    v = BindingValidator(state(starting_base_sha=BASE), candidate_mode=True)
+    v = BindingValidator(state_legacy(starting_base_sha=BASE), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v, main=advanced_main, remote=BASE)
@@ -686,7 +760,7 @@ def test_prewrite_ci_detached_ok(monkeypatch, tmp_path):
 
 def test_prewrite_pr_branch_mismatch_fails(monkeypatch, tmp_path):
     """PR head ref differs from declared branch → HARD_STOP."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     pr_env(monkeypatch, tmp_path, head_ref="hermes/wrong-pr-branch")
     patch_runtime(monkeypatch, v, is_detached=True)
     v.parsed = v.parse()
@@ -704,7 +778,7 @@ def test_prewrite_pr_non_main_base_fails(monkeypatch, tmp_path):
 
 def test_prewrite_push_branch_mismatch_fails(monkeypatch):
     """Push branch differs from declared branch → HARD_STOP."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     push_env(monkeypatch, branch="hermes/wrong-push-branch")
     patch_runtime(monkeypatch, v, is_detached=True)
     monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
@@ -714,7 +788,7 @@ def test_prewrite_push_branch_mismatch_fails(monkeypatch):
 
 def test_prewrite_normal_branch_pass(monkeypatch):
     """Normal local branch matching declaration → PASS."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -735,7 +809,7 @@ def test_candidate_state_local_draft_default():
 
 def test_candidate_state_write_authorized(monkeypatch):
     """Candidate mode with no errors → WRITE_AUTHORIZED (before commits)."""
-    v = BindingValidator(state(), candidate_mode=True)
+    v = BindingValidator(state_legacy(), candidate_mode=True)
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
     patch_runtime(monkeypatch, v)
@@ -744,7 +818,7 @@ def test_candidate_state_write_authorized(monkeypatch):
 
 def test_candidate_state_formal_in_pr(monkeypatch, tmp_path):
     """PR event with all checks passing → FORMAL_CANDIDATE or AUDIT_ELIGIBLE."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     pr_env(monkeypatch, tmp_path)
     patch_runtime(monkeypatch, v)
     v.validate()
@@ -809,7 +883,7 @@ def test_explicit_scope_overrides_binding():
 
 def test_ci_pull_request_uses_base_vs_head(monkeypatch, tmp_path):
     """CI pull_request mode compares candidate vs target base."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     pr_env(monkeypatch, tmp_path, base_sha=BASE, head_sha=HEAD)
     patch_runtime(monkeypatch, v)
     # _ci_changed_files should be called with "pull_request"
@@ -823,7 +897,7 @@ def test_ci_pull_request_uses_base_vs_head(monkeypatch, tmp_path):
 
 def test_ci_branch_push_uses_main_comparison(monkeypatch):
     """CI branch push compares push branch vs main."""
-    v = BindingValidator(state(), live_mode=True)
+    v = BindingValidator(state_legacy(), live_mode=True)
     push_env(monkeypatch, branch=BRANCH, sha=HEAD)
     patch_runtime(monkeypatch, v)
     called_with = []
@@ -841,8 +915,264 @@ def test_ci_branch_push_uses_main_comparison(monkeypatch):
 # ══════════════════════════════════════════════════════════════
 
 def test_scope_enforcement_does_not_break_static_validation():
+    v = BindingValidator(state_legacy())
     """Static validation of a valid binding still passes with scope checks."""
-    v = BindingValidator(state())
+    v = BindingValidator(state_legacy())
     result = v.validate()
     assert result, f"Static validation failed: {v.errors}"
     assert v.candidate_state == "LOCAL_DRAFT"
+
+
+# ══════════════════════════════════════════════════════════════
+# NEW: Candidate binding file support tests
+# ══════════════════════════════════════════════════════════════
+
+def _make_binding(**overrides):
+    """Create a valid CANDIDATE_BINDING.json dict."""
+    binding = {
+        "authorization_id": "ADT-TEST-001",
+        "authority_source": "Human Holder directive #42",
+        "human_role": "HUMAN_HOLDER",
+        "repository": REPO,
+        "base_sha": BASE,
+        "branch": BRANCH,
+        "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
+        "authorized_write_scope": list(SCOPE),
+        "task_id": "ADT-EXTERNAL-BOOTSTRAP-ACTIVATION-R1",
+    }
+    binding.update(overrides)
+    return binding
+
+
+def _write_binding(tmp_path, binding):
+    """Write CANDIDATE_BINDING.json to a tmp_path/.hermes/ directory."""
+    hermes_dir = tmp_path / ".hermes"
+    hermes_dir.mkdir(parents=True, exist_ok=True)
+    (hermes_dir / "CANDIDATE_BINDING.json").write_text(json.dumps(binding))
+
+
+def _stable_state(**changes):
+    """PROJECT_STATE.md with only stable fields (no transient fields)."""
+    value = {
+        "schema_version": "2",
+        "repository": REPO,
+        "authority": {
+            "holder": "HE-WEIZHI",
+            "maker": "HERMES_TEMPORARY_GOVERNANCE_MAKER",
+            "checker": "EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024",
+        },
+        "current_gate": "FINAL_CANDIDATE_FREEZE",
+        "implementation_status": "NOT_AUTHORIZED",
+    }
+    for key, item in changes.items():
+        if item is DELETE:
+            value.pop(key, None)
+        else:
+            value[key] = item
+    return "```yaml\n" + yaml.safe_dump(value, sort_keys=False) + "```\n"
+
+
+# ── Valid binding passes ──
+
+@pytest.mark.binding_required
+@pytest.mark.binding_required
+def test_valid_candidate_binding_passes(monkeypatch, tmp_path):
+    """Valid CANDIDATE_BINDING.json + stable-only PROJECT_STATE → PASS."""
+    binding = _make_binding()
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert v.validate()
+
+
+# ── Wrong repository blocks ──
+
+def test_wrong_repo_in_binding_blocks(monkeypatch, tmp_path):
+    """Binding repository differs from PROJECT_STATE → HARD_STOP."""
+    binding = _make_binding(repository="wrong/repo")
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert not v.validate()
+    assert any(HARD_STOP in e and "repository" in e.lower() for e in v.errors)
+
+
+# ── Wrong branch blocks ──
+
+def test_wrong_branch_in_binding_blocks_live(monkeypatch, tmp_path):
+    """Binding branch != runtime head_ref → HARD_STOP in live mode."""
+    binding = _make_binding(branch="hermes/wrong-branch")
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state(), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v, branch=BRANCH)
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    assert not v.validate()
+    assert any(HARD_STOP in e and "branch" in e.lower() for e in v.errors)
+
+
+# ── Wrong task_id blocks ──
+
+def test_missing_task_id_in_binding_blocks(monkeypatch, tmp_path):
+    """Binding without task_id → HARD_STOP."""
+    binding = _make_binding(task_id="")
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert not v.validate()
+    assert any("task_id" in e.lower() for e in v.errors)
+
+
+# ── Wrong authorization_id blocks ──
+
+def test_missing_authorization_id_in_binding_blocks(monkeypatch, tmp_path):
+    """Binding without authorization_id → HARD_STOP (from _load_binding required check)."""
+    binding = _make_binding(authorization_id="")
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert not v.validate()
+    assert any("authorization_id" in e.lower() or "missing required fields" in e.lower() for e in v.errors)
+
+
+# ── Wrong starting_base_sha blocks ──
+
+@pytest.mark.binding_required
+@pytest.mark.binding_required
+def test_wrong_starting_base_sha_blocks(monkeypatch, tmp_path):
+    """Binding with invalid base_sha → HARD_STOP from _load_binding."""
+    binding = _make_binding(base_sha="not-a-sha")
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert not v.validate()
+    assert any("base_sha" in e.lower() for e in v.errors)
+
+
+def test_wrong_starting_base_sha_blocks_prewrite(monkeypatch, tmp_path):
+    """Binding base_sha that doesn't exist as commit → HARD_STOP in candidate mode."""
+    bad_sha = "d" * 40
+    binding = _make_binding(base_sha=bad_sha)
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state(), candidate_mode=True)
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+    patch_runtime(monkeypatch, v)
+    monkeypatch.setattr(v, "_commit_exists", lambda sha: sha != bad_sha)
+    v.parsed = v.parse()
+    v._binding = v._load_binding()
+    v.parsed = v.parse()  # re-parse for stable_state
+    v.check_prewrite_gate()
+    assert any("does not exist" in e for e in v.errors)
+
+
+# ── Wrong authorized_write_scope blocks ──
+
+def test_wrong_scope_in_binding_blocks_live(monkeypatch, tmp_path):
+    """Binding scope that doesn't cover changed files → SCOPE_VIOLATION in live mode."""
+    narrow_scope = ["README.md"]
+    binding = _make_binding(authorized_write_scope=narrow_scope)
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state(), live_mode=True)
+    push_env(monkeypatch)
+    patch_runtime(monkeypatch, v, changed=list(SCOPE))
+    monkeypatch.setattr(v, "_event_payload", lambda: {"before": BASE})
+    monkeypatch.setattr(v, "_ci_changed_files", lambda ev: list(SCOPE))
+    assert not v.validate()
+    assert any(SCOPE_VIOLATION in e for e in v.errors)
+
+
+# ── Malformed binding blocks ──
+
+@pytest.mark.binding_required
+@pytest.mark.binding_required
+def test_malformed_binding_blocks(monkeypatch, tmp_path):
+    """CANDIDATE_BINDING.json with invalid JSON → HARD_STOP."""
+    hermes_dir = tmp_path / ".hermes"
+    hermes_dir.mkdir(parents=True, exist_ok=True)
+    (hermes_dir / "CANDIDATE_BINDING.json").write_text("not valid json {{{")
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert not v.validate()
+    assert any("malformed" in e.lower() for e in v.errors)
+
+
+# ── Partial binding blocks ──
+
+def test_partial_binding_missing_required_blocks(monkeypatch, tmp_path):
+    """Binding file missing required fields → HARD_STOP."""
+    binding = {"branch": BRANCH}  # missing most required fields
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(_stable_state())
+    assert not v.validate()
+    assert any("missing required fields" in e.lower() for e in v.errors)
+
+
+# ── Mixed-source binding blocks ──
+
+@pytest.mark.binding_required
+@pytest.mark.binding_required
+def test_mixed_source_binding_blocks(monkeypatch, tmp_path):
+    """Binding exists AND PROJECT_STATE.md has transient fields → HARD_STOP."""
+    binding = _make_binding()
+    _write_binding(tmp_path, binding)
+    monkeypatch.chdir(tmp_path)
+    # Use state_legacy() which includes transient fields
+    v = BindingValidator(state_legacy())
+    assert not v.validate()
+    assert any("dual-source" in e.lower() for e in v.errors)
+
+
+# ── Complete legacy fallback passes ──
+
+def test_complete_legacy_fallback_passes(monkeypatch, tmp_path):
+    """No binding file, all transient fields in PROJECT_STATE → PASS."""
+    monkeypatch.chdir(tmp_path)  # ensure no .hermes/CANDIDATE_BINDING.json
+    v = BindingValidator(state_legacy())
+    assert v.validate()
+
+
+# ── Incomplete legacy fallback blocks ──
+
+def test_incomplete_legacy_fallback_blocks(monkeypatch, tmp_path):
+    """No binding file, PROJECT_STATE missing transient field → HARD_STOP."""
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(state_legacy(branch=DELETE))
+    assert not v.validate()
+    assert any("missing transient fields" in e.lower() for e in v.errors)
+
+
+def test_incomplete_legacy_fallback_missing_task_id_blocks(monkeypatch, tmp_path):
+    """No binding file, PROJECT_STATE missing task_id → HARD_STOP."""
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(state(task_id=DELETE))
+    assert not v.validate()
+    assert any("missing transient fields" in e.lower() for e in v.errors) and "task_id" in " ".join(v.errors)
+
+
+def test_incomplete_legacy_fallback_missing_scope_blocks(monkeypatch, tmp_path):
+    """No binding file, PROJECT_STATE missing authorized_write_scope → HARD_STOP."""
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(state_legacy(authorized_write_scope=DELETE))
+    assert not v.validate()
+    assert any("missing transient fields" in e.lower() for e in v.errors)
+
+
+def test_incomplete_legacy_fallback_empty_scope_blocks(monkeypatch, tmp_path):
+    """No binding file, PROJECT_STATE has empty authorized_write_scope → HARD_STOP."""
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(state_legacy(authorized_write_scope=[]))
+    assert not v.validate()
+    assert any("missing transient fields" in e.lower() for e in v.errors)
+
+
+def test_incomplete_legacy_fallback_missing_base_sha_blocks(monkeypatch, tmp_path):
+    """No binding file, PROJECT_STATE missing starting_base_sha → HARD_STOP."""
+    monkeypatch.chdir(tmp_path)
+    v = BindingValidator(state_legacy(starting_base_sha=DELETE))
+    assert not v.validate()
+    assert any("missing transient fields" in e.lower() for e in v.errors)

@@ -11,9 +11,12 @@ Provides typed dataclasses for use by gate.py and the guarded tools.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SCHEMAS_DIR = _REPO_ROOT / "schemas"
@@ -287,3 +290,113 @@ class ExecutionAuthorizationBinding:
         if self.risk_boundary and self.risk_boundary not in {"LOW", "MODERATE", "HIGH"}:
             errors.append(f"Invalid risk_boundary: {self.risk_boundary}")
         return errors
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize back to a dict matching the JSON schema."""
+        result: Dict[str, Any] = {
+            "authorization_id": self.authorization_id,
+            "authority_source": self.authority_source,
+            "human_role": self.human_role,
+            "repository": self.repository,
+            "base_sha": self.base_sha,
+            "branch": self.branch,
+            "authorized_actions": list(self.authorized_actions),
+            "authorized_write_scope": list(self.authorized_write_scope),
+        }
+        if self.human_holder_approved is not None:
+            result["human_holder_approved"] = self.human_holder_approved
+        if self.risk_boundary is not None:
+            result["risk_boundary"] = self.risk_boundary
+        if self.task_id is not None:
+            result["task_id"] = self.task_id
+        return result
+
+    @classmethod
+    def from_json_file(cls, path: Optional[Path] = None) -> "ExecutionAuthorizationBinding":
+        """Load and validate an ExecutionAuthorizationBinding from a JSON file.
+
+        Args:
+            path: Path to the JSON file (Path or str).
+                  Defaults to REPO_ROOT / ".hermes" / "CANDIDATE_BINDING.json".
+
+        Returns:
+            ExecutionAuthorizationBinding instance.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file content is invalid or fails validation.
+        """
+        if path is None:
+            path = _REPO_ROOT / ".hermes" / "CANDIDATE_BINDING.json"
+        elif isinstance(path, str):
+            path = Path(path)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Authorization binding file not found: {path}")
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in binding file {path}: {e}")
+
+        if not isinstance(data, dict):
+            raise ValueError(f"Binding file {path} must contain a JSON object, got {type(data).__name__}")
+
+        # Basic required-field check (matches schema required fields)
+        required_fields = [
+            "authorization_id", "authority_source", "human_role",
+            "repository", "base_sha", "branch",
+            "authorized_actions", "authorized_write_scope",
+        ]
+        missing = [k for k in required_fields if k not in data]
+        if missing:
+            raise ValueError(
+                f"Binding file {path} missing required fields: {', '.join(missing)}"
+            )
+
+        if not isinstance(data["authorized_actions"], list) or len(data["authorized_actions"]) == 0:
+            raise ValueError(
+                f"Binding file {path}: authorized_actions must be a non-empty list"
+            )
+
+        if not isinstance(data["authorized_write_scope"], list):
+            raise ValueError(
+                f"Binding file {path}: authorized_write_scope must be a list"
+            )
+
+        binding = cls.from_dict(data)
+        errors = binding.validate()
+        if errors:
+            raise ValueError(
+                f"Binding file {path} validation failed: {'; '.join(errors)}"
+            )
+
+        return binding
+
+
+def load_binding() -> Optional[ExecutionAuthorizationBinding]:
+    """Load the execution authorization binding.
+
+    Tries CANDIDATE_BINDING.json first. Returns None on missing file
+    (with a warning) so callers can fall back to PROJECT_STATE.md.
+
+    Returns:
+        ExecutionAuthorizationBinding instance or None if the file is missing.
+    """
+    try:
+        return ExecutionAuthorizationBinding.from_json_file()
+    except FileNotFoundError:
+        logger.warning(
+            "CANDIDATE_BINDING.json not found; "
+            "no external authorization binding available."
+        )
+        return None
+    except ValueError as e:
+        logger.warning("CANDIDATE_BINDING.json is invalid: %s", e)
+        return None
+    except Exception as e:
+        logger.warning(
+            "Unexpected error loading CANDIDATE_BINDING.json: %s", e
+        )
+        return None

@@ -2,9 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://adt-governance.local/schemas/resource-plan.schema.json",
   "title": "Resource Plan",
-  "description": "Deterministic allocation based on GovernancePlan.resource_tier and checker_timing, bounded by Human token, Point, and Checker limits.",
+  "description": "Deterministic allocation using resource_tier and checker_timing when present, while accepting adopted legacy ResourcePlans.",
   "type": "object",
-  "required": ["plan_status", "resource_tier", "checker_timing", "maker", "checker", "budget", "points", "max_repair_attempts", "context_strategy", "parallelism"],
+  "required": [
+    "plan_status",
+    "maker",
+    "checker",
+    "budget",
+    "max_repair_attempts",
+    "context_strategy",
+    "parallelism"
+  ],
   "properties": {
     "plan_status": {"type": "string", "enum": ["ALLOCATED", "BLOCKED"]},
     "block_reason": {"type": "string"},
@@ -14,23 +22,30 @@
       "type": "object",
       "required": ["provider", "model", "reasoning_effort", "max_iterations"],
       "properties": {
-        "provider": {"type": "string"}, "model": {"type": "string"},
+        "provider": {"type": "string"},
+        "model": {"type": "string"},
         "reasoning_effort": {"type": "string", "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]},
         "max_iterations": {"type": "integer", "minimum": 0}
       }
     },
     "checker": {
       "oneOf": [
-        {"type": "object", "required": ["provider", "model", "reasoning_effort", "max_iterations"], "properties": {
-          "provider": {"type": "string"}, "model": {"type": "string"},
-          "reasoning_effort": {"type": "string", "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]},
-          "max_iterations": {"type": "integer", "minimum": 0}
-        }},
+        {
+          "type": "object",
+          "required": ["provider", "model", "reasoning_effort", "max_iterations"],
+          "properties": {
+            "provider": {"type": "string"},
+            "model": {"type": "string"},
+            "reasoning_effort": {"type": "string", "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]},
+            "max_iterations": {"type": "integer", "minimum": 0}
+          }
+        },
         {"type": "null"}
       ]
     },
     "budget": {
-      "type": "object", "required": ["token_budget", "status", "accuracy"],
+      "type": "object",
+      "required": ["token_budget", "status", "accuracy"],
       "properties": {
         "token_budget": {"type": "integer", "minimum": 0},
         "status": {"type": "string", "enum": ["WITHIN_BUDGET", "BLOCKED_BUDGET_EXCEEDED"]},
@@ -38,7 +53,8 @@
       }
     },
     "points": {
-      "type": "object", "required": ["recommended", "hard_max", "status"],
+      "type": "object",
+      "required": ["recommended", "hard_max", "status"],
       "properties": {
         "recommended": {"type": "integer", "minimum": 0, "maximum": 2},
         "hard_max": {"type": "integer", "minimum": 0, "maximum": 2},
@@ -50,7 +66,13 @@
     "parallelism": {"type": "integer", "minimum": 0, "maximum": 5}
   },
   "allOf": [
-    {"if": {"properties": {"plan_status": {"const": "BLOCKED"}}}, "then": {"required": ["block_reason"]}},
-    {"if": {"properties": {"plan_status": {"const": "ALLOCATED"}}}, "then": {"not": {"required": ["block_reason"]}}}
+    {
+      "if": {"required": ["plan_status"], "properties": {"plan_status": {"const": "BLOCKED"}}},
+      "then": {"required": ["block_reason"]}
+    },
+    {
+      "if": {"required": ["plan_status"], "properties": {"plan_status": {"const": "ALLOCATED"}}},
+      "then": {"not": {"required": ["block_reason"]}}
+    }
   ]
 }

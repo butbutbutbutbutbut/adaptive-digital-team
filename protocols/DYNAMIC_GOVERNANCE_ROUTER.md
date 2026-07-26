@@ -9,19 +9,28 @@ PROTOCOL_STATUS: `ADOPTED_GOVERNANCE_SPECIFICATION`
 
 The Dynamic Governance Router converts natural-language or structured user input
 into a constrained, deterministic governance plan. It classifies the task, assesses
-risk, determines the execution route, decomposes the task into ordered execution
-units, and produces a Candidate Control Packet.
+safety risk, determines continuity, evaluates material Human premises, binds a
+resource tier and Checker timing, decomposes the task into ordered execution units,
+and produces a Candidate Control Packet.
 
-P1 generates candidate plans only. It does **not** execute high-risk operations,
-auto-Ready, auto-Merge, or auto-delete branches.
+The Router generates candidate plans only. It does **not** execute high-risk
+operations, auto-Ready, auto-Merge, auto-delete branches, allocate a Checker before
+a formal candidate, or expand a read request into repair.
+
+The adaptive counter-objective rationale is defined only in `METHODOLOGY.md`.
+This document specifies the existing Router's executable contract; it is not a
+second methodology or state system.
 
 ## 2. Pipeline
 
 ```
 USER_INPUT
 → TASK_INTAKE
-→ FACT_AND_AUTHORITY_CHECK
-→ RISK_CLASSIFICATION
+→ ANTI_REVIEW (silent / zero Point)
+→ CLAIM_AND_AUTHORITY_CHECK
+→ CONTINUITY_CLASSIFICATION
+→ SAFETY_RISK_CLASSIFICATION
+→ RESOURCE_AND_CHECKER_BINDING
 → TASK_DECOMPOSITION
 → GOVERNANCE_ROUTE
 → CANDIDATE_CONTROL_PACKET
@@ -37,137 +46,175 @@ USER_INPUT
 | `PROMPT_LOCAL` | Plain text request, no files, no repository |
 | `PROMPT_LOCAL_WITH_FILES` | Request with attachments, no repository |
 | `REPOSITORY_READ_ONLY` | Repository reference, read/inspect intent only |
-| `REPOSITORY_CANDIDATE` | Repository reference, write/modify intent |
+| `REPOSITORY_CANDIDATE` | Repository reference, explicit write/modify intent |
 | `CONTROL_PACKET` | Input carries full Dispatch Card or Control Packet header |
 | `AMBIGUOUS_REQUEST` | Intent cannot be reliably classified |
 | `CONFLICTING_FACTS` | Repository facts (SHA, PR, branch, scope) conflict |
 
 ### 3.2 Classification Rules
 
-1. If the input carries a complete Control Packet with `AUTHORIZATION_ID`,
-   `FROM`, `TO`, `EXECUTOR`, `REPOSITORY`, `BASE_SHA` → `CONTROL_PACKET`.
+1. A complete Control Packet with `AUTHORIZATION_ID` routes as `CONTROL_PACKET`.
+2. Repository + explicit write action routes as `REPOSITORY_CANDIDATE`.
+3. Repository + read/analyze/review/decide action routes as
+   `REPOSITORY_READ_ONLY`, even when the material being read describes a bug.
+4. Attachments without repository route as `PROMPT_LOCAL_WITH_FILES`.
+5. Plain text without repository routes as `PROMPT_LOCAL`.
+6. Conflicting facts route as `CONFLICTING_FACTS`.
+7. Otherwise route as `AMBIGUOUS_REQUEST`.
 
-2. If the input references a repository AND explicitly requests writes (modify,
-   create, fix, add, delete files or branches, push, create PR) →
-   `REPOSITORY_CANDIDATE`.
+`requested_actions` is authoritative when present. A set containing only
+`READ`, `ANALYZE`, `DECIDE`, `REVIEW`, `AUDIT`, `VERIFY`, or `SUMMARIZE` cannot
+create write intent. Fix language inside a quoted Bug report or evidence body is
+not authorization to implement a fix.
 
-3. If the input references a repository AND does NOT request writes (read,
-   inspect, check, audit, list, verify) → `REPOSITORY_READ_ONLY`.
+## 4. Independent Human-claim judgment
 
-4. If the input has file attachments AND no repository reference →
-   `PROMPT_LOCAL_WITH_FILES`.
+Every material Human premise must produce exactly one `claim_status`:
 
-5. If the input is plain text with no attachments and no repository reference →
-   `PROMPT_LOCAL`.
+| Value | Meaning |
+|-------|---------|
+| `SUPPORTED` | The relevant premise is supported by available facts |
+| `PARTIAL` | Supported and rejected parts both exist |
+| `REJECTED` | The relevant premise conflicts with available facts |
+| `UNVERIFIED` | Available evidence cannot support or reject it |
 
-6. If repository facts (branch, SHA, PR, scope) conflict with each other or
-   with the declared intent → `CONFLICTING_FACTS`.
+The Router may consume structured `human_premise` evidence, but it must not turn
+polite agreement into `SUPPORTED`. Missing evidence is `UNVERIFIED`.
 
-7. If none of the above can be determined with confidence →
-   `AMBIGUOUS_REQUEST`.
+## 5. Continuity
 
-## 4. Risk Classification
+The Router emits exactly one `continuity_action`:
 
-### 4.1 RISK Enum (FROZEN)
+| Value | Meaning |
+|-------|---------|
+| `NEW_TASK_START` | No matching active task; normal startup applies |
+| `CONTINUE` | Same task; restore current delta only |
+| `RESTART` | Restart has a valid reason |
+| `RESTART_REJECTED` | Restart requested without a valid reason |
+
+The same `task_id` and `active_task_id` default to `CONTINUE`. Valid restart
+reasons are frozen to:
+
+- `ROLE_ISOLATION`
+- `FACT_SOURCE_INVALID`
+- `CONTEXT_CONTAMINATION`
+- `HUMAN_EXPLICIT_REQUEST`
+
+A restart never creates a second task level, second state system, stacked repair
+PR, or independent receipt.
+
+## 6. Safety Risk
+
+### 6.1 RISK Enum (FROZEN)
 
 | Value | Criteria |
 |-------|----------|
 | `LOW` | Local-only execution, no repository interaction, no external systems |
 | `MODERATE` | Repository read, candidate plan generation, no direct writes |
-| `HIGH` | Repository writes, file modifications, PR creation, execution unit generation |
-| `CRITICAL` | Governance file modification, permission changes, credential handling, publishing, branch deletion, Ready/Merge, candidate history mutation, external system interaction |
+| `HIGH` | Repository writes or file modifications |
+| `CRITICAL` | Governance/permission/credential/publishing/history mutation |
 
-### 4.2 Risk Assessment Factors
+Safety risk describes consequence and authorization pressure only. It does not
+directly select model tier or Checker timing.
 
-Risk is the **maximum** of all applicable factors:
+## 7. Adaptive counter-objective outputs
 
-1. **Write**: any repository write → at least `HIGH`
-2. **Governance files**: modifying AGENTS.md, protocols/, .github/workflows/,
-   or any governance file → `CRITICAL`
-3. **Permissions**: modifying authority, scope, roles, access controls → `CRITICAL`
-4. **Credentials**: touching secrets, tokens, keys, or credential files → `CRITICAL`
-5. **Publishing**: Ready, Merge, push, deploy, release → `CRITICAL`
-6. **History mutation**: deleting branches, force-push, rebase, amend → `CRITICAL`
-7. **External systems**: APIs, webhooks, services outside the repo → `CRITICAL`
-8. **Ambiguity**: incomplete or inconsistent facts → at least `MODERATE`
-9. **Local only**: no repository at all → `LOW`
+### 7.1 `anti_review_decision`
 
-## 5. Governance Route
+Frozen values:
 
-### 5.1 ROUTE Enum (FROZEN)
+- `PROCEED`
+- `DOWNSCOPE`
+- `BLOCK`
+
+The anti-review runs silently and costs zero Point. It does not emit an
+independent receipt. If `estimated_governance_cost > estimated_task_value`, the
+Router emits `DOWNSCOPE`, reduces `recommended_points` and
+`max_external_messages`, and selects the smallest safe route. A forbidden action
+or unsatisfied hard boundary may emit `BLOCK`.
+
+### 7.2 Human friction
+
+When `human_friction_signal=true`, the Router:
+
+- restores `latest_authorized_scope` as the operative write scope;
+- discards inferred expansion;
+- limits `max_external_messages` to one;
+- keeps the current task unless a valid restart reason exists.
+
+## 8. Resource and Checker binding
+
+### 8.1 `resource_tier`
+
+Frozen values: `economy`, `standard`, `strong`.
+
+Default binding:
+
+| Condition | Default tier |
+|-----------|--------------|
+| LOW local | `economy` |
+| MODERATE repository/read | `standard` |
+| HIGH bounded candidate | `standard` |
+| CRITICAL governance modification | `strong` |
+
+A HIGH bounded write may explicitly use `economy` or `standard`. Risk alone must
+not silently upgrade it to `strong`.
+
+### 8.2 `checker_timing`
+
+Frozen values:
+
+- `NONE`
+- `AFTER_FORMAL_CANDIDATE`
+- `NOW`
+
+Local candidate production emits `AFTER_FORMAL_CANDIDATE` and receives no
+Checker allocation. Only a formal candidate or explicit audit stage emits
+`NOW`. This timing field, not risk, determines Checker allocation.
+
+The legacy `checker_required` field remains for compatibility and lifecycle
+intent. It is not the resource allocator's timing input when `checker_timing` is
+present.
+
+## 9. Governance Route
+
+### 9.1 ROUTE Enum (FROZEN)
 
 | Value | When |
 |-------|------|
 | `DIRECT_LOCAL_EXECUTION` | `PROMPT_LOCAL` with LOW risk |
 | `FILE_LOCAL_EXECUTION` | `PROMPT_LOCAL_WITH_FILES` with LOW risk |
 | `READ_ONLY_REPOSITORY_ANALYSIS` | `REPOSITORY_READ_ONLY` |
-| `CANDIDATE_IMPLEMENTATION` | `REPOSITORY_CANDIDATE` with MODERATE or HIGH risk |
-| `INDEPENDENT_AUDIT` | `CONTROL_PACKET` requesting audit |
-| `HUMAN_DECISION_REQUIRED` | `AMBIGUOUS_REQUEST`, or CRITICAL risk without explicit authorization, or missing write scope |
-| `FACT_SOURCE_REBIND` | `CONFLICTING_FACTS` — facts conflict, no writes permitted |
-| `HARD_STOP` | CRITICAL risk on governance/permissions, auto-Ready/Merge attempt, scope expansion, P0 violation |
+| `CANDIDATE_IMPLEMENTATION` | Authorized bounded repository candidate |
+| `INDEPENDENT_AUDIT` | Formal candidate audit |
+| `HUMAN_DECISION_REQUIRED` | Ambiguity, critical authorization, or restart rejection |
+| `FACT_SOURCE_REBIND` | Conflicting facts; no writes |
+| `HARD_STOP` | Forbidden action or hard boundary violation |
 
-### 5.2 Route Determination Logic
+## 10. Task Decomposition
 
-```
-Input → TASK_TYPE + RISK → ROUTE
-
-PROMPT_LOCAL + LOW                  → DIRECT_LOCAL_EXECUTION
-PROMPT_LOCAL_WITH_FILES + LOW       → FILE_LOCAL_EXECUTION
-REPOSITORY_READ_ONLY + any          → READ_ONLY_REPOSITORY_ANALYSIS
-REPOSITORY_CANDIDATE + MODERATE     → CANDIDATE_IMPLEMENTATION
-REPOSITORY_CANDIDATE + HIGH         → CANDIDATE_IMPLEMENTATION
-REPOSITORY_CANDIDATE + CRITICAL     → HUMAN_DECISION_REQUIRED
-CONTROL_PACKET + audit request      → INDEPENDENT_AUDIT
-CONTROL_PACKET + non-audit          → CANDIDATE_IMPLEMENTATION
-AMBIGUOUS_REQUEST + any             → HUMAN_DECISION_REQUIRED
-CONFLICTING_FACTS + any             → FACT_SOURCE_REBIND
-Any + auto-Ready/Merge detected     → HARD_STOP
-Any + scope expansion detected      → HARD_STOP
-Any + P0 violation detected         → HARD_STOP
-Any + missing critical authority    → HARD_STOP
-```
-
-## 6. Task Decomposition
-
-### 6.1 Step Structure
-
-Each execution unit must contain:
+Each execution unit retains the adopted structure:
 
 ```text
-STEP_ID           — unique step identifier
-OBJECTIVE         — what this step accomplishes
-DEPENDENCIES      — list of STEP_IDs that must complete first
-REQUIRED_FACTS    — facts that must be verified before execution
-AUTHORIZED_WRITE_SCOPE — files this step may modify
-EXECUTOR_ROLE      — TASK_HOLDER / MAKER / CHECKER / HUMAN
-CHECKER_REQUIRED   — true / false
-PASS_CONDITIONS    — criteria for step success
-FAIL_CLOSED_ACTION — action on failure (RETRY / ESCALATE / HARD_STOP / HUMAN)
-NEXT_GATE          — next decision point after completion
+STEP_ID
+OBJECTIVE
+DEPENDENCIES
+REQUIRED_FACTS
+AUTHORIZED_WRITE_SCOPE
+EXECUTOR_ROLE
+CHECKER_REQUIRED
+PASS_CONDITIONS
+FAIL_CLOSED_ACTION
+NEXT_GATE
 ```
 
-> **Role normalization**: `TASK_HOLDER` is the normative executor role.
-> The legacy value `HOLDER` is accepted as a backward-compatible input alias
-> and normalized to `TASK_HOLDER` immediately on intake. Output must never
-> emit `HOLDER`.
+`TASK_HOLDER` is normative; legacy input `HOLDER` is normalized immediately and
+never emitted. No generated local-production step assigns `CHECKER`. The Checker
+step is generated only when `checker_timing=NOW`.
 
-### 6.2 Step Generation
+## 11. Candidate Control Packet
 
-Steps are generated deterministically from the route, risk, and task type.
-The decomposition must be pure (no randomness, no model-specific variation).
-
-## 7. Candidate Control Packet
-
-### 7.1 CONTROL_PACKET_STATUS Enum (FROZEN)
-
-| Value | Meaning |
-|-------|---------|
-| `CANDIDATE` | Plan generated, NOT yet authorized |
-| `NOT_AUTHORIZED` | Plan was reviewed and explicitly denied |
-| `AUTHORIZED` | Human Holder explicitly authorized execution |
-
-### 7.2 Packet Structure
+Every `GovernancePlan` includes at least:
 
 ```json
 {
@@ -176,23 +223,45 @@ The decomposition must be pure (no randomness, no model-specific variation).
   "task_type": "<TASK_TYPE>",
   "facts_status": "VERIFIED | REQUIRES_VERIFICATION | CONFLICTING | INCOMPLETE",
   "control_packet_status": "CANDIDATE",
+  "anti_review_decision": "PROCEED | DOWNSCOPE | BLOCK",
+  "claim_status": "SUPPORTED | PARTIAL | REJECTED | UNVERIFIED",
+  "continuity_action": "NEW_TASK_START | CONTINUE | RESTART | RESTART_REJECTED",
+  "recommended_points": 1,
+  "hard_max_points": 2,
+  "resource_tier": "economy | standard | strong",
+  "checker_timing": "NONE | AFTER_FORMAL_CANDIDATE | NOW",
+  "max_external_messages": 1,
+  "stop_condition": "<STOP_CONDITION>",
   "write_scope": [],
   "steps": [],
-  "checker_required": true,
-  "human_authorization_required": true,
+  "checker_required": false,
+  "human_authorization_required": false,
   "write_actions_permitted": false,
   "limitations": []
 }
 ```
 
-### 7.3 Authorization Boundary
+The Router may only generate `CANDIDATE`, never `AUTHORIZED`. Human Holder
+approval remains a separate gate.
 
-- The router may ONLY generate packets with `control_packet_status: CANDIDATE`.
-- `AUTHORIZED` status requires explicit Human Holder approval through a
-  separate gate.
-- The router must never auto-approve, auto-Ready, auto-Merge, or auto-delete.
+## 12. Resource Allocator contract
 
-## 8. Fact Conflict Isolation
+The Resource Allocator consumes `GovernancePlan.resource_tier` and
+`GovernancePlan.checker_timing`.
+
+It returns `BLOCKED` when any of the following exceeds the Human boundary:
+
+- `recommended_points`
+- `hard_max_points`
+- approximate token budget
+- Checker permission when `checker_timing=NOW`
+
+No silent tier upgrade, Checker removal, Checker early start, token overspend, or
+Point overspend is permitted. For compatibility only, legacy plans that omit new
+fields may use the old risk/checker fallback; all new Router output includes the
+new fields.
+
+## 13. Fact Conflict Isolation
 
 When repository, PR, branch, SHA, permissions, or scope facts conflict:
 
@@ -202,69 +271,51 @@ READ_ONLY_RECHECK_REQUIRED
 WRITE_ACTIONS: PROHIBITED
 ```
 
-The router must NOT:
-- Auto-create a fix branch
-- Auto-close a PR
-- Auto-expand the task scope
-- Infer missing facts from chat context
-- Assume write permission exists
+The Router must not auto-create a fix branch, close a PR, expand scope, infer
+missing facts, or assume write permission.
 
-## 9. Fail-Closed Rules (FROZEN)
+## 14. Fail-Closed Rules
 
 | Condition | Action |
 |-----------|--------|
-| Missing AUTHORIZATION_ID in Control Packet | HARD_STOP |
-| Missing REPOSITORY in repo task | FACT_SOURCE_REBIND |
-| Missing BASE_SHA in repo task | FACT_SOURCE_REBIND |
-| Missing write scope in CANDIDATE task | HUMAN_DECISION_REQUIRED |
-| Auto-Ready request detected | HARD_STOP |
-| Auto-Merge request detected | HARD_STOP |
-| Auto-delete branch detected | HARD_STOP |
-| Scope expansion beyond authorization | HARD_STOP: SCOPE_EXPANSION_REQUIRED |
-| P0 A/B/C contract modification attempted | HARD_STOP |
-| Maker == Checker for same task | HARD_STOP |
-| HIGH/CRITICAL risk without Checker | HARD_STOP |
+| Missing critical authority | HARD_STOP or HUMAN_DECISION_REQUIRED |
+| Auto-Ready / Auto-Merge / auto-delete | HARD_STOP |
+| Scope expansion | HARD_STOP: SCOPE_EXPANSION_REQUIRED |
+| P0 A/B/C contract modification | HARD_STOP |
 | Capability-based authority inference | HARD_STOP |
-| Illegal enum values in output | HARD_STOP |
-| User cancellation | STOPPED, zero writes |
-| Public ADT upstream write attempt | READ_ONLY |
+| Invalid enum | HARD_STOP |
+| Same-task restart without valid reason | `RESTART_REJECTED` |
+| Human point/token/Checker boundary exceeded | ResourcePlan `BLOCKED` |
+| Governance cost exceeds task value | `DOWNSCOPE` |
+| User cancellation | zero writes |
+| Public ADT upstream without explicit authorization | READ_ONLY |
 
-## 10. P1 Boundaries
+## 15. Preservation boundaries
 
-### 10.1 P1 DOES
+This change does not:
 
-- Classify task type from user input
-- Assess risk level
-- Generate a deterministic route
-- Decompose tasks into ordered steps
-- Produce Candidate Control Packets (CANDIDATE status only)
-- Validate input and output against frozen schemas
-- Fail closed on all error conditions
+- add S2/S3 task levels;
+- modify Candidate Lifecycle;
+- modify the A/B/C first-contact protocol;
+- create a second anti-objective protocol or state system;
+- auto-spawn sub-agents;
+- authorize Ready, Merge, branch deletion, or product acceptance;
+- change product repositories or CI.
 
-### 10.2 P1 DOES NOT
-
-- Auto-Ready, auto-Merge, or auto-delete
-- Auto-allocate model tiers or costs (P2)
-- Auto-spawn sub-agents or parallel workers (P3)
-- Execute generated control packets directly
-- Modify P0 A/B/C first-contact contracts
-- Infer authority from model capabilities
-- Expand write scope beyond authorization
-- Create fix branches for conflicting facts
-
-## 11. Adoption Record
+## 16. Adoption Record
 
 ```text
-IMPLEMENTATION_STATUS: ACTIVE
-PHASE: P1
-AUTHORIZATION: ADT-P1-DYNAMIC-GOVERNANCE-ROUTER-20260721-001
-***
-4dc0eb25173e92208b347bbfd23a6b101fa0b571
+IMPLEMENTATION_STATUS: ACTIVE_CANDIDATE
+PHASE: S2 / DOWNSCOPED_IMPLEMENTATION
+TASK_ID: ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-R1
+AUTHORIZATION: ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-20260726-001
 ROLE_NORMALIZATION: TASK_HOLDER (normative), HOLDER (legacy input alias only)
-INDEPENDENT_AUDIT: PENDING
+ANTI_REVIEW_RECEIPT: NONE
+ANTI_REVIEW_POINT_COST: 0
+INDEPENDENT_AUDIT: PENDING_AFTER_FORMAL_CANDIDATE
 SELF_ACCEPTANCE: FORBIDDEN
 AUTO_READY: FORBIDDEN
 AUTO_MERGE: FORBIDDEN
 HISTORY_REWRITE: FORBIDDEN
-NEXT_GATE: IMPLEMENTATION_COMPLETE → LOCAL_VALIDATION → INDEPENDENT_AUDIT
+NEXT_GATE: IMPLEMENTATION_COMPLETE → LOCAL_VALIDATION → FORMAL_CANDIDATE → INDEPENDENT_AUDIT
 ```

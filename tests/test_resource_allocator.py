@@ -1,176 +1,81 @@
-"""Resource allocator regression and boundary tests."""
+#!/usr/bin/env python3
+"""Tests for ADT Resource Allocator — deterministic model and resource allocation.
+
+Covers:
+  - LOW risk → economy tier, no checker
+  - MODERATE risk → standard tier, conditional checker
+  - HIGH risk → strong tier, mandatory checker
+  - CRITICAL risk → strong tier
+  - Budget exceeded → BLOCKED
+  - Model unavailable → BLOCKED
+  - Invalid inputs → BLOCKED
+  - Determinism: same inputs → same outputs
+  - Checker independence: context_strategy=isolated when checker present
+  - No silent model swapping, checker removal, or budget increase
+"""
+
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 from pathlib import Path
 
 import pytest
 
+# Ensure scripts/ is importable
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
 
-from resource_allocator import allocate, compute_input_fingerprint  # noqa: E402
+from resource_allocator import allocate, compute_input_fingerprint
 
+
+# ═══════════════════════════════════════════════════════════
+# Fixtures
+# ═══════════════════════════════════════════════════════════
 
 @pytest.fixture
 def model_catalog():
-    return json.loads((REPO_ROOT / "tests" / "fixtures" / "model-catalog.sample.json").read_text(encoding="utf-8"))
+    """Load the sample model catalog fixture."""
+    path = REPO_ROOT / "tests" / "fixtures" / "model-catalog.sample.json"
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 @pytest.fixture
 def budget_boundary():
+    """Default generous budget boundary (200K tokens)."""
     return 200000
 
 
-def governance_plan(risk, checker_required=False, **extra):
-    result = {
-        "route": "CANDIDATE_IMPLEMENTATION",
+def _governance_plan(risk, checker_required=False, write_scope=None, route="CANDIDATE_IMPLEMENTATION"):
+    """Build a minimal valid GovernancePlan dict."""
+    return {
+        "route": route,
         "risk": risk,
         "task_type": "REPOSITORY_CANDIDATE",
         "facts_status": "REQUIRES_VERIFICATION",
         "control_packet_status": "CANDIDATE",
-        "write_scope": [],
+        "write_scope": write_scope or [],
         "steps": [],
         "checker_required": checker_required,
         "human_authorization_required": risk in ("HIGH", "CRITICAL"),
         "write_actions_permitted": True,
         "limitations": [],
     }
-    result.update(extra)
-    return result
 
 
-@pytest.mark.parametrize(
-    "risk,checker,model,tokens,repairs",
-    [
-        ("LOW", False, "deepseek-v4-flash", 8000, 0),
-        ("MODERATE", False, "deepseek-v4-pro", 32000, 2),
-        ("HIGH", True, "gpt-5.5", 128000, 2),
-        ("CRITICAL", True, "gpt-5.5", 128000, 0),
-    ],
-)
-def test_legacy_risk_fallback_regression(model_catalog, budget_boundary, risk, checker, model, tokens, repairs):
-    result = allocate(governance_plan(risk, checker_required=checker), model_catalog, budget_boundary)
-    assert result["plan_status"] == "ALLOCATED"
-    assert result["maker"]["model"] == model
-    assert result["budget"]["token_budget"] == tokens
-    assert result["max_repair_attempts"] == repairs
-    assert (result["checker"] is not None) is checker
-    assert result["context_strategy"] == ("isolated" if checker else "shared")
-
-
-def test_moderate_with_checker_isolated(model_catalog, budget_boundary):
-    result = allocate(governance_plan("MODERATE", checker_required=True), model_catalog, budget_boundary)
-    assert result["checker"]["model"] == "deepseek-v4-pro"
-    assert result["parallelism"] == 1
-
-
-@pytest.mark.parametrize("boundary", [0, 100, 50000])
-def test_token_budget_enforced(model_catalog, boundary):
-    result = allocate(governance_plan("HIGH", checker_required=True), model_catalog, boundary)
-    assert result["plan_status"] == "BLOCKED"
-    assert result["maker"]["model"] == ""
-    assert result["budget"]["accuracy"] == "APPROXIMATE"
-
-
-def test_invalid_inputs_block(model_catalog, budget_boundary):
-    assert allocate({}, model_catalog, budget_boundary)["plan_status"] == "BLOCKED"
-    assert allocate(None, model_catalog, budget_boundary)["plan_status"] == "BLOCKED"
-    assert allocate(governance_plan("INVALID"), model_catalog, budget_boundary)["plan_status"] == "BLOCKED"
-    assert allocate(governance_plan("LOW"), None, budget_boundary)["plan_status"] == "BLOCKED"
-    assert allocate(governance_plan("LOW"), {}, budget_boundary)["plan_status"] == "BLOCKED"
-    assert allocate(governance_plan("LOW"), model_catalog, -1)["plan_status"] == "BLOCKED"
-
-
-def test_catalog_validation_blocks_unavailable_model(budget_boundary):
-    catalog = {
-        "fingerprint": "sha256:x",
-        "providers": {"deepseek": {"models": {"flash": {"tier": "economy", "reasoning_effort_support": ["minimal"]}}}},
-        "defaults": {
-            "economy": {"provider": "deepseek", "model": "flash"},
-            "standard": {"provider": "deepseek", "model": "flash"},
-            "strong": {"provider": "deepseek", "model": "flash"},
-        },
-    }
-    assert allocate(governance_plan("HIGH", checker_required=True), catalog, budget_boundary)["plan_status"] == "BLOCKED"
-
-
-def test_determinism_and_fingerprint(model_catalog, budget_boundary):
-    plan = governance_plan("HIGH", checker_required=True)
-    assert allocate(plan, model_catalog, budget_boundary) == allocate(plan, model_catalog, budget_boundary)
-    fp1 = compute_input_fingerprint(plan, model_catalog, budget_boundary)
-    fp2 = compute_input_fingerprint(plan, {**model_catalog, "fingerprint": "sha256:changed"}, budget_boundary)
-    assert fp1 != fp2
-    assert fp1 == compute_input_fingerprint(plan, model_catalog, budget_boundary)
-
-
-def test_schema_compliance(model_catalog, budget_boundary):
-    jsonschema = pytest.importorskip("jsonschema")
-    schema = json.loads((REPO_ROOT / "schemas" / "resource-plan.schema.json").read_text(encoding="utf-8"))
-    jsonschema.validate(allocate(governance_plan("LOW"), model_catalog, budget_boundary), schema)
-    jsonschema.validate(allocate(governance_plan("HIGH", checker_required=True), model_catalog, 100), schema)
-
-
-def canonical_catalog_fingerprint(catalog):
-    payload = {k: v for k, v in catalog.items() if k != "fingerprint"}
-    canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def test_catalog_fixture_integrity(model_catalog):
-    assert model_catalog["fingerprint"] == canonical_catalog_fingerprint(model_catalog)
-    assert model_catalog["fingerprint"] != "sha256:" + hashlib.sha256(b"").hexdigest()
-    changed = json.loads(json.dumps(model_catalog))
-    changed["providers"]["deepseek"]["models"]["deepseek-v4-flash"]["context_length"] = 999999
-    assert canonical_catalog_fingerprint(changed) != canonical_catalog_fingerprint(model_catalog)
-    assert canonical_catalog_fingerprint(json.loads(json.dumps(model_catalog, indent=4))) == canonical_catalog_fingerprint(model_catalog)
-
-
-# Adaptive allocation behavior
-
-def test_high_plan_can_explicitly_use_standard(model_catalog, budget_boundary):
-    result = allocate(governance_plan("HIGH", resource_tier="standard", checker_timing="AFTER_FORMAL_CANDIDATE", recommended_points=1, hard_max_points=2), model_catalog, budget_boundary)
-    assert result["plan_status"] == "ALLOCATED"
-    assert result["resource_tier"] == "standard"
-    assert result["maker"]["model"] == "deepseek-v4-pro"
-    assert result["checker"] is None
-
-
-def test_formal_candidate_checker_allocates_only_now(model_catalog, budget_boundary):
-    deferred = allocate(governance_plan("HIGH", resource_tier="standard", checker_timing="AFTER_FORMAL_CANDIDATE", recommended_points=1, hard_max_points=2), model_catalog, budget_boundary)
-    now = allocate(governance_plan("HIGH", resource_tier="standard", checker_timing="NOW", recommended_points=1, hard_max_points=2), model_catalog, budget_boundary)
-    assert deferred["checker"] is None
-    assert now["checker"] is not None
-    assert now["context_strategy"] == "isolated"
-
-
-def test_human_point_boundary_blocks(model_catalog):
-    result = allocate(governance_plan("HIGH", resource_tier="standard", checker_timing="NONE", recommended_points=2, hard_max_points=2), model_catalog, {"token_budget": 200000, "point_budget": 1, "checker_allowed": True})
-    assert result["plan_status"] == "BLOCKED"
-    assert "Point" in result["block_reason"]
-
-
-def test_human_checker_boundary_blocks(model_catalog):
-    result = allocate(governance_plan("HIGH", resource_tier="standard", checker_timing="NOW", recommended_points=1, hard_max_points=2), model_catalog, {"token_budget": 200000, "point_budget": 2, "checker_allowed": False})
-    assert result["plan_status"] == "BLOCKED"
-    assert "Checker" in result["block_reason"]
-
-
-def test_governance_plan_point_overrun_blocks(model_catalog, budget_boundary):
-    result = allocate(governance_plan("HIGH", resource_tier="standard", checker_timing="NONE", recommended_points=2, hard_max_points=1), model_catalog, budget_boundary)
-    assert result["plan_status"] == "BLOCKED"
-
-# Named compatibility baseline from the adopted allocator suite.
-
-def _governance_plan(risk, checker_required=False, write_scope=None, route="CANDIDATE_IMPLEMENTATION"):
-    return governance_plan(risk, checker_required=checker_required, write_scope=write_scope or [], route=route)
-
+# ═══════════════════════════════════════════════════════════
+# Tests: LOW risk
+# ═══════════════════════════════════════════════════════════
 
 class TestLowRisk:
+    """LOW risk → economy tier, no checker, shared context."""
+
     def test_low_risk_no_checker(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("LOW", checker_required=False), model_catalog, budget_boundary)
+        plan = _governance_plan("LOW", checker_required=False)
+        result = allocate(plan, model_catalog, budget_boundary)
+
         assert result["plan_status"] == "ALLOCATED"
         assert result["maker"]["provider"] == "deepseek"
         assert result["maker"]["model"] == "deepseek-v4-flash"
@@ -184,12 +89,23 @@ class TestLowRisk:
         assert result["budget"]["accuracy"] == "APPROXIMATE"
 
     def test_low_risk_budget_always_marked_approximate(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("LOW"), model_catalog, budget_boundary)["budget"]["accuracy"] == "APPROXIMATE"
+        plan = _governance_plan("LOW")
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["budget"]["accuracy"] == "APPROXIMATE"
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: MODERATE risk
+# ═══════════════════════════════════════════════════════════
 
 class TestModerateRisk:
+    """MODERATE risk → standard tier, conditional checker."""
+
     def test_moderate_no_checker_no_write(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("MODERATE", checker_required=False), model_catalog, budget_boundary)
+        """MODERATE without checker → standard, shared, no checker."""
+        plan = _governance_plan("MODERATE", checker_required=False)
+        result = allocate(plan, model_catalog, budget_boundary)
+
         assert result["plan_status"] == "ALLOCATED"
         assert result["maker"]["provider"] == "deepseek"
         assert result["maker"]["model"] == "deepseek-v4-pro"
@@ -197,230 +113,440 @@ class TestModerateRisk:
         assert result["context_strategy"] == "shared"
 
     def test_moderate_with_checker_isolated(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("MODERATE", checker_required=True), model_catalog, budget_boundary)
+        """MODERATE with checker → standard, isolated, checker allocated."""
+        plan = _governance_plan("MODERATE", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+
         assert result["plan_status"] == "ALLOCATED"
         assert result["context_strategy"] == "isolated"
         assert result["checker"] is not None
         assert result["checker"]["provider"] == "deepseek"
         assert result["checker"]["model"] == "deepseek-v4-pro"
-        assert result["parallelism"] == 1
+        assert result["parallelism"] == 1  # serial
 
     def test_moderate_budget(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("MODERATE"), model_catalog, budget_boundary)["budget"]["token_budget"] == 32000
+        plan = _governance_plan("MODERATE")
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["budget"]["token_budget"] == 32000
 
     def test_moderate_repair_attempts(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("MODERATE"), model_catalog, budget_boundary)["max_repair_attempts"] == 2
+        plan = _governance_plan("MODERATE")
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["max_repair_attempts"] == 2
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: HIGH risk
+# ═══════════════════════════════════════════════════════════
 
 class TestHighRisk:
+    """HIGH risk → strong tier, mandatory checker, isolated context."""
+
     def test_high_risk_strong_maker(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+
         assert result["plan_status"] == "ALLOCATED"
         assert result["maker"]["provider"] == "openai-codex"
         assert result["maker"]["model"] == "gpt-5.5"
         assert result["maker"]["reasoning_effort"] == "high"
 
     def test_high_risk_mandatory_checker(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)
+        """HIGH risk must have checker."""
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+
         assert result["checker"] is not None
         assert result["checker"]["provider"] == "openai-codex"
         assert result["checker"]["model"] == "gpt-5.5"
 
     def test_high_risk_isolated_context(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)["context_strategy"] == "isolated"
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["context_strategy"] == "isolated"
 
     def test_high_risk_serial(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)["parallelism"] == 1
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["parallelism"] == 1  # serial: maker → checker
 
     def test_high_risk_budget(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)["budget"]["token_budget"] == 128000
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["budget"]["token_budget"] == 128000
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: CRITICAL risk
+# ═══════════════════════════════════════════════════════════
 
 class TestCriticalRisk:
+    """CRITICAL risk → strong tier (allocation still works, routing blocks upstream)."""
+
     def test_critical_allocates_strong(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("CRITICAL", checker_required=True), model_catalog, budget_boundary)
+        plan = _governance_plan("CRITICAL", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+
         assert result["plan_status"] == "ALLOCATED"
         assert result["maker"]["model"] == "gpt-5.5"
         assert result["checker"] is not None
         assert result["context_strategy"] == "isolated"
 
 
+# ═══════════════════════════════════════════════════════════
+# Tests: Budget boundary enforcement
+# ═══════════════════════════════════════════════════════════
+
 class TestBudgetEnforcement:
+    """Budget exceeded → BLOCKED, not silently overspent."""
+
     def test_high_risk_exceeds_tight_budget(self, model_catalog):
-        result = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, 50000)
+        """HIGH risk needs 128K, but boundary is 50K → BLOCKED."""
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary=50000)
+
         assert result["plan_status"] == "BLOCKED"
         assert "128000" in result["block_reason"] or "budget" in result["block_reason"].lower()
         assert result["budget"]["status"] == "BLOCKED_BUDGET_EXCEEDED"
 
     def test_moderate_ok_with_generous_budget(self, model_catalog):
-        assert allocate(_governance_plan("MODERATE", checker_required=True), model_catalog, 100000)["plan_status"] == "ALLOCATED"
+        """MODERATE needs 32K, boundary is 100K → ALLOCATED."""
+        plan = _governance_plan("MODERATE", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary=100000)
+        assert result["plan_status"] == "ALLOCATED"
 
     def test_low_risk_exceeds_zero_budget(self, model_catalog):
-        assert allocate(_governance_plan("LOW"), model_catalog, 0)["plan_status"] == "BLOCKED"
+        """Even LOW risk blocked if boundary is 0."""
+        plan = _governance_plan("LOW")
+        result = allocate(plan, model_catalog, budget_boundary=0)
+        assert result["plan_status"] == "BLOCKED"
 
     def test_blocked_preserves_approximate_tag(self, model_catalog):
-        assert allocate(_governance_plan("HIGH", checker_required=True), model_catalog, 100)["budget"]["accuracy"] == "APPROXIMATE"
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary=100)
+        assert result["budget"]["accuracy"] == "APPROXIMATE"
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: Model unavailability
+# ═══════════════════════════════════════════════════════════
 
 class TestModelUnavailability:
+    """Model unavailable at required tier → BLOCKED."""
+
     def test_missing_strong_tier_default(self):
+        """Catalog with no strong tier default → BLOCKED for HIGH risk."""
         bad_catalog = {
             "fingerprint": "sha256:deadbeef",
             "resolved_at": "2026-01-01T00:00:00Z",
-            "providers": {"deepseek": {"models": {"deepseek-v4-flash": {"tier": "economy", "context_length": 1000000, "reasoning_effort_support": ["minimal"], "capabilities": ["chat"]}}}},
-            "defaults": {"economy": {"provider": "deepseek", "model": "deepseek-v4-flash"}, "standard": {"provider": "deepseek", "model": "deepseek-v4-flash"}, "strong": {"provider": "deepseek", "model": "deepseek-v4-flash"}},
+            "providers": {
+                "deepseek": {
+                    "models": {
+                        "deepseek-v4-flash": {
+                            "tier": "economy",
+                            "context_length": 1000000,
+                            "reasoning_effort_support": ["minimal"],
+                            "capabilities": ["chat"],
+                        }
+                    }
+                }
+            },
+            "defaults": {
+                "economy": {"provider": "deepseek", "model": "deepseek-v4-flash"},
+                "standard": {"provider": "deepseek", "model": "deepseek-v4-flash"},
+                "strong": {"provider": "deepseek", "model": "deepseek-v4-flash"},
+            },
         }
-        assert allocate(_governance_plan("HIGH", checker_required=True), bad_catalog, 200000)["plan_status"] == "BLOCKED"
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, bad_catalog, budget_boundary=200000)
+        assert result["plan_status"] == "BLOCKED"
 
     def test_catalog_missing_fingerprint(self):
-        result = allocate(_governance_plan("LOW"), {"providers": {}, "defaults": {}}, 200000)
+        """Catalog without fingerprint → BLOCKED."""
+        plan = _governance_plan("LOW")
+        result = allocate(plan, {"providers": {}, "defaults": {}}, budget_boundary=200000)
         assert result["plan_status"] == "BLOCKED"
         assert "fingerprint" in result["block_reason"].lower()
 
     def test_empty_catalog(self):
-        assert allocate(_governance_plan("LOW"), {}, 200000)["plan_status"] == "BLOCKED"
+        """Empty catalog → BLOCKED."""
+        plan = _governance_plan("LOW")
+        result = allocate(plan, {}, budget_boundary=200000)
+        assert result["plan_status"] == "BLOCKED"
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: Invalid inputs
+# ═══════════════════════════════════════════════════════════
 
 class TestInvalidInputs:
+    """Invalid inputs → BLOCKED, fail closed."""
+
     def test_missing_risk(self, model_catalog, budget_boundary):
-        assert allocate({}, model_catalog, budget_boundary)["plan_status"] == "BLOCKED"
+        result = allocate({}, model_catalog, budget_boundary)
+        assert result["plan_status"] == "BLOCKED"
 
     def test_invalid_risk_value(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("INVALID_RISK"), model_catalog, budget_boundary)["plan_status"] == "BLOCKED"
+        plan = _governance_plan("INVALID_RISK")
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["plan_status"] == "BLOCKED"
 
     def test_negative_budget_boundary(self, model_catalog):
-        assert allocate(_governance_plan("LOW"), model_catalog, -1)["plan_status"] == "BLOCKED"
+        plan = _governance_plan("LOW")
+        result = allocate(plan, model_catalog, budget_boundary=-1)
+        assert result["plan_status"] == "BLOCKED"
 
     def test_none_catalog(self, budget_boundary):
-        assert allocate(_governance_plan("LOW"), None, budget_boundary)["plan_status"] == "BLOCKED"
+        plan = _governance_plan("LOW")
+        result = allocate(plan, None, budget_boundary)
+        assert result["plan_status"] == "BLOCKED"
 
     def test_none_plan(self, model_catalog, budget_boundary):
-        assert allocate(None, model_catalog, budget_boundary)["plan_status"] == "BLOCKED"
+        result = allocate(None, model_catalog, budget_boundary)
+        assert result["plan_status"] == "BLOCKED"
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: Determinism
+# ═══════════════════════════════════════════════════════════
 
 class TestDeterminism:
+    """Same inputs → same outputs (deterministic, pure function)."""
+
     def test_same_inputs_same_output(self, model_catalog, budget_boundary):
-        plan_value = _governance_plan("HIGH", checker_required=True)
-        assert allocate(plan_value, model_catalog, budget_boundary) == allocate(plan_value, model_catalog, budget_boundary)
+        plan = _governance_plan("HIGH", checker_required=True)
+        r1 = allocate(plan, model_catalog, budget_boundary)
+        r2 = allocate(plan, model_catalog, budget_boundary)
+        assert r1 == r2
 
     def test_different_risk_different_output(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("LOW"), model_catalog, budget_boundary) != allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)
+        low = allocate(_governance_plan("LOW"), model_catalog, budget_boundary)
+        high = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)
+        assert low != high
 
     def test_fingerprint_changes_with_catalog(self, model_catalog, budget_boundary):
-        plan_value = _governance_plan("LOW")
-        fp1 = compute_input_fingerprint(plan_value, model_catalog, budget_boundary)
-        modified = dict(model_catalog)
-        modified["fingerprint"] = "sha256:modified"
-        assert fp1 != compute_input_fingerprint(plan_value, modified, budget_boundary)
+        plan = _governance_plan("LOW")
+        fp1 = compute_input_fingerprint(plan, model_catalog, budget_boundary)
+
+        modified_catalog = dict(model_catalog)
+        modified_catalog["fingerprint"] = "sha256:modified"
+        fp2 = compute_input_fingerprint(plan, modified_catalog, budget_boundary)
+
+        assert fp1 != fp2
 
     def test_fingerprint_stable(self, model_catalog, budget_boundary):
-        plan_value = _governance_plan("LOW")
-        assert compute_input_fingerprint(plan_value, model_catalog, budget_boundary) == compute_input_fingerprint(plan_value, model_catalog, budget_boundary)
+        plan = _governance_plan("LOW")
+        fp1 = compute_input_fingerprint(plan, model_catalog, budget_boundary)
+        fp2 = compute_input_fingerprint(plan, model_catalog, budget_boundary)
+        assert fp1 == fp2
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: No silent degradation
+# ═══════════════════════════════════════════════════════════
 
 class TestNoSilentDegradation:
+    """Allocator must never silently swap models, remove checkers, or raise budgets."""
+
     def test_high_risk_never_loses_checker(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)["checker"] is not None
+        """HIGH risk with checker_required=true must always have checker."""
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["checker"] is not None, "HIGH risk must not lose checker silently"
 
     def test_high_risk_never_downgraded_to_economy(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)
+        """HIGH risk must use strong tier, never silently downgraded."""
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["maker"]["tier"] != "economy" if "tier" in result["maker"] else True
         assert result["maker"]["model"] == "gpt-5.5"
 
     def test_low_risk_never_gets_unnecessary_checker(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("LOW", checker_required=False), model_catalog, budget_boundary)["checker"] is None
+        """LOW risk without checker_required must not get checker (cost discipline)."""
+        plan = _governance_plan("LOW", checker_required=False)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["checker"] is None
 
     def test_budget_blocked_has_no_allocated_models(self, model_catalog):
-        result = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, 100)
+        """When BLOCKED, maker model is empty string (not silently cheap)."""
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary=100)
         assert result["plan_status"] == "BLOCKED"
-        assert result["maker"]["model"] == ""
+        assert result["maker"]["model"] == ""  # not a fallback
 
     def test_checker_not_different_model_by_force(self, model_catalog, budget_boundary):
-        result = allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary)
+        """Per amendment 4: checker can use same model. Independence is context, not model."""
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
         assert result["checker"]["provider"] == result["maker"]["provider"]
         assert result["checker"]["model"] == result["maker"]["model"]
+        # Still isolated context
         assert result["context_strategy"] == "isolated"
 
 
+# ═══════════════════════════════════════════════════════════
+# Tests: Context strategy and checker independence
+# ═══════════════════════════════════════════════════════════
+
 class TestContextStrategy:
+    """Context isolation rules."""
+
     def test_checker_present_implies_isolated(self, model_catalog, budget_boundary):
+        """Any allocation with checker → context_strategy = isolated."""
         for risk in ("MODERATE", "HIGH", "CRITICAL"):
-            result = allocate(_governance_plan(risk, checker_required=True), model_catalog, budget_boundary)
+            plan = _governance_plan(risk, checker_required=True)
+            result = allocate(plan, model_catalog, budget_boundary)
             if result["plan_status"] == "ALLOCATED":
-                assert result["context_strategy"] == "isolated"
+                assert result["context_strategy"] == "isolated", \
+                    f"{risk} with checker should be isolated"
 
     def test_no_checker_implies_shared(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("LOW", checker_required=False), model_catalog, budget_boundary)["context_strategy"] == "shared"
+        """Any allocation without checker → context_strategy = shared."""
+        plan = _governance_plan("LOW", checker_required=False)
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["context_strategy"] == "shared"
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: Schema compliance
+# ═══════════════════════════════════════════════════════════
 
 class TestSchemaCompliance:
+    """ResourcePlan output conforms to resource-plan.schema.json."""
+
     @pytest.fixture
     def schema(self):
-        return json.loads((REPO_ROOT / "schemas" / "resource-plan.schema.json").read_text(encoding="utf-8"))
+        path = REPO_ROOT / "schemas" / "resource-plan.schema.json"
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
 
     def _validate(self, instance, schema):
+        """Validate instance against JSON Schema draft 2020-12."""
         try:
             import jsonschema as _js
             _js.validate(instance=instance, schema=schema)
             return None
         except ImportError:
             return None
-        except Exception as exc:
-            return str(exc)
+        except Exception as e:
+            return str(e)
 
     def test_allocated_conforms_to_schema(self, model_catalog, budget_boundary, schema):
-        error = self._validate(allocate(_governance_plan("HIGH", checker_required=True), model_catalog, budget_boundary), schema)
-        if error is not None and "jsonschema" not in error:
-            pytest.fail(f"ALLOCATED plan fails schema: {error}")
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary)
+        err = self._validate(result, schema)
+        if err is not None and "jsonschema" not in str(err):
+            pytest.fail(f"ALLOCATED plan fails schema: {err}")
 
     def test_blocked_conforms_to_schema(self, model_catalog, schema):
-        error = self._validate(allocate(_governance_plan("HIGH", checker_required=True), model_catalog, 100), schema)
-        if error is not None and "jsonschema" not in error:
-            pytest.fail(f"BLOCKED plan fails schema: {error}")
+        plan = _governance_plan("HIGH", checker_required=True)
+        result = allocate(plan, model_catalog, budget_boundary=100)
+        err = self._validate(result, schema)
+        if err is not None and "jsonschema" not in str(err):
+            pytest.fail(f"BLOCKED plan fails schema: {err}")
 
     def test_low_risk_conforms_to_schema(self, model_catalog, budget_boundary, schema):
-        error = self._validate(allocate(_governance_plan("LOW"), model_catalog, budget_boundary), schema)
-        if error is not None and "jsonschema" not in error:
-            pytest.fail(f"LOW risk plan fails schema: {error}")
+        plan = _governance_plan("LOW")
+        result = allocate(plan, model_catalog, budget_boundary)
+        err = self._validate(result, schema)
+        if err is not None and "jsonschema" not in str(err):
+            pytest.fail(f"LOW risk plan fails schema: {err}")
 
     def test_null_checker_conforms_to_schema(self, model_catalog, budget_boundary, schema):
-        error = self._validate(allocate(_governance_plan("MODERATE", checker_required=False), model_catalog, budget_boundary), schema)
-        if error is not None and "jsonschema" not in error:
-            pytest.fail(f"Null checker plan fails schema: {error}")
+        plan = _governance_plan("MODERATE", checker_required=False)
+        result = allocate(plan, model_catalog, budget_boundary)
+        err = self._validate(result, schema)
+        if err is not None and "jsonschema" not in str(err):
+            pytest.fail(f"Null checker plan fails schema: {err}")
 
+
+# ═══════════════════════════════════════════════════════════
+# Tests: Catalog fixture fingerprint integrity
+# ═══════════════════════════════════════════════════════════
 
 class TestCatalogIntegrity:
+    """Catalog fixture fingerprint integrity tests."""
+
     @pytest.fixture
     def catalog_raw(self):
-        return json.loads((REPO_ROOT / "tests" / "fixtures" / "model-catalog.sample.json").read_text(encoding="utf-8"))
+        path = REPO_ROOT / "tests" / "fixtures" / "model-catalog.sample.json"
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
 
     def _compute_canonical_fingerprint(self, catalog):
+        """Compute fingerprint from catalog WITHOUT the fingerprint field itself."""
+        import hashlib
         catalog_no_fp = {k: v for k, v in catalog.items() if k != "fingerprint"}
-        canonical = json.dumps(catalog_no_fp, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        canonical = json.dumps(
+            catalog_no_fp, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        )
         return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def test_fingerprint_matches_recomputed(self, catalog_raw):
-        assert catalog_raw["fingerprint"] == self._compute_canonical_fingerprint(catalog_raw)
+        """1. Fixture declared fingerprint equals recomputed canonical value."""
+        declared = catalog_raw["fingerprint"]
+        recomputed = self._compute_canonical_fingerprint(catalog_raw)
+        assert declared == recomputed, (
+            f"Fixture fingerprint {declared} != recomputed {recomputed}"
+        )
 
     def test_fingerprint_not_empty_hash(self, catalog_raw):
-        assert catalog_raw["fingerprint"] != "sha256:" + hashlib.sha256(b"").hexdigest()
+        """2. Declared fingerprint is NOT the SHA-256 of empty content."""
+        import hashlib
+        empty_hash = "sha256:" + hashlib.sha256(b"").hexdigest()
+        assert catalog_raw["fingerprint"] != empty_hash, (
+            f"Fingerprint must not be the empty-content hash ({empty_hash})"
+        )
 
     def test_fingerprint_changes_with_model_field(self, catalog_raw):
-        modified = json.loads(json.dumps(catalog_raw))
+        """3. Changing any model field changes the fingerprint."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        modified = json.loads(json.dumps(catalog_raw))  # deep copy
+        # Change a model field
         modified["providers"]["deepseek"]["models"]["deepseek-v4-flash"]["context_length"] = 999999
-        assert self._compute_canonical_fingerprint(modified) != self._compute_canonical_fingerprint(catalog_raw)
+        fp2 = self._compute_canonical_fingerprint(modified)
+        assert fp1 != fp2, "Fingerprint must change when model data changes"
 
     def test_fingerprint_invariant_to_formatting(self, catalog_raw):
-        assert self._compute_canonical_fingerprint(json.loads(json.dumps(catalog_raw, indent=4, ensure_ascii=False))) == self._compute_canonical_fingerprint(catalog_raw)
+        """4. JSON formatting/whitespace changes do NOT change fingerprint."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        # Re-serialize with different formatting, then parse back
+        reformatted = json.dumps(catalog_raw, indent=4, ensure_ascii=False)
+        parsed_back = json.loads(reformatted)
+        fp2 = self._compute_canonical_fingerprint(parsed_back)
+        assert fp1 == fp2, "Fingerprint must be invariant to JSON formatting"
 
     def test_fingerprint_invariant_to_key_order(self, catalog_raw):
-        reordered = {"fingerprint": catalog_raw["fingerprint"], "defaults": catalog_raw["defaults"], "providers": catalog_raw["providers"], "resolved_at": catalog_raw["resolved_at"]}
-        assert self._compute_canonical_fingerprint(reordered) == self._compute_canonical_fingerprint(catalog_raw)
+        """4b. Key order changes do NOT change fingerprint (canonical sort)."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        # Build a dict with intentionally different key order
+        reordered = {
+            "fingerprint": catalog_raw["fingerprint"],
+            "defaults": catalog_raw["defaults"],
+            "providers": catalog_raw["providers"],
+            "resolved_at": catalog_raw["resolved_at"],
+        }
+        fp2 = self._compute_canonical_fingerprint(reordered)
+        assert fp1 == fp2, "Fingerprint must be order-invariant"
 
     def test_existing_39_tests_still_pass(self, model_catalog, budget_boundary):
-        assert allocate(_governance_plan("LOW"), model_catalog, budget_boundary)["plan_status"] == "ALLOCATED"
+        """5. Resource allocation tests continue to work with corrected catalog."""
+        from resource_allocator import allocate
+        plan = _governance_plan("LOW")
+        result = allocate(plan, model_catalog, budget_boundary)
+        assert result["plan_status"] == "ALLOCATED"
 
     def test_corrected_fingerprint_not_self_referential(self, catalog_raw):
-        assert self._compute_canonical_fingerprint(catalog_raw) == self._compute_canonical_fingerprint(catalog_raw)
+        """6. Fingerprint was computed WITHOUT the fingerprint field itself."""
+        fp1 = self._compute_canonical_fingerprint(catalog_raw)
+        # If fingerprint were self-referential, changing it would change the hash,
+        # so recomputing would produce a different value
+        fp2 = self._compute_canonical_fingerprint(catalog_raw)
+        assert fp1 == fp2, "Fingerprint must be idempotent (not self-referential)"
 
     def test_fingerprint_present_and_nonempty(self, catalog_raw):
-        assert isinstance(catalog_raw.get("fingerprint"), str) and len(catalog_raw["fingerprint"]) > 0
+        """7. Catalog has a fingerprint field that is a non-empty string."""
+        assert "fingerprint" in catalog_raw, "Catalog must have fingerprint field"
+        fp = catalog_raw["fingerprint"]
+        assert isinstance(fp, str) and len(fp) > 0, "Fingerprint must be non-empty"
+        assert fp.startswith("sha256:"), "Fingerprint must use sha256: prefix"

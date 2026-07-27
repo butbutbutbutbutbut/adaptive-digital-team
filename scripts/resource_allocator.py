@@ -1,133 +1,96 @@
 #!/usr/bin/env python3
-"""ADT Resource Allocator — Deterministic model and resource allocation.
+"""ADT Resource Allocator.
 
-Consumes a GovernancePlan, a pre-resolved frozen model catalog snapshot,
-and a Human-authorized budget boundary. Produces a deterministic
-ResourcePlan consumed by the Hermes Runtime Adapter.
-
-Rules (deterministic, pure function):
-  LOW        → economy tier, no checker
-  MODERATE   → standard tier, conditional checker
-  HIGH       → strong tier, mandatory checker
-  CRITICAL   → strongest tier, mandatory checker (typically blocked upstream)
-  Budget exceeded → BLOCKED
-  Model unavailable → BLOCKED
-  Same inputs → same outputs
-
-Usage:
-    from scripts.resource_allocator import allocate
-    plan = allocate(governance_plan, model_catalog, budget_boundary)
+Consumes GovernancePlan.resource_tier and GovernancePlan.checker_timing.
+Safety risk remains descriptive and is not the primary allocation key.
+Legacy symbols and call signatures remain available for existing consumers.
 """
-
 from __future__ import annotations
 
 import hashlib
 import json
 from typing import Any
 
-# ═══════════════════════════════════════════════════════════
-# Frozen allocation tables
-# ═══════════════════════════════════════════════════════════
-
-# Risk → model tier
-TIER_MAP: dict[str, str] = {
-    "LOW": "economy",
-    "MODERATE": "standard",
-    "HIGH": "strong",
-    "CRITICAL": "strong",
-}
-
-# Tier → APPROXIMATE token budget
-BUDGET_MAP: dict[str, int] = {
-    "economy": 8000,
-    "standard": 32000,
-    "strong": 128000,
-}
-
-# Tier → reasoning effort
-REASONING_MAP: dict[str, str] = {
-    "economy": "minimal",
-    "standard": "medium",
-    "strong": "high",
-}
-
-# Tier → default max_iterations
-ITERATIONS_MAP: dict[str, int] = {
-    "economy": 20,
-    "standard": 40,
-    "strong": 50,
-}
-
-# Risk → max_repair_attempts
-REPAIR_MAP: dict[str, int] = {
-    "LOW": 0,
-    "MODERATE": 2,
-    "HIGH": 2,
-    "CRITICAL": 0,
-}
-
-# Valid risk values
+LEGACY_TIER_MAP = {"LOW": "economy", "MODERATE": "standard", "HIGH": "strong", "CRITICAL": "strong"}
+# Backward-compatible public name used by the adopted allocator tests/consumers.
+TIER_MAP = LEGACY_TIER_MAP
+BUDGET_MAP = {"economy": 8000, "standard": 32000, "strong": 128000}
+REASONING_MAP = {"economy": "minimal", "standard": "medium", "strong": "high"}
+ITERATIONS_MAP = {"economy": 20, "standard": 40, "strong": 50}
+REPAIR_MAP = {"LOW": 0, "MODERATE": 2, "HIGH": 2, "CRITICAL": 0}
 VALID_RISKS = {"LOW", "MODERATE", "HIGH", "CRITICAL"}
-
-# Valid tiers
 VALID_TIERS = {"economy", "standard", "strong"}
+VALID_CHECKER_TIMINGS = {"NONE", "AFTER_FORMAL_CANDIDATE", "NOW"}
 
-# ═══════════════════════════════════════════════════════════
-# Validation
-# ═══════════════════════════════════════════════════════════
 
 def _validate_governance_plan(plan: dict[str, Any]) -> str | None:
-    """Validate that the GovernancePlan has required fields. Returns error or None."""
     if not isinstance(plan, dict):
         return "GovernancePlan must be a dict"
     risk = plan.get("risk", "")
     if risk not in VALID_RISKS:
         return f"Invalid or missing risk: {risk!r}"
+    tier = plan.get("resource_tier")
+    if tier is not None and tier not in VALID_TIERS:
+        return f"Invalid resource_tier: {tier!r}"
+    timing = plan.get("checker_timing")
+    if timing is not None and timing not in VALID_CHECKER_TIMINGS:
+        return f"Invalid checker_timing: {timing!r}"
+    recommended = plan.get("recommended_points", 0)
+    hard_max = plan.get("hard_max_points", 2)
+    if not isinstance(recommended, int) or not isinstance(hard_max, int) or recommended < 0 or hard_max < 0:
+        return "Point boundaries must be non-negative integers"
+    if recommended > hard_max:
+        return f"Recommended points {recommended} exceed Human hard max {hard_max}"
     return None
 
 
 def _validate_model_catalog(catalog: dict[str, Any]) -> str | None:
-    """Validate the model catalog snapshot. Returns error or None."""
     if not isinstance(catalog, dict):
         return "Model catalog must be a dict"
-
     if "fingerprint" not in catalog:
         return "Model catalog missing fingerprint — must be a pre-resolved frozen snapshot"
-
     providers = catalog.get("providers", {})
-    if not isinstance(providers, dict) or len(providers) == 0:
+    if not isinstance(providers, dict) or not providers:
         return "Model catalog has no providers"
-
     defaults = catalog.get("defaults", {})
     for tier in VALID_TIERS:
-        if tier not in defaults:
-            return f"Model catalog defaults missing tier: {tier}"
-        d = defaults[tier]
+        d = defaults.get(tier)
         if not isinstance(d, dict):
-            return f"Invalid default for tier {tier}"
-        provider = d.get("provider", "")
-        model = d.get("model", "")
+            return f"Model catalog defaults missing tier: {tier}"
+        provider, model = d.get("provider", ""), d.get("model", "")
         if not provider or not model:
             return f"Incomplete default for tier {tier}"
-        # Verify the default model actually exists
-        if provider not in providers:
-            return f"Default provider {provider!r} (tier={tier}) not in catalog providers"
-        if model not in providers[provider].get("models", {}):
-            return f"Default model {model!r} (provider={provider}, tier={tier}) not in catalog"
-
+        if provider not in providers or model not in providers[provider].get("models", {}):
+            return f"Default model {provider}/{model} for tier={tier} not in catalog"
     return None
 
 
 def _validate_budget_boundary(boundary: int) -> str | None:
-    """Validate budget boundary. Returns error or None."""
+    """Legacy integer-boundary validator retained for compatibility."""
     if not isinstance(boundary, int) or boundary < 0:
         return f"Invalid budget boundary: {boundary!r}"
     return None
 
 
-# ═══════════════════════════════════════════════════════════
-# Model selection
-# ═══════════════════════════════════════════════════════════
+def _normalize_boundary(boundary: int | dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    if isinstance(boundary, int):
+        err = _validate_budget_boundary(boundary)
+        if err:
+            return None, err
+        return {"token_budget": boundary, "point_budget": 2, "checker_allowed": True}, None
+    if not isinstance(boundary, dict):
+        return None, f"Invalid budget boundary: {boundary!r}"
+    token_budget = boundary.get("token_budget")
+    point_budget = boundary.get("point_budget", 2)
+    checker_allowed = boundary.get("checker_allowed", True)
+    if not isinstance(token_budget, int) or token_budget < 0:
+        return None, f"Invalid token boundary: {token_budget!r}"
+    if not isinstance(point_budget, int) or point_budget < 0:
+        return None, f"Invalid point boundary: {point_budget!r}"
+    if not isinstance(checker_allowed, bool):
+        return None, "checker_allowed must be boolean"
+    return {"token_budget": token_budget, "point_budget": point_budget, "checker_allowed": checker_allowed}, None
+
 
 def _select_model(
     catalog: dict[str, Any],
@@ -135,207 +98,136 @@ def _select_model(
     preferred_provider: str | None = None,
     preferred_model: str | None = None,
 ) -> dict[str, str] | None:
-    """Select a model from the catalog at the given tier.
-
-    Uses defaults from catalog, optionally overridden by explicit preferences.
-    Returns {"provider": ..., "model": ...} or None if no model found at tier.
-    """
-    defaults = catalog.get("defaults", {})
-    providers = catalog.get("providers", {})
-
-    # Determine provider and model
+    """Select a tier-matching model; preserve the adopted optional overrides."""
     if preferred_provider and preferred_model:
-        provider = preferred_provider
-        model = preferred_model
+        provider, model = preferred_provider, preferred_model
     else:
-        tier_default = defaults.get(tier, {})
-        provider = tier_default.get("provider", "")
-        model = tier_default.get("model", "")
-
-    if not provider or not model:
+        default = catalog.get("defaults", {}).get(tier, {})
+        provider, model = default.get("provider", ""), default.get("model", "")
+    info = catalog.get("providers", {}).get(provider, {}).get("models", {}).get(model)
+    if not info or info.get("tier") != tier:
         return None
-
-    # Verify provider exists
-    provider_models = providers.get(provider, {}).get("models", {})
-    if model not in provider_models:
-        return None
-
-    model_info = provider_models[model]
-
-    # Verify tier matches
-    if model_info.get("tier") != tier:
-        return None
-
     return {"provider": provider, "model": model}
 
 
 def _build_agent_config(
     catalog: dict[str, Any],
     tier: str,
-    role: str,
+    role: str = "maker",
 ) -> dict[str, Any] | None:
-    """Build a complete agent config (provider, model, reasoning_effort, max_iterations)."""
+    """Build an agent config; role is retained as a compatibility argument."""
+    del role
     selected = _select_model(catalog, tier)
     if selected is None:
         return None
-
-    provider = selected["provider"]
-    model = selected["model"]
-
-    # Get reasoning effort — pick best supported that matches tier
-    model_info = catalog["providers"][provider]["models"][model]
-    supported_efforts = set(model_info.get("reasoning_effort_support", []))
-    desired_effort = REASONING_MAP.get(tier, "medium")
-
-    # Use desired effort if supported, otherwise fall back to the closest supported
-    if desired_effort in supported_efforts:
-        reasoning_effort = desired_effort
+    info = catalog["providers"][selected["provider"]]["models"][selected["model"]]
+    supported = set(info.get("reasoning_effort_support", []))
+    desired = REASONING_MAP[tier]
+    if desired in supported:
+        effort = desired
     else:
-        # Fall back: pick the highest supported effort
-        effort_order = ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
-        supported_ordered = [e for e in effort_order if e in supported_efforts]
-        reasoning_effort = supported_ordered[-1] if supported_ordered else "minimal"
-
-    max_iterations = ITERATIONS_MAP.get(tier, 40)
-
+        order = ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+        available = [item for item in order if item in supported]
+        effort = available[-1] if available else "minimal"
     return {
-        "provider": provider,
-        "model": model,
-        "reasoning_effort": reasoning_effort,
-        "max_iterations": max_iterations,
+        "provider": selected["provider"],
+        "model": selected["model"],
+        "reasoning_effort": effort,
+        "max_iterations": ITERATIONS_MAP[tier],
     }
 
-
-# ═══════════════════════════════════════════════════════════
-# Main allocator
-# ═══════════════════════════════════════════════════════════
 
 def allocate(
     governance_plan: dict[str, Any],
     model_catalog: dict[str, Any],
-    budget_boundary: int,
+    budget_boundary: int | dict[str, Any],
 ) -> dict[str, Any]:
-    """Deterministic resource allocation.
-
-    Args:
-        governance_plan: GovernancePlan from route_task.py (dict form).
-        model_catalog: Pre-resolved, frozen model catalog snapshot with
-            fingerprint. Must NOT be fetched live during allocation.
-        budget_boundary: Human-authorized maximum token budget (integer).
-
-    Returns:
-        dict: ResourcePlan conforming to resource-plan.schema.json.
-    """
-    # ── Validate inputs ──────────────────────────────────
     err = _validate_governance_plan(governance_plan)
     if err:
         return _blocked(f"Invalid governance plan: {err}")
-
     err = _validate_model_catalog(model_catalog)
     if err:
         return _blocked(f"Invalid model catalog: {err}")
+    boundary, err = _normalize_boundary(budget_boundary)
+    if err or boundary is None:
+        return _blocked(err or "Invalid Human boundary")
 
-    err = _validate_budget_boundary(budget_boundary)
-    if err:
-        return _blocked(f"Invalid budget boundary: {err}")
-
-    # ── Extract plan fields ──────────────────────────────
     risk = governance_plan["risk"]
-    checker_required = bool(governance_plan.get("checker_required", False))
-    write_scope = governance_plan.get("write_scope", [])
-    route = governance_plan.get("route", "")
+    tier = governance_plan.get("resource_tier") or TIER_MAP[risk]
+    timing = governance_plan.get("checker_timing")
+    if timing is None:
+        checker_now = bool(governance_plan.get("checker_required", False))
+        timing = "NOW" if checker_now else "NONE"
+    else:
+        checker_now = timing == "NOW"
 
-    # ── Determine tier ───────────────────────────────────
-    tier = TIER_MAP.get(risk, "standard")
+    recommended_points = int(governance_plan.get("recommended_points", 0))
+    hard_max_points = int(governance_plan.get("hard_max_points", 2))
+    if recommended_points > hard_max_points:
+        return _blocked(f"Point request {recommended_points} exceeds plan hard max {hard_max_points}.")
+    if hard_max_points > boundary["point_budget"] or recommended_points > boundary["point_budget"]:
+        return _blocked(
+            f"Point boundary exceeded: recommended={recommended_points}, hard_max={hard_max_points}, Human={boundary['point_budget']}."
+        )
+    if checker_now and not boundary["checker_allowed"]:
+        return _blocked("Checker allocation exceeds the Human checker boundary.")
 
-    # ── Select maker model ───────────────────────────────
     maker = _build_agent_config(model_catalog, tier, "maker")
     if maker is None:
         return _blocked(
-            f"No model available at tier {tier!r} for risk={risk}. "
-            f"Catalog fingerprint: {model_catalog.get('fingerprint', 'unknown')}"
+            f"No model available at tier {tier!r}. Catalog fingerprint: {model_catalog.get('fingerprint', 'unknown')}"
         )
 
-    # ── Determine checker ────────────────────────────────
-    checker = None
-    context_strategy = "shared"
-
-    if checker_required:
-        # Per amendment 4: checker independence = separate context + role,
-        # not necessarily different model. Use same tier.
-        checker = _build_agent_config(model_catalog, tier, "checker")
-        if checker is None:
-            return _blocked(
-                f"Checker required but no model available at tier {tier!r}. "
-                f"Catalog fingerprint: {model_catalog.get('fingerprint', 'unknown')}"
-            )
-        context_strategy = "isolated"
-
-    # ── Calculate budget ─────────────────────────────────
-    token_budget = BUDGET_MAP.get(tier, 32000)
-
-    if token_budget > budget_boundary:
+    token_budget = BUDGET_MAP[tier]
+    if token_budget > boundary["token_budget"]:
         return _blocked(
-            f"Token budget {token_budget} exceeds Human boundary {budget_boundary}. "
+            f"Token budget {token_budget} exceeds Human boundary {boundary['token_budget']}. "
             f"Risk={risk}, tier={tier}. Allocation blocked — will not silently overspend."
         )
 
-    # ── Determine other fields ───────────────────────────
-    max_repair_attempts = REPAIR_MAP.get(risk, 0)
-    parallelism = 1  # Default serial; checker runs after maker
+    checker = None
+    context_strategy = "shared"
+    if checker_now:
+        checker = _build_agent_config(model_catalog, tier, "checker")
+        if checker is None:
+            return _blocked(f"Checker required now but no model is available at tier {tier!r}.")
+        context_strategy = "isolated"
 
-    # ── Build ResourcePlan ───────────────────────────────
     return {
         "plan_status": "ALLOCATED",
+        "resource_tier": tier,
+        "checker_timing": timing,
         "maker": maker,
         "checker": checker,
-        "budget": {
-            "token_budget": token_budget,
-            "status": "WITHIN_BUDGET",
-            "accuracy": "APPROXIMATE",
-        },
-        "max_repair_attempts": max_repair_attempts,
+        "budget": {"token_budget": token_budget, "status": "WITHIN_BUDGET", "accuracy": "APPROXIMATE"},
+        "points": {"recommended": recommended_points, "hard_max": hard_max_points, "status": "WITHIN_BOUNDARY"},
+        "max_repair_attempts": REPAIR_MAP.get(risk, 0),
         "context_strategy": context_strategy,
-        "parallelism": parallelism,
+        "parallelism": 1,
     }
 
 
 def _blocked(reason: str) -> dict[str, Any]:
-    """Produce a BLOCKED ResourcePlan."""
     return {
         "plan_status": "BLOCKED",
         "block_reason": reason,
-        "maker": {
-            "provider": "",
-            "model": "",
-            "reasoning_effort": "minimal",
-            "max_iterations": 0,
-        },
+        "resource_tier": "economy",
+        "checker_timing": "NONE",
+        "maker": {"provider": "", "model": "", "reasoning_effort": "minimal", "max_iterations": 0},
         "checker": None,
-        "budget": {
-            "token_budget": 0,
-            "status": "BLOCKED_BUDGET_EXCEEDED",
-            "accuracy": "APPROXIMATE",
-        },
+        "budget": {"token_budget": 0, "status": "BLOCKED_BUDGET_EXCEEDED", "accuracy": "APPROXIMATE"},
+        "points": {"recommended": 0, "hard_max": 0, "status": "BLOCKED_BOUNDARY_EXCEEDED"},
         "max_repair_attempts": 0,
         "context_strategy": "shared",
         "parallelism": 0,
     }
 
 
-# ═══════════════════════════════════════════════════════════
-# Determinism utility
-# ═══════════════════════════════════════════════════════════
-
 def compute_input_fingerprint(
     governance_plan: dict[str, Any],
     model_catalog: dict[str, Any],
-    budget_boundary: int,
+    budget_boundary: int | dict[str, Any],
 ) -> str:
-    """Compute SHA-256 fingerprint of the allocation inputs.
-
-    Used to verify determinism: same fingerprint → same ResourcePlan.
-    """
     canonical = json.dumps(
         {
             "governance_plan": governance_plan,

@@ -60,6 +60,11 @@ window must internalize immediately.
 - Without explicit write authorization for a specific upstream task, no commits, pushes, PRs, Issues, or branch operations are permitted on upstream repositories.
 - In A/B mode, no GitHub operations are permitted on any repository — links are reference material only.
 - Project Control is the single Human-facing entry point. It routes to Task Holders but does not directly implement candidates and defaults to no repository write access.
+- A read, analysis, review, or decision request must not be expanded into repair, implementation, or repository writes without explicit Human authorization.
+- A material Human premise must be judged `SUPPORTED`, `PARTIAL`, `REJECTED`, or `UNVERIFIED`; agreeable wording is not evidence.
+- The same task continues by default. Restart requires role isolation, invalidated fact source, context contamination, or an explicit Human request.
+- Safety risk, resource tier, and Checker timing are separate controls. HIGH risk alone does not authorize strong resources or an early Checker.
+- Human restatement, frustration, or scope correction is a control signal: shorten the response, discard inferred scope, and restore the latest explicit authorization.
 
 ## Repository-as-prompt startup
 
@@ -71,6 +76,11 @@ Every new Holder, Maker, Checker, window, or agent must, before write:
 4. resolve one authoritative fact source;
 5. stop in `FACT_SOURCE_REBIND` if facts conflict;
 6. verify task authority, exact repository, exact Base, exact branch, exact allowed files, and next gate.
+
+For `SAME_TASK_CONTINUATION`, do not replay the full startup. Re-verify only the
+live delta, authorization boundary, current stage, and next gate. The complete
+continuity classification is in `BOOTSTRAP.md`; the adaptive cost judgment is
+normative only in `METHODOLOGY.md`.
 
 Governance base and product fact source remain distinct. Main is the governance base by default and does not silently become a product fact source.
 
@@ -101,7 +111,7 @@ A Maker performs only the explicitly authorized task on the authorized branch an
 
 ### Independent Checker
 
-A Checker performs read-only verification, did not design or implement the candidate, did not produce its evidence, and can reject it. Any independence ambiguity fails closed.
+A Checker performs read-only verification, did not design or implement the candidate, did not produce its evidence, and can reject it. Any independence ambiguity fails closed. Checker capacity is allocated only when `checker_timing=NOW`, after a formal candidate exists; `AFTER_FORMAL_CANDIDATE` reserves the later gate without starting a Checker during local production.
 
 ## Human-facing evidence discipline
 
@@ -201,6 +211,18 @@ authorization generation, no action execution.
 ## Adaptive counter-objective governance
 
 Governance must not multiply candidates, duplicate state systems, or create formally correct but unnecessary work. When governance cost exceeds product or safety value, use the smallest safe path. Activity completion never equals product progress, and tooling work never inherits product acceptance.
+
+Operationally:
+
+- the anti-review runs silently and consumes zero Point;
+- `anti_review_decision=DOWNSCOPE` reduces work rather than generating another receipt;
+- `recommended_points`, `hard_max_points`, approximate token budget, Checker permission, and external-message limit remain Human ceilings;
+- local candidate production may use economy or standard resources even when safety risk is HIGH;
+- CRITICAL governance modification defaults to strong resources;
+- resource allocation exceeding any Human boundary returns `BLOCKED`;
+- friction restores the most recent explicit scope and reduces external messages.
+
+The sole normative rationale is `METHODOLOGY.md`; frozen data values and routing behavior are in the existing schemas and router/allocator. No second anti-objective protocol, task tier, candidate state, or lifecycle is created.
 
 ## R1 preservation contract
 

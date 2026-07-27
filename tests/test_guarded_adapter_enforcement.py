@@ -701,15 +701,33 @@ class TestBindingRoundTrip:
         for field in required:
             assert field in data, f"Missing required field: {field}"
 
-    def test_real_binding_scope_includes_this_test_file(self):
-        """The binding scope must cover test_guarded_adapter_enforcement.py."""
+    def test_real_binding_scope_is_task_specific_and_repo_relative(self):
+        """Binding scope must be non-empty, unique, and repository-relative.
+
+        A task is not required to authorize this test file merely because the
+        integration suite reads the current binding.
+        """
         assert BINDING_PATH.exists(), "Binding file missing"
         with open(BINDING_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        scope: list[str] = data.get("authorized_write_scope", [])
-        assert "tests/test_guarded_adapter_enforcement.py" in scope, (
-            f"This test file must be in authorized_write_scope. Got: {scope}"
+        scope = data.get("authorized_write_scope", [])
+        assert isinstance(scope, list) and scope, (
+            "authorized_write_scope must be a non-empty list"
         )
+        assert len(scope) == len(set(scope)), (
+            "authorized_write_scope must not contain duplicate paths"
+        )
+        for file_path in scope:
+            assert isinstance(file_path, str) and file_path, (
+                "authorized_write_scope entries must be non-empty strings"
+            )
+            normalized = file_path.replace("\\", "/")
+            assert not normalized.startswith("/"), (
+                f"Scope path must be repository-relative: {file_path}"
+            )
+            assert ".." not in normalized.split("/"), (
+                f"Scope path must not traverse outside the repository: {file_path}"
+            )
 
     def test_real_binding_human_holder_approved(self):
         """The binding must have human_holder_approved: true."""

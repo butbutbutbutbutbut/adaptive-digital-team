@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://adt-governance.local/schemas/resource-plan.schema.json",
   "title": "Resource Plan",
-  "description": "Deterministic allocation using resource_tier and checker_timing when present, while accepting adopted legacy ResourcePlans.",
+  "description": "Deterministic resource allocation plan produced by the Resource Allocator. Consumed by the Hermes Runtime Adapter to configure delegate_task calls.",
   "type": "object",
   "required": [
     "plan_status",
@@ -14,30 +14,64 @@
     "parallelism"
   ],
   "properties": {
-    "plan_status": {"type": "string", "enum": ["ALLOCATED", "BLOCKED"]},
-    "block_reason": {"type": "string"},
-    "resource_tier": {"type": "string", "enum": ["economy", "standard", "strong"]},
-    "checker_timing": {"type": "string", "enum": ["NONE", "AFTER_FORMAL_CANDIDATE", "NOW"]},
+    "plan_status": {
+      "type": "string",
+      "enum": ["ALLOCATED", "BLOCKED"],
+      "description": "Overall allocation status. BLOCKED means no execution should proceed."
+    },
+    "block_reason": {
+      "type": "string",
+      "description": "When plan_status=BLOCKED, the reason allocation failed. Absent when ALLOCATED."
+    },
     "maker": {
       "type": "object",
       "required": ["provider", "model", "reasoning_effort", "max_iterations"],
       "properties": {
-        "provider": {"type": "string"},
-        "model": {"type": "string"},
-        "reasoning_effort": {"type": "string", "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]},
-        "max_iterations": {"type": "integer", "minimum": 0}
+        "provider": {
+          "type": "string",
+          "description": "Provider name for the Maker sub-agent."
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier for the Maker sub-agent."
+        },
+        "reasoning_effort": {
+          "type": "string",
+          "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
+          "description": "Reasoning effort level for the Maker."
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum conversation turns for the Maker sub-agent. 0 when plan_status=BLOCKED."
+        }
       }
     },
     "checker": {
+      "description": "Checker configuration. null when no checker is allocated.",
       "oneOf": [
         {
           "type": "object",
           "required": ["provider", "model", "reasoning_effort", "max_iterations"],
           "properties": {
-            "provider": {"type": "string"},
-            "model": {"type": "string"},
-            "reasoning_effort": {"type": "string", "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]},
-            "max_iterations": {"type": "integer", "minimum": 0}
+            "provider": {
+              "type": "string",
+              "description": "Provider name for the Checker sub-agent."
+            },
+            "model": {
+              "type": "string",
+              "description": "Model identifier for the Checker sub-agent."
+            },
+            "reasoning_effort": {
+              "type": "string",
+              "enum": ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
+              "description": "Reasoning effort level for the Checker."
+            },
+            "max_iterations": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum conversation turns for the Checker sub-agent. 0 when plan_status=BLOCKED."
+            }
           }
         },
         {"type": "null"}
@@ -47,32 +81,57 @@
       "type": "object",
       "required": ["token_budget", "status", "accuracy"],
       "properties": {
-        "token_budget": {"type": "integer", "minimum": 0},
-        "status": {"type": "string", "enum": ["WITHIN_BUDGET", "BLOCKED_BUDGET_EXCEEDED"]},
-        "accuracy": {"type": "string", "enum": ["APPROXIMATE"]}
+        "token_budget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Planned token budget. APPROXIMATE only — Hermes has no hard token gate."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["WITHIN_BUDGET", "BLOCKED_BUDGET_EXCEEDED"],
+          "description": "Whether the planned budget is within the Human-authorized boundary."
+        },
+        "accuracy": {
+          "type": "string",
+          "enum": ["APPROXIMATE"],
+          "description": "Always APPROXIMATE for MVP. Token budget is a planning constraint, not a hard runtime gate."
+        }
       }
     },
-    "points": {
-      "type": "object",
-      "required": ["recommended", "hard_max", "status"],
-      "properties": {
-        "recommended": {"type": "integer", "minimum": 0, "maximum": 2},
-        "hard_max": {"type": "integer", "minimum": 0, "maximum": 2},
-        "status": {"type": "string", "enum": ["WITHIN_BOUNDARY", "BLOCKED_BOUNDARY_EXCEEDED"]}
-      }
+    "max_repair_attempts": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "Maximum pre-audit repair attempts allowed."
     },
-    "max_repair_attempts": {"type": "integer", "minimum": 0, "maximum": 5},
-    "context_strategy": {"type": "string", "enum": ["shared", "isolated"]},
-    "parallelism": {"type": "integer", "minimum": 0, "maximum": 5}
+    "context_strategy": {
+      "type": "string",
+      "enum": ["shared", "isolated"],
+      "description": "shared = Maker runs in parent context; isolated = separate delegate_task with no shared state."
+    },
+    "parallelism": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "Number of parallel workers. 1 = serial execution. 0 when plan_status=BLOCKED."
+    }
   },
   "allOf": [
     {
-      "if": {"required": ["plan_status"], "properties": {"plan_status": {"const": "BLOCKED"}}},
-      "then": {"required": ["block_reason"]}
+      "if": {
+        "properties": {"plan_status": {"const": "BLOCKED"}}
+      },
+      "then": {
+        "required": ["block_reason"]
+      }
     },
     {
-      "if": {"required": ["plan_status"], "properties": {"plan_status": {"const": "ALLOCATED"}}},
-      "then": {"not": {"required": ["block_reason"]}}
+      "if": {
+        "properties": {"plan_status": {"const": "ALLOCATED"}}
+      },
+      "then": {
+        "not": {"required": ["block_reason"]}
+      }
     }
   ]
 }

@@ -1,10 +1,10 @@
 {
-  "authorization_id": "ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-20260726-001",
-  "authority_source": "Human Holder directive — ADT S2 downscoped implementation authorization",
+  "authorization_id": "ADT-TRANSIENT-BRANCH-BINDING-DECOUPLING-20260723-001",
+  "authority_source": "Human Holder directive — ADT Stage 2 Point 2 authorization",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "03f96c28e8cf1d0e95bb0091237cd80f74fb4ad9",
-  "branch": "hermes/adt-adaptive-counter-objective-gate-r1",
+  "base_sha": "ff85b0bb2c7f2cb6229f47af0cad02b79106414a",
+  "branch": "hermes/adt-transient-branch-binding-decoupling-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
     ".hermes/CANDIDATE_BINDING.json",
@@ -21,6 +21,6 @@
     "tests/test_resource_allocator.py"
   ],
   "risk_boundary": "MODERATE",
-  "task_id": "ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-R1",
+  "task_id": "ADT-TRANSIENT-BRANCH-BINDING-DECOUPLING-R1",
   "human_holder_approved": true
 }

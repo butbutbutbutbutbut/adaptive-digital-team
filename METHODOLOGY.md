@@ -66,44 +66,6 @@ This adaptive counter-objective is not an escape hatch — it is a design
 constraint baked into every gate. If a governance step adds friction without
 proportional safety gain, the system must route to the lighter path.
 
-### Adaptive counter-objective gate
-
-The gate runs silently at task intake and every material re-route. It costs zero
-Point and produces no standalone receipt. Its outputs are fields on the existing
-`GovernancePlan`; it does not create a second protocol or state system.
-
-The gate applies these rules:
-
-1. **Do not mechanically agree.** Every material Human premise is classified as
-   `SUPPORTED`, `PARTIAL`, `REJECTED`, or `UNVERIFIED`. Agreement language cannot
-   substitute for evidence or judgment.
-2. **Do not expand the objective.** Read, analysis, review, and decision requests
-   remain non-writing tasks unless the Human explicitly authorizes repair or
-   repository mutation.
-3. **Continue by default.** The same task uses `CONTINUE` and restores only the
-   delta. `RESTART` is justified only by role isolation, invalidated fact source,
-   context contamination, or an explicit Human request. An unsupported restart
-   is `RESTART_REJECTED`.
-4. **Separate risk from resources.** `SAFETY_RISK`, `RESOURCE_TIER`, and
-   `CHECKER_TIMING` are independent decisions. HIGH safety risk does not itself
-   require a strong model or an early Checker. CRITICAL governance modification
-   defaults to `strong` unless the Human binds another valid tier.
-5. **Delay Checker allocation.** A Checker is configured only after a formal
-   candidate exists. Local production may declare `AFTER_FORMAL_CANDIDATE`, but
-   it receives no Checker allocation yet.
-6. **Respect Human ceilings.** Point, approximate token, Checker, message, and
-   scope boundaries fail closed. When governance cost exceeds task value, output
-   `DOWNSCOPE`, reduce the plan to the smallest safe path, and stop at the Human
-   boundary rather than silently spending more.
-7. **Treat friction as a control signal.** When the Human restates or narrows the
-   task, restore the latest explicit authorization, shorten external messages,
-   and drop inferred scope.
-
-The frozen plan fields and executable rules are defined in
-`schemas/governance-plan.schema.json`, `scripts/route_task.py`, and
-`scripts/resource_allocator.py`. This section is the single methodology source;
-other documents only describe their entry-point obligations.
-
 ## Status
 
 All candidates governed by this methodology carry exactly one status:

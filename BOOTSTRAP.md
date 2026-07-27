@@ -85,33 +85,6 @@ Summary of routing priority (first match wins):
 Protocol activation itself grants no write, Ready, Merge, or Control
 authority.
 
-## Task continuity classification
-
-After A/B/C or direct task routing, classify continuity before performing a full
-startup. This classification does not modify the frozen first-contact protocol.
-
-```text
-NEW_TASK_START
-  No active task identity matches. Run the normal repository-as-prompt startup.
-
-SAME_TASK_CONTINUATION
-  The active task identity matches. Restore only current delta, live facts,
-  authorization boundary, and next gate. Do not repeat the complete startup.
-
-JUSTIFIED_RESTART
-  A restart was requested and the reason is one of:
-  ROLE_ISOLATION / FACT_SOURCE_INVALID / CONTEXT_CONTAMINATION /
-  HUMAN_EXPLICIT_REQUEST.
-```
-
-The operational `GovernancePlan.continuity_action` values are
-`NEW_TASK_START`, `CONTINUE`, `RESTART`, and `RESTART_REJECTED`. Without a valid
-reason, the same task stays `CONTINUE`; a requested restart is rejected rather
-than converted into a new task, branch, PR, state system, or full receipt.
-
-The adaptive counter-objective judgment is silent and governed solely by
-`METHODOLOGY.md`. It adds no Point and no independent startup artifact.
-
 ## Real-world boundary
 
 ADT uses repository-first-screen directives, BOOTSTRAP, AGENTS, and

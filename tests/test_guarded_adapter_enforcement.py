@@ -386,7 +386,7 @@ class TestTaskIdEnforcement:
 # ═══════════════════════════════════════════════════════════
 
 class TestAuthorizationIdEnforcement:
-    """Wrong authorization_id blocks writes."""
+    """Wrong authorization_id in binding blocks writes."""
 
     def test_correct_authorization_id_allows_write(self):
         binding = _make_binding()

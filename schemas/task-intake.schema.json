@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/task-intake.schema.json",
   "title": "ADT Task Intake Schema",
-  "description": "Input contract for deterministic task routing, counter-objective review, continuity, claim review, and resource boundaries.",
+  "description": "Input contract for deterministic task routing, counter-objective review, continuity, claim review, and resource boundaries. Audit requests and non-empty pure read-only requested_actions take precedence over Control Packet write routing. Incomplete Control Packets remain valid intake data and are routed to HUMAN_DECISION_REQUIRED with facts_status=INCOMPLETE.",
   "type": "object",
   "required": ["request"],
   "properties": {
@@ -14,20 +14,33 @@
     "branch": {"type": "string"},
     "control_packet": {
       "type": "object",
+      "description": "Control Packet input. Executable audit or write routes require non-empty authorization_id, from, to, executor, repository, and base_sha. Missing fields are handled by the Router as an incomplete, non-writing plan rather than rejected by this intake schema.",
       "properties": {
-        "authorization_id": {"type": "string"},
-        "from": {"type": "string"},
-        "to": {"type": "string"},
-        "executor": {"type": "string"},
+        "authorization_id": {"type": "string", "minLength": 1},
+        "from": {"type": "string", "minLength": 1},
+        "to": {"type": "string", "minLength": 1},
+        "executor": {"type": "string", "minLength": 1},
         "checker": {"type": "string"},
-        "repository": {"type": "string"},
-        "base_sha": {"type": "string"},
+        "repository": {"type": "string", "minLength": 1},
+        "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "files_in_scope": {"type": "array", "items": {"type": "string"}},
-        "actions_in_scope": {"type": "array", "items": {"type": "string"}}
+        "actions_in_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["READ", "ANALYZE", "DECIDE", "REVIEW", "AUDIT", "VERIFY", "SUMMARIZE", "WRITE", "MODIFY", "FIX", "CREATE", "DELETE", "COMMIT", "PUSH", "OPEN_PR", "IMPLEMENT"]
+          }
+        }
       }
     },
-    "write_intent": {"type": "boolean"},
-    "audit_request": {"type": "boolean"},
+    "write_intent": {
+      "type": "boolean",
+      "description": "Explicit write intent. It cannot override audit_request=true or a non-empty pure read-only requested_actions set."
+    },
+    "audit_request": {
+      "type": "boolean",
+      "description": "Explicit audit intent. A complete Control Packet routes to INDEPENDENT_AUDIT; an incomplete packet routes to HUMAN_DECISION_REQUIRED. Both are non-writing."
+    },
     "cancellation": {"type": "boolean"},
     "auto_ready": {"type": "boolean"},
     "auto_merge": {"type": "boolean"},
@@ -46,7 +59,11 @@
     },
     "requested_actions": {
       "type": "array",
-      "items": {"type": "string", "enum": ["READ", "ANALYZE", "DECIDE", "REVIEW", "AUDIT", "VERIFY", "SUMMARIZE", "WRITE", "MODIFY", "FIX", "CREATE", "DELETE", "COMMIT", "PUSH", "OPEN_PR", "IMPLEMENT"]}
+      "description": "Requested actions. A non-empty set containing only READ, ANALYZE, DECIDE, REVIEW, AUDIT, VERIFY, or SUMMARIZE is read-only and takes precedence over Control Packet candidate implementation.",
+      "items": {
+        "type": "string",
+        "enum": ["READ", "ANALYZE", "DECIDE", "REVIEW", "AUDIT", "VERIFY", "SUMMARIZE", "WRITE", "MODIFY", "FIX", "CREATE", "DELETE", "COMMIT", "PUSH", "OPEN_PR", "IMPLEMENT"]
+      }
     },
     "task_id": {"type": "string"},
     "active_task_id": {"type": "string"},

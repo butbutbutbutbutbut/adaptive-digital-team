@@ -28,6 +28,8 @@ USER_INPUT
 → ADAPTIVE_COUNTER_OBJECTIVE_GATE
 → FACT_AND_AUTHORITY_CHECK
 → TASK_TYPE_CLASSIFICATION
+→ READ_ONLY_PRIORITY_GATE
+→ CONTROL_PACKET_COMPLETENESS_GATE
 → SAFETY_RISK_CLASSIFICATION
 → CONTINUITY_DECISION
 → RESOURCE_AND_CHECKER_TIMING
@@ -51,7 +53,7 @@ create a second protocol or state machine.
 | `PROMPT_LOCAL_WITH_FILES` | Attachment-backed request with no repository |
 | `REPOSITORY_READ_ONLY` | Repository reference with read, analysis, review, audit, verification, or decision intent only |
 | `REPOSITORY_CANDIDATE` | Repository reference with explicit write or implementation intent |
-| `CONTROL_PACKET` | Input carries an authorization-bearing Control Packet |
+| `CONTROL_PACKET` | Input carries a Control Packet object; completeness is validated separately |
 | `AMBIGUOUS_REQUEST` | Intent cannot be classified reliably |
 | `CONFLICTING_FACTS` | Repository, SHA, branch, PR, scope, or authority facts conflict |
 
@@ -63,6 +65,7 @@ The Router may consume these additive controls:
 task_id
 active_task_id
 requested_actions
+audit_request
 restart_requested
 restart_reason
 human_premise
@@ -80,23 +83,41 @@ candidate_stage
 These controls extend the existing Task Intake. They do not create S2/S3 task
 levels or a parallel lifecycle.
 
-### 3.3 Intent precedence
+### 3.3 Read-only and Control Packet precedence
 
-1. A complete authorization-bearing Control Packet routes as `CONTROL_PACKET`.
-2. Conflicting repository facts route as `CONFLICTING_FACTS`.
-3. A repository request is `REPOSITORY_CANDIDATE` only when write intent is
-   explicit.
-4. Read, analysis, review, audit, verification, summary, and decision actions
-   remain `REPOSITORY_READ_ONLY`.
-5. A bug, defect, or requested diagnosis does not imply repair authority.
-6. Read-only wording takes precedence unless the Human also explicitly requests
-   implementation or mutation.
-7. Attachments without a repository route as `PROMPT_LOCAL_WITH_FILES`.
-8. Plain text without attachments or repository routes as `PROMPT_LOCAL`.
-9. Unresolvable intent routes as `AMBIGUOUS_REQUEST`.
+Routing priority is deterministic:
 
-A read-only task must not expand into repair, implementation, commit, push, PR
-creation, or any repository write.
+1. `audit_request=true` is read-only and takes precedence over write intent.
+2. Non-empty `requested_actions` containing only `READ`, `ANALYZE`, `DECIDE`,
+   `REVIEW`, `AUDIT`, `VERIFY`, or `SUMMARIZE` is read-only and takes precedence
+   over Control Packet write routing.
+3. A Control Packet is complete only when all of these non-empty fields exist:
+
+   ```text
+   authorization_id
+   from
+   to
+   executor
+   repository
+   base_sha
+   ```
+
+4. An incomplete Control Packet routes to `HUMAN_DECISION_REQUIRED` with
+   `facts_status=INCOMPLETE`, zero write scope, and no write permission.
+5. A complete Control Packet with `audit_request=true` routes to
+   `INDEPENDENT_AUDIT`.
+6. A complete Control Packet with a pure read-only request routes to
+   `READ_ONLY_REPOSITORY_ANALYSIS`.
+7. A Control Packet may route to `CANDIDATE_IMPLEMENTATION` only when it is
+   complete, carries explicit write or implementation action, is authorization
+   bearing, is not an audit, and is not pure read-only.
+8. A repository request is `REPOSITORY_CANDIDATE` only when write intent is
+   explicit. A bug, defect, diagnosis, review, or decision does not imply repair.
+9. Attachments without a repository route as `PROMPT_LOCAL_WITH_FILES`; plain
+   text without attachments or repository routes as `PROMPT_LOCAL`.
+
+A read-only task must not expand into repair, implementation, branch creation,
+commit, push, PR creation, or any repository write.
 
 ## 4. Adaptive counter-objective controls
 
@@ -173,7 +194,7 @@ task, branch, PR, Point, or authorization. It records
 | Value | Criteria |
 |---|---|
 | `LOW` | Local-only work with no repository or external system |
-| `MODERATE` | Repository read, ambiguous facts, or decision-only routing |
+| `MODERATE` | Repository read, audit, incomplete Control Packet, ambiguous facts, or decision-only routing |
 | `HIGH` | Authorized repository writes or candidate implementation without a critical factor |
 | `CRITICAL` | Governance files, permissions, credentials, publishing, history mutation, destructive branch operations, or equivalent authority-sensitive work |
 
@@ -230,17 +251,18 @@ A valid explicit Human tier overrides the default. Invalid tiers fail validation
 |---|---|
 | `NONE` | No Checker is allocated |
 | `AFTER_FORMAL_CANDIDATE` | Reserve the later audit gate; allocate no Checker during local production |
-| `NOW` | Allocate an independent Checker now because a formal candidate exists |
+| `NOW` | Allocate an independent Checker now because a formal candidate or explicit audit route exists |
 
 Rules:
 
 1. Local candidate production uses `AFTER_FORMAL_CANDIDATE`.
 2. `candidate_stage=FORMAL_CANDIDATE` may produce `NOW`.
-3. A Checker agent is configured only when `checker_timing=NOW`.
-4. `checker_required` is a compatibility and audit-requirement field; it does not
+3. `INDEPENDENT_AUDIT` uses `NOW` and produces one read-only Checker step.
+4. A Checker agent is configured only when `checker_timing=NOW`.
+5. `checker_required` is a compatibility and audit-requirement field; it does not
    itself authorize immediate Checker allocation when `checker_timing` is present.
-5. Maker and Checker remain independent contexts.
-6. Checker allocation must remain within the Human Checker boundary.
+6. Maker and Checker remain independent contexts.
+7. Checker allocation must remain within the Human Checker boundary.
 
 The former rule “HIGH/CRITICAL risk without an already allocated Checker is a
 HARD_STOP” is superseded. The normative requirement is correct timing and
@@ -254,30 +276,35 @@ independence, not premature allocation.
 |---|---|
 | `DIRECT_LOCAL_EXECUTION` | `PROMPT_LOCAL` with LOW risk |
 | `FILE_LOCAL_EXECUTION` | `PROMPT_LOCAL_WITH_FILES` with LOW risk |
-| `READ_ONLY_REPOSITORY_ANALYSIS` | Repository read-only work |
-| `CANDIDATE_IMPLEMENTATION` | Authorized repository candidate with non-critical write risk |
-| `INDEPENDENT_AUDIT` | Reserved compatibility route for an externally supplied audit plan |
-| `HUMAN_DECISION_REQUIRED` | Ambiguity, missing authority, or critical work requiring Human decision |
+| `READ_ONLY_REPOSITORY_ANALYSIS` | Repository or Control Packet read-only work |
+| `CANDIDATE_IMPLEMENTATION` | Complete, explicitly authorized, non-critical write Control Packet or repository candidate |
+| `INDEPENDENT_AUDIT` | Complete Control Packet with `audit_request=true` |
+| `HUMAN_DECISION_REQUIRED` | Ambiguity, incomplete Control Packet, missing authority, no explicit action, or critical work requiring Human decision |
 | `FACT_SOURCE_REBIND` | Conflicting or invalidated fact source |
 | `HARD_STOP` | Forbidden or unauthorized action |
 
 ### 9.2 Route determination
 
 ```text
-PROMPT_LOCAL + LOW                  → DIRECT_LOCAL_EXECUTION
-PROMPT_LOCAL_WITH_FILES + LOW       → FILE_LOCAL_EXECUTION
-REPOSITORY_READ_ONLY + any          → READ_ONLY_REPOSITORY_ANALYSIS
-REPOSITORY_CANDIDATE + HIGH         → CANDIDATE_IMPLEMENTATION
-REPOSITORY_CANDIDATE + CRITICAL     → HUMAN_DECISION_REQUIRED
-CONTROL_PACKET + non-critical risk  → CANDIDATE_IMPLEMENTATION
-CONTROL_PACKET + CRITICAL risk      → HUMAN_DECISION_REQUIRED
-AMBIGUOUS_REQUEST + any             → HUMAN_DECISION_REQUIRED
-CONFLICTING_FACTS + any             → FACT_SOURCE_REBIND
+PROMPT_LOCAL + LOW                         → DIRECT_LOCAL_EXECUTION
+PROMPT_LOCAL_WITH_FILES + LOW              → FILE_LOCAL_EXECUTION
+REPOSITORY_READ_ONLY + any                 → READ_ONLY_REPOSITORY_ANALYSIS
+REPOSITORY_CANDIDATE + HIGH                → CANDIDATE_IMPLEMENTATION
+REPOSITORY_CANDIDATE + CRITICAL            → HUMAN_DECISION_REQUIRED
+CONTROL_PACKET + incomplete                → HUMAN_DECISION_REQUIRED
+CONTROL_PACKET + audit_request=true        → INDEPENDENT_AUDIT
+CONTROL_PACKET + pure read-only actions     → READ_ONLY_REPOSITORY_ANALYSIS
+CONTROL_PACKET + explicit write + HIGH      → CANDIDATE_IMPLEMENTATION
+CONTROL_PACKET + no explicit action         → HUMAN_DECISION_REQUIRED
+CONTROL_PACKET + CRITICAL                   → HUMAN_DECISION_REQUIRED
+AMBIGUOUS_REQUEST + any                    → HUMAN_DECISION_REQUIRED
+CONFLICTING_FACTS + any                    → FACT_SOURCE_REBIND
 Forbidden automation or authority inference → HARD_STOP
 ```
 
-The current intake router does not automatically emit `INDEPENDENT_AUDIT`; that
-value remains a compatibility route for a separately constructed audit plan.
+Read-only priority is evaluated before Control Packet write routing. Every route
+other than `CANDIDATE_IMPLEMENTATION` emits `write_scope=[]` and
+`write_actions_permitted=false`.
 
 An upstream ADT repository remains read-only unless a separate, verified write
 authorization is present.
@@ -331,6 +358,13 @@ Candidate implementation steps follow this order:
 4. run local validation and produce a formal candidate;
 5. run independent Checker audit only when `checker_timing=NOW`.
 
+`INDEPENDENT_AUDIT` generates exactly a read-only Checker audit step with
+`authorized_write_scope=[]` and `checker_required=true`. It generates no Maker,
+branch creation, implementation, or write step.
+
+`READ_ONLY_REPOSITORY_ANALYSIS` generates no write scope and no Maker
+implementation step.
+
 ## 12. Candidate GovernancePlan
 
 The Router emits one existing `GovernancePlan`, not a second receipt or state
@@ -380,7 +414,11 @@ authorization is a separate gate and cannot be inferred from the plan.
 
 | Condition | Action |
 |---|---|
-| Missing authorization in an authorization-bearing Control Packet | `HARD_STOP` |
+| Incomplete Control Packet | `HUMAN_DECISION_REQUIRED`, `facts_status=INCOMPLETE`, zero writes |
+| `audit_request=true` without complete Control Packet | `HUMAN_DECISION_REQUIRED`, zero writes |
+| Complete audit Control Packet | `INDEPENDENT_AUDIT`, Checker-only read step |
+| Pure read-only Control Packet | `READ_ONLY_REPOSITORY_ANALYSIS`, zero writes |
+| Control Packet lacks explicit write action | `HUMAN_DECISION_REQUIRED`, zero writes |
 | Conflicting repository facts | `FACT_SOURCE_REBIND` |
 | Missing verified Base before repository write | block write until verified |
 | Missing exact write scope for candidate implementation | `HUMAN_DECISION_REQUIRED` |
@@ -403,6 +441,7 @@ The Router does:
 - classify task type and safety risk;
 - apply the silent adaptive counter-objective;
 - classify Human premises;
+- enforce Control Packet completeness and read-only priority;
 - determine continuity, resource tier, Checker timing, Point and message controls;
 - generate deterministic routes and steps;
 - emit a candidate GovernancePlan;
@@ -411,7 +450,7 @@ The Router does:
 The Router does not:
 
 - create S2/S3 task levels;
-- create a second anti-objective protocol or receipt;
+- create a second anti-objective or audit protocol;
 - execute the generated candidate plan;
 - infer write authority;
 - expand scope without Human authorization;
@@ -426,6 +465,7 @@ IMPLEMENTATION_STATUS: ACTIVE
 PHASE: DYNAMIC_ROUTING_WITH_ADAPTIVE_CONTROLS
 BASE_AUTHORIZATION: ADT-P1-DYNAMIC-GOVERNANCE-ROUTER-20260721-001
 ADAPTIVE_AUTHORIZATION: ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-20260726-001
+AUDIT_FIX: ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-AUDIT-FIX-R1
 ROLE_NORMALIZATION: TASK_HOLDER (normative), HOLDER (legacy input alias only)
 COUNTER_OBJECTIVE_SOURCE: METHODOLOGY.md
 ROUTER_NORMATIVE_SOURCE: protocols/DYNAMIC_GOVERNANCE_ROUTER.md
@@ -436,5 +476,5 @@ SELF_ACCEPTANCE: FORBIDDEN
 AUTO_READY: FORBIDDEN
 AUTO_MERGE: FORBIDDEN
 HISTORY_REWRITE: FORBIDDEN
-NEXT_GATE: FULL_REGRESSION_AND_LIVE_BINDING_PASS → INDEPENDENT_CHECKER
+NEXT_GATE: FULL_REGRESSION_AND_LIVE_BINDING_PASS → SAME_CHECKER_INCREMENTAL_DELTA_REAUDIT
 ```

@@ -34,6 +34,27 @@ def plan(data: dict) -> dict:
     return route_task(data)
 
 
+def complete_control_packet(actions: list[str] | None = None, files: list[str] | None = None) -> dict:
+    return {
+        "authorization_id": "ADT-TEST-001",
+        "from": "HUMAN_HOLDER",
+        "to": "TASK_HOLDER",
+        "executor": "MAKER",
+        "repository": "owner/project",
+        "base_sha": "a" * 40,
+        "files_in_scope": files or ["test.py"],
+        "actions_in_scope": actions or [],
+    }
+
+
+def assert_read_only_plan(result: dict, expected_route: str) -> None:
+    assert result["route"] == expected_route
+    assert result["write_actions_permitted"] is False
+    assert result["write_scope"] == []
+    assert all(step["authorized_write_scope"] == [] for step in result["steps"])
+    assert not any(step["executor_role"] == "MAKER" for step in result["steps"])
+
+
 @pytest.mark.parametrize(
     "payload,route,risk,task_type",
     [
@@ -139,9 +160,14 @@ def test_public_upstream_default_read_only():
 
 
 def test_control_packet_regression():
-    result = plan({"request": "执行任务", "control_packet": {"authorization_id": "ADT-TEST-001", "repository": "owner/project", "base_sha": "a" * 40, "files_in_scope": ["test.py"]}})
+    result = plan({
+        "request": "执行任务",
+        "requested_actions": ["IMPLEMENT"],
+        "control_packet": complete_control_packet(["IMPLEMENT"]),
+    })
     assert result["task_type"] == "CONTROL_PACKET"
     assert result["route"] == "CANDIDATE_IMPLEMENTATION"
+    assert result["write_actions_permitted"] is True
 
 
 def test_required_fields_and_steps_present():
@@ -205,9 +231,91 @@ def test_governance_cost_over_value_downscopes():
 
 
 def test_human_scope_restatement_restores_latest_authorization():
-    result = plan({"request": "继续执行", "control_packet": {"authorization_id": "A", "repository": "owner/project", "base_sha": "a" * 40, "files_in_scope": ["old.py"]}, "human_friction_signal": True, "latest_authorized_scope": ["only.py"]})
+    result = plan({
+        "request": "继续执行",
+        "requested_actions": ["IMPLEMENT"],
+        "control_packet": complete_control_packet(["IMPLEMENT"], ["old.py"]),
+        "human_friction_signal": True,
+        "latest_authorized_scope": ["only.py"],
+    })
     assert result["write_scope"] == ["only.py"]
     assert result["max_external_messages"] == 1
+
+
+# Control Packet read-only priority and audit routing
+
+def test_complete_audit_control_packet_routes_independent_audit():
+    result = plan({
+        "request": "审计候选",
+        "audit_request": True,
+        "requested_actions": ["AUDIT"],
+        "control_packet": complete_control_packet(["AUDIT"]),
+    })
+    assert result["task_type"] == TaskType.CONTROL_PACKET.value
+    assert result["facts_status"] == FactsStatus.REQUIRES_VERIFICATION.value
+    assert result["checker_timing"] == CheckerTiming.NOW.value
+    assert_read_only_plan(result, Route.INDEPENDENT_AUDIT.value)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["executor_role"] == ExecutorRole.CHECKER.value
+    assert result["steps"][0]["checker_required"] is True
+
+
+def test_incomplete_audit_control_packet_requires_human():
+    result = plan({
+        "request": "审计候选",
+        "audit_request": True,
+        "requested_actions": ["AUDIT"],
+        "control_packet": {"authorization_id": "ADT-INCOMPLETE"},
+    })
+    assert result["task_type"] == TaskType.CONTROL_PACKET.value
+    assert result["facts_status"] == FactsStatus.INCOMPLETE.value
+    assert_read_only_plan(result, Route.HUMAN_DECISION_REQUIRED.value)
+
+
+@pytest.mark.parametrize("action", ["AUDIT", "REVIEW", "ANALYZE", "DECIDE", "VERIFY", "READ", "SUMMARIZE"])
+def test_pure_read_only_control_packet_never_routes_candidate(action):
+    result = plan({
+        "request": f"{action} candidate",
+        "requested_actions": [action],
+        "control_packet": complete_control_packet([action]),
+    })
+    assert result["route"] != Route.CANDIDATE_IMPLEMENTATION.value
+    expected = Route.INDEPENDENT_AUDIT.value if action == "AUDIT" and False else Route.READ_ONLY_REPOSITORY_ANALYSIS.value
+    assert_read_only_plan(result, expected)
+
+
+def test_audit_request_overrides_write_actions():
+    result = plan({
+        "request": "审计，不执行修复",
+        "audit_request": True,
+        "requested_actions": ["AUDIT"],
+        "write_intent": True,
+        "control_packet": complete_control_packet(["IMPLEMENT"]),
+    })
+    assert_read_only_plan(result, Route.INDEPENDENT_AUDIT.value)
+
+
+def test_authorization_id_only_control_packet_never_gets_write_path():
+    result = plan({
+        "request": "执行任务",
+        "requested_actions": ["IMPLEMENT"],
+        "control_packet": {"authorization_id": "ADT-INCOMPLETE"},
+    })
+    assert result["facts_status"] == FactsStatus.INCOMPLETE.value
+    assert_read_only_plan(result, Route.HUMAN_DECISION_REQUIRED.value)
+
+
+def test_complete_explicit_write_control_packet_keeps_candidate_compatibility():
+    result = plan({
+        "request": "实现已批准变更",
+        "requested_actions": ["IMPLEMENT"],
+        "control_packet": complete_control_packet(["IMPLEMENT"], ["src/app.py"]),
+    })
+    assert result["route"] == Route.CANDIDATE_IMPLEMENTATION.value
+    assert result["write_actions_permitted"] is True
+    assert result["write_scope"] == ["src/app.py"]
+    assert any(step["executor_role"] == ExecutorRole.MAKER.value for step in result["steps"])
+
 
 # Named compatibility baseline from the adopted P1 suite.
 
@@ -316,20 +424,14 @@ def test_p1_t12_high_risk_requires_checker():
     assert critical["checker_required"] is True
 
 
-def test_p1_t13_auto_ready_hard_stop():
-    assert plan({"request": "修复首页", "repository": "owner/project", "auto_ready": True})["route"] == Route.HARD_STOP.value
-
-
-def test_p1_t13b_auto_merge_hard_stop():
-    assert plan({"request": "合并代码", "repository": "owner/project", "auto_merge": True})["route"] == Route.HARD_STOP.value
-
-
-def test_p1_t13c_auto_delete_branch_hard_stop():
-    assert plan({"request": "清理分支", "repository": "owner/project", "auto_delete_branch": True})["route"] == Route.HARD_STOP.value
-
-
-def test_p1_t13d_textual_auto_merge_hard_stop():
-    assert plan({"request": "自动 merge 到 main", "repository": "owner/project"})["route"] == Route.HARD_STOP.value
+@pytest.mark.parametrize("payload", [
+    {"request": "修复首页", "repository": "owner/project", "auto_ready": True},
+    {"request": "合并代码", "repository": "owner/project", "auto_merge": True},
+    {"request": "清理分支", "repository": "owner/project", "auto_delete_branch": True},
+    {"request": "自动 merge 到 main", "repository": "owner/project"},
+])
+def test_p1_t13_automatic_actions_hard_stop(payload):
+    assert plan(payload)["route"] == Route.HARD_STOP.value
 
 
 def test_p1_t14_p0_abc_contract_unchanged():
@@ -417,15 +519,15 @@ def test_rn_t04_output_never_emits_holder():
 
 
 def test_control_packet_input():
-    result = plan({"request": "执行任务", "control_packet": {"authorization_id": "ADT-TEST-001", "repository": "owner/project", "base_sha": "a" * 40, "files_in_scope": ["test.py"]}})
+    result = plan({"request": "执行任务", "requested_actions": ["IMPLEMENT"], "control_packet": complete_control_packet(["IMPLEMENT"])})
     assert result["task_type"] == TaskType.CONTROL_PACKET.value
     assert result["route"] == Route.CANDIDATE_IMPLEMENTATION.value
 
 
 def test_control_packet_audit():
-    result = plan({"request": "审计候选", "audit_request": True, "control_packet": {"authorization_id": "ADT-TEST-002", "repository": "owner/project", "base_sha": "a" * 40}})
+    result = plan({"request": "审计候选", "audit_request": True, "requested_actions": ["AUDIT"], "control_packet": complete_control_packet(["AUDIT"])})
     assert result["task_type"] == TaskType.CONTROL_PACKET.value
-    assert result["route"] in (Route.CANDIDATE_IMPLEMENTATION.value, Route.INDEPENDENT_AUDIT.value)
+    assert_read_only_plan(result, Route.INDEPENDENT_AUDIT.value)
 
 
 def test_low_risk_local_no_repo():

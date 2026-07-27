@@ -138,9 +138,15 @@ WRITE_KEYWORDS = (
     "commit", "提交", "push", "推送", "open pr", "create pr", "开 pr", "合并", "merge",
     "force push", "rebase", "amend",
 )
-READ_KEYWORDS = ("查看", "检查", "分析", "审计", "review", "audit", "读取", "读", "read", "看", "inspect", "总结", "verify")
+READ_KEYWORDS = (
+    "查看", "检查", "分析", "审计", "review", "audit", "读取", "读", "read",
+    "看", "inspect", "总结", "summarize", "verify", "验证", "决定", "decide",
+)
 READ_ONLY_ACTIONS = {"READ", "ANALYZE", "DECIDE", "REVIEW", "AUDIT", "VERIFY", "SUMMARIZE"}
 WRITE_ACTIONS = {"WRITE", "MODIFY", "FIX", "CREATE", "DELETE", "COMMIT", "PUSH", "OPEN_PR", "IMPLEMENT"}
+CONTROL_PACKET_REQUIRED_FIELDS = {
+    "authorization_id", "from", "to", "executor", "repository", "base_sha"
+}
 CANCEL_KEYWORDS = ("取消", "cancel", "停止", "stop", "中止", "abort")
 P0_CONTRACT_KEYWORDS = ("a/b/c", "first-contact", "beginner bootstrap", "初学者引导", "模式选择")
 UPSTREAM_KEYWORDS = ("butbutbutbutbutbut/adaptive-digital-team", "adaptive-digital-team")
@@ -274,24 +280,63 @@ class GovernanceRouter:
         self.intake = intake
         self._limitations: list[str] = []
 
+    def _requested_action_set(self) -> set[str]:
+        return {str(action).upper() for action in self.intake.requested_actions if str(action)}
+
+    def _control_packet_action_set(self) -> set[str]:
+        packet = self.intake.control_packet or {}
+        actions = packet.get("actions_in_scope", [])
+        if not isinstance(actions, list):
+            return set()
+        return {str(action).upper() for action in actions if str(action)}
+
+    def _control_packet_complete(self) -> bool:
+        packet = self.intake.control_packet
+        if not isinstance(packet, dict):
+            return False
+        return all(isinstance(packet.get(field), str) and packet.get(field).strip() for field in CONTROL_PACKET_REQUIRED_FIELDS)
+
+    def _pure_read_only_actions(self) -> bool:
+        actions = self._requested_action_set()
+        return bool(actions) and actions <= READ_ONLY_ACTIONS
+
+    def _control_packet_is_read_only(self) -> bool:
+        if self.intake.audit_request or self._pure_read_only_actions():
+            return True
+        requested = self._requested_action_set()
+        packet_actions = self._control_packet_action_set()
+        effective = requested or packet_actions
+        if effective:
+            return effective <= READ_ONLY_ACTIONS
+        return self._detect_read_intent() and not self._detect_write_intent()
+
+    def _control_packet_has_explicit_write(self) -> bool:
+        if self.intake.audit_request or self._pure_read_only_actions():
+            return False
+        actions = self._requested_action_set() | self._control_packet_action_set()
+        if actions & WRITE_ACTIONS:
+            return True
+        return self._detect_write_intent()
+
     def _detect_write_intent(self) -> bool:
-        i = self.intake
-        if i.write_intent is not None:
-            return bool(i.write_intent)
-        actions = {str(a).upper() for a in i.requested_actions}
+        if self.intake.audit_request or self._pure_read_only_actions():
+            return False
+        if self.intake.write_intent is not None:
+            return bool(self.intake.write_intent)
+        actions = self._requested_action_set() | self._control_packet_action_set()
         if actions:
             if actions <= READ_ONLY_ACTIONS:
                 return False
             if actions & WRITE_ACTIONS:
                 return True
-        req = i.request.lower()
+        req = self.intake.request.lower()
         read_prefix = any(marker in req for marker in ("只读", "读取 bug", "读取bug", "分析 bug", "分析bug", "read bug", "review bug"))
         if read_prefix and not any(marker in req for marker in ("并修复", "直接修复", "implement the fix", "apply the fix")):
             return False
         return any(kw in req for kw in WRITE_KEYWORDS)
 
     def _detect_read_intent(self) -> bool:
-        actions = {str(a).upper() for a in self.intake.requested_actions}
+        actions = self._requested_action_set() | self._control_packet_action_set()
         return bool(actions & READ_ONLY_ACTIONS) or any(kw in self.intake.request.lower() for kw in READ_KEYWORDS)
 
     def classify(self) -> TaskType:
@@ -299,7 +344,7 @@ class GovernanceRouter:
         req = i.request.lower()
         if i.cancellation or any(kw in req for kw in CANCEL_KEYWORDS):
             return TaskType.AMBIGUOUS_REQUEST
-        if i.control_packet and i.control_packet.get("authorization_id"):
+        if isinstance(i.control_packet, dict):
             return TaskType.CONTROL_PACKET
         if i.conflicting_facts:
             return TaskType.CONFLICTING_FACTS
@@ -335,7 +380,9 @@ class GovernanceRouter:
         if task_type in (TaskType.CONFLICTING_FACTS, TaskType.REPOSITORY_READ_ONLY, TaskType.AMBIGUOUS_REQUEST):
             return Risk.MODERATE
         if task_type == TaskType.CONTROL_PACKET:
-            actions = " ".join(str(a).lower() for a in (self.intake.control_packet or {}).get("actions_in_scope", []))
+            if not self._control_packet_complete() or self._control_packet_is_read_only():
+                return Risk.MODERATE
+            actions = " ".join(str(a).lower() for a in self._control_packet_action_set())
             req = f"{req} {actions}"
         if any(name in req for name in GOVERNANCE_FILES) or any(path in req for path in GOVERNANCE_DIRS):
             return Risk.CRITICAL
@@ -348,12 +395,27 @@ class GovernanceRouter:
         return Risk.HIGH
 
     def _is_upstream_repo(self) -> bool:
-        return any(up in self.intake.repository.lower() for up in UPSTREAM_KEYWORDS)
+        repository = self.intake.repository or str((self.intake.control_packet or {}).get("repository", ""))
+        return any(up in repository.lower() for up in UPSTREAM_KEYWORDS)
 
     def determine_route(self, task_type: TaskType, risk: Risk) -> tuple[Route, str | None]:
         hard_stop = self._detect_hard_stop()
         if hard_stop:
             return Route.HARD_STOP, hard_stop
+        if task_type == TaskType.CONTROL_PACKET:
+            if not self._control_packet_complete():
+                self._limitations.append("Control Packet incomplete: authorization_id/from/to/executor/repository/base_sha are required.")
+                return Route.HUMAN_DECISION_REQUIRED, None
+            if self.intake.audit_request:
+                return Route.INDEPENDENT_AUDIT, None
+            if self._control_packet_is_read_only():
+                return Route.READ_ONLY_REPOSITORY_ANALYSIS, None
+            if not self._control_packet_has_explicit_write():
+                self._limitations.append("Control Packet has no explicit write or implementation action.")
+                return Route.HUMAN_DECISION_REQUIRED, None
+            if risk == Risk.CRITICAL:
+                return Route.HUMAN_DECISION_REQUIRED, None
+            return Route.CANDIDATE_IMPLEMENTATION, None
         if task_type == TaskType.REPOSITORY_CANDIDATE and self._is_upstream_repo():
             self._limitations.append("Upstream public repository: read-only without separate verified authorization.")
             return Route.READ_ONLY_REPOSITORY_ANALYSIS, None
@@ -367,7 +429,7 @@ class GovernanceRouter:
             return Route.FILE_LOCAL_EXECUTION, None
         if task_type == TaskType.REPOSITORY_READ_ONLY:
             return Route.READ_ONLY_REPOSITORY_ANALYSIS, None
-        if task_type in (TaskType.REPOSITORY_CANDIDATE, TaskType.CONTROL_PACKET):
+        if task_type == TaskType.REPOSITORY_CANDIDATE:
             if risk == Risk.CRITICAL:
                 return Route.HUMAN_DECISION_REQUIRED, None
             return Route.CANDIDATE_IMPLEMENTATION, None
@@ -379,15 +441,14 @@ class GovernanceRouter:
         if task_type in (TaskType.REPOSITORY_CANDIDATE, TaskType.REPOSITORY_READ_ONLY):
             return FactsStatus.REQUIRES_VERIFICATION if self.intake.repository else FactsStatus.INCOMPLETE
         if task_type == TaskType.CONTROL_PACKET:
-            cp = self.intake.control_packet or {}
-            return FactsStatus.REQUIRES_VERIFICATION if cp.get("repository") and cp.get("base_sha") else FactsStatus.INCOMPLETE
+            return FactsStatus.REQUIRES_VERIFICATION if self._control_packet_complete() else FactsStatus.INCOMPLETE
         return FactsStatus.VERIFIED
 
     def determine_claim_status(self) -> ClaimStatus:
-        p = self.intake.human_premise or {}
-        supported = list(p.get("supported_parts", []) or [])
-        rejected = list(p.get("rejected_parts", []) or [])
-        unverifiable = list(p.get("unverifiable_parts", []) or [])
+        premise = self.intake.human_premise or {}
+        supported = list(premise.get("supported_parts", []) or [])
+        rejected = list(premise.get("rejected_parts", []) or [])
+        unverifiable = list(premise.get("unverifiable_parts", []) or [])
         if supported and (rejected or unverifiable):
             return ClaimStatus.PARTIAL
         if rejected and not supported:
@@ -397,23 +458,23 @@ class GovernanceRouter:
         return ClaimStatus.UNVERIFIED
 
     def determine_continuity(self) -> ContinuityAction:
-        i = self.intake
-        if i.restart_requested:
-            return ContinuityAction.RESTART if i.restart_reason in VALID_RESTART_REASONS else ContinuityAction.RESTART_REJECTED
-        if i.task_id and i.active_task_id and i.task_id == i.active_task_id:
+        intake = self.intake
+        if intake.restart_requested:
+            return ContinuityAction.RESTART if intake.restart_reason in VALID_RESTART_REASONS else ContinuityAction.RESTART_REJECTED
+        if intake.task_id and intake.active_task_id and intake.task_id == intake.active_task_id:
             return ContinuityAction.CONTINUE
         return ContinuityAction.NEW_TASK_START
 
     def _derive_write_scope(self) -> list[str]:
         if self.intake.human_friction_signal and self.intake.latest_authorized_scope:
             return list(self.intake.latest_authorized_scope)
-        cp = self.intake.control_packet or {}
-        scope = cp.get("files_in_scope", [])
+        packet = self.intake.control_packet or {}
+        scope = packet.get("files_in_scope", [])
         return list(scope) if isinstance(scope, list) else []
 
     def determine_resource_tier(self, risk: Risk) -> ResourceTier:
         requested = self.intake.requested_resource_tier
-        if requested in {x.value for x in ResourceTier}:
+        if requested in {tier.value for tier in ResourceTier}:
             return ResourceTier(requested)
         if risk == Risk.LOW:
             return ResourceTier.ECONOMY
@@ -422,7 +483,9 @@ class GovernanceRouter:
         return ResourceTier.STANDARD
 
     def determine_checker_timing(self, route: Route) -> CheckerTiming:
-        if route not in (Route.CANDIDATE_IMPLEMENTATION, Route.INDEPENDENT_AUDIT):
+        if route == Route.INDEPENDENT_AUDIT:
+            return CheckerTiming.NOW
+        if route != Route.CANDIDATE_IMPLEMENTATION:
             return CheckerTiming.NONE
         return CheckerTiming.NOW if self.intake.candidate_stage == "FORMAL_CANDIDATE" else CheckerTiming.AFTER_FORMAL_CANDIDATE
 
@@ -434,12 +497,15 @@ class GovernanceRouter:
         return AntiReviewDecision.PROCEED
 
     def generate_steps(self, task_type: TaskType, risk: Risk, route: Route, checker_timing: CheckerTiming) -> list[ExecutionStep]:
+        del task_type, risk
         if route == Route.HARD_STOP:
             return []
         if route == Route.FACT_SOURCE_REBIND:
             return [ExecutionStep("STEP-001", "Re-verify facts from the authoritative repository source", [], ["repository", "base_sha", "branch", "open_prs"], [], ExecutorRole.TASK_HOLDER, False, ["Facts resolve from one authoritative source"], FailClosedAction.HUMAN, "FACT_SOURCE_REBIND_RESOLVED_OR_HARD_STOP")]
         if route in (Route.DIRECT_LOCAL_EXECUTION, Route.FILE_LOCAL_EXECUTION):
             return [ExecutionStep("STEP-001", "Execute the bounded local request", [], [], [], ExecutorRole.MAKER, False, ["Output matches the request without scope expansion"], FailClosedAction.RETRY, "HUMAN_REVIEW")]
+        if route == Route.INDEPENDENT_AUDIT:
+            return [ExecutionStep("STEP-001", "Independently audit the authorized candidate using read-only evidence", [], ["authorization_id", "repository", "base_sha", "candidate_state", "role_independence"], [], ExecutorRole.CHECKER, True, ["Facts verified from authoritative sources", "No write or implementation action performed"], FailClosedAction.HUMAN, "AUDIT_GATE")]
         if route == Route.READ_ONLY_REPOSITORY_ANALYSIS:
             return [ExecutionStep("STEP-001", "Read and analyze repository facts without writes", [], ["repository", "base_sha", "branch"], [], ExecutorRole.CHECKER, False, ["Facts verified against live source", "No repair task created"], FailClosedAction.HUMAN, "HUMAN_REVIEW")]
         if route == Route.CANDIDATE_IMPLEMENTATION:
@@ -467,9 +533,9 @@ class GovernanceRouter:
         checker_timing = self.determine_checker_timing(route)
 
         write_permitted = route == Route.CANDIDATE_IMPLEMENTATION and risk != Risk.CRITICAL
-        checker_required = risk in (Risk.HIGH, Risk.CRITICAL) or route in (Route.CANDIDATE_IMPLEMENTATION, Route.INDEPENDENT_AUDIT)
+        checker_required = route == Route.INDEPENDENT_AUDIT or risk in (Risk.HIGH, Risk.CRITICAL) or route == Route.CANDIDATE_IMPLEMENTATION
         human_required = route in (Route.HUMAN_DECISION_REQUIRED, Route.CANDIDATE_IMPLEMENTATION, Route.FACT_SOURCE_REBIND) or risk == Risk.CRITICAL
-        write_scope = self._derive_write_scope()
+        write_scope = self._derive_write_scope() if write_permitted else []
 
         recommended = self.intake.recommended_points
         if recommended is None:
@@ -549,8 +615,9 @@ def parse_intake(data: dict[str, Any]) -> TaskIntake:
 
 
 def _validate_plan_output(plan: GovernancePlan) -> None:
-    def val(v: Any) -> str:
-        return v.value if hasattr(v, "value") else str(v)
+    def val(value: Any) -> str:
+        return value.value if hasattr(value, "value") else str(value)
+
     enum_checks = [
         (plan.route, Route, "route"), (plan.risk, Risk, "risk"), (plan.task_type, TaskType, "task_type"),
         (plan.facts_status, FactsStatus, "facts_status"), (plan.anti_review_decision, AntiReviewDecision, "anti_review_decision"),
@@ -559,7 +626,7 @@ def _validate_plan_output(plan: GovernancePlan) -> None:
         (plan.stop_condition, StopCondition, "stop_condition"),
     ]
     for value, enum_cls, name in enum_checks:
-        if val(value) not in {x.value for x in enum_cls}:
+        if val(value) not in {item.value for item in enum_cls}:
             raise ValueError(f"Illegal {name}: {val(value)}")
     if val(plan.control_packet_status) not in {ControlPacketStatus.CANDIDATE.value, ControlPacketStatus.NOT_AUTHORIZED.value}:
         raise ValueError(f"Illegal control_packet_status: {val(plan.control_packet_status)}")
@@ -568,7 +635,7 @@ def _validate_plan_output(plan: GovernancePlan) -> None:
     for step in plan.steps:
         if val(step.executor_role) not in {"TASK_HOLDER", "MAKER", "CHECKER", "HUMAN"}:
             raise ValueError(f"Illegal executor_role: {val(step.executor_role)}")
-        if val(step.fail_closed_action) not in {x.value for x in FailClosedAction}:
+        if val(step.fail_closed_action) not in {item.value for item in FailClosedAction}:
             raise ValueError(f"Illegal fail_closed_action: {val(step.fail_closed_action)}")
 
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/butbutbutbutbut/adaptive-digital-team/schemas/governance-plan.schema.json",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/governance-plan.schema.json",
   "title": "ADT Governance Plan Schema",
   "description": "Dynamic Governance Router output with additive counter-objective, continuity, resource-tier, and Checker-timing controls.",
   "type": "object",

@@ -1,22 +1,26 @@
 {
-  "authorization_id": "ADT-TRANSIENT-BRANCH-BINDING-DECOUPLING-20260723-001",
-  "authority_source": "Human Holder directive — ADT Stage 2 Point 2 authorization",
+  "authorization_id": "ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-20260726-001",
+  "authority_source": "Human Holder directive — ADT S2 downscoped implementation authorization",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "ff85b0bb2c7f2cb6229f47af0cad02b79106414a",
-  "branch": "hermes/adt-transient-branch-binding-decoupling-r1",
+  "base_sha": "03f96c28e8cf1d0e95bb0091237cd80f74fb4ad9",
+  "branch": "hermes/adt-adaptive-counter-objective-gate-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
     ".hermes/CANDIDATE_BINDING.json",
-    "PROJECT_STATE.md",
-    "scripts/validate_binding.py",
-    ".hermes/plugins/guarded_adapter/runtime_models.py",
-    ".hermes/plugins/guarded_adapter/tools/guarded_write.py",
-    ".hermes/plugins/guarded_adapter/tools/guarded_repo_actions.py",
-    "tests/test_binding_validation.py",
-    "tests/test_guarded_adapter_enforcement.py"
+    "METHODOLOGY.md",
+    "BOOTSTRAP.md",
+    "AGENTS.md",
+    "protocols/DYNAMIC_GOVERNANCE_ROUTER.md",
+    "schemas/task-intake.schema.json",
+    "schemas/governance-plan.schema.json",
+    "schemas/resource-plan.schema.json",
+    "scripts/route_task.py",
+    "scripts/resource_allocator.py",
+    "tests/test_dynamic_governance_router.py",
+    "tests/test_resource_allocator.py"
   ],
   "risk_boundary": "MODERATE",
-  "task_id": "ADT-TRANSIENT-BRANCH-BINDING-DECOUPLING-R1",
+  "task_id": "ADT-ADAPTIVE-COUNTER-OBJECTIVE-GATE-R1",
   "human_holder_approved": true
 }

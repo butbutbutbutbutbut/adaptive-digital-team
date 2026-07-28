@@ -11,16 +11,17 @@ schema_version: "2"
 repository: butbutbutbutbutbut/adaptive-digital-team
 authority:
   holder: HE-WEIZHI
-  maker: HERMES_TEMPORARY_TASK_HOLDER-003
-  checker: PENDING_INDEPENDENT_CHECKER
-current_gate: MAKER_IMPLEMENTATION
-implementation_status: IN_PROGRESS
-system_next_step: COMMIT_PUSH_DRAFT_PR
+  maker: UNASSIGNED
+  checker: UNASSIGNED
+current_gate: NO_ACTIVE_CANDIDATE
+implementation_status: NOT_AUTHORIZED
+system_next_step: AWAIT_HUMAN_DIRECTIVE
 summary: >
-  Elevate Runtime Adapter Contract from CANDIDATE to ADOPTED status.
-  Protocol implemented, independently audited (12/12 PASS), and merged
-  via PR #46. This task changes adoption status only — no semantic,
-  implementation, schema, or test changes.
+  The adopted ADT governance baseline includes the Runtime Adapter Contract,
+  guarded scope-gated writes, resource allocation, transient candidate binding
+  separation, and adaptive counter-objective controls. No active implementation
+  candidate is represented in durable state; candidate-specific authority and
+  execution facts belong in .hermes/CANDIDATE_BINDING.json.
 ```
 
 This file does not activate Runtime, Hermes R1, automatic scheduling,

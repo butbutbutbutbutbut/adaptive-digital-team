@@ -183,7 +183,7 @@ Persistent Holder runtime, Hermes R1, automatic scheduling, automatic merge, Per
 ### Runtime adapter boundary
 
 The Runtime Adapter Contract (`protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md`,
-status: CANDIDATE) defines a three-layer isolation boundary between tool-native
+status: ADOPTED_GOVERNANCE_SPECIFICATION) defines a three-layer isolation boundary between tool-native
 runtimes (Hermes, Codex, etc.) and the ADT Governance Core:
 
 - **Layer 1** (Tool-Native Context): process state, API keys, and credential

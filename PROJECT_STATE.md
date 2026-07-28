@@ -14,7 +14,7 @@ authority:
   maker: UNASSIGNED
   checker: UNASSIGNED
 current_gate: NO_ACTIVE_CANDIDATE
-implementation_status: STABLE
+implementation_status: NOT_AUTHORIZED
 system_next_step: AWAIT_HUMAN_DIRECTIVE
 summary: >
   The adopted ADT governance baseline includes the Runtime Adapter Contract,

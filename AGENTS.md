@@ -59,6 +59,7 @@ window must internalize immediately.
 - Upstream repositories (including this ADT governance repo) are read-only by default for external users.
 - Without explicit write authorization for a specific upstream task, no commits, pushes, PRs, Issues, or branch operations are permitted on upstream repositories.
 - In A/B mode, no GitHub operations are permitted on any repository — links are reference material only.
+- User-facing entry points (`README.md` and the A/B/C routing in `protocols/BEGINNER_BOOTSTRAP_ROUTER.md`) are protected product assets. Their functional structure (Human/AI routing, A/B/C as operational entry paths, auto-skip logic) must not be removed, diluted into navigation links, or overwritten without explicit Human authorization. A README rewrite that removes A/B/C as functional entry points is a scope violation — the README is not just documentation, it is the product's first-contact interface.
 - Project Control is the single Human-facing entry point. It routes to Task Holders but does not directly implement candidates and defaults to no repository write access.
 - A read, analysis, review, or decision request must not be expanded into repair, implementation, or repository writes without explicit Human authorization.
 - A material Human premise must be judged `SUPPORTED`, `PARTIAL`, `REJECTED`, or `UNVERIFIED`; agreeable wording is not evidence.

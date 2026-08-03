@@ -1,17 +1,19 @@
 {
-  "authorization_id": "ADT-POST-PR52-DURABLE-STATE-SYNC-20260728-001",
-  "authority_source": "Human Holder explicit authorization on 2026-07-28 for bounded post-PR52 durable state synchronization",
+  "authorization_id": "ADT-S2-002-A-ARTIFACT-PACKAGE-R1",
+  "authority_source": "Human Holder explicit authorization on 2026-08-04 for S2-002-A Artifact Package delivery",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "3ff79ac820f6e13fb5b5b357ba650b6ca349b93d",
-  "branch": "agent/adt-post-pr52-durable-state-sync-r1",
+  "base_sha": "6665e846a54c45862d063fcbef3ce22a067157af",
+  "branch": "hermes/adt-s2-002-a-artifact-package-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
-    ".hermes/CANDIDATE_BINDING.json",
-    "PROJECT_STATE.md",
-    "AGENTS.md"
+    "README.md",
+    "DELIVERY_CARD.md",
+    "docs/experiments/S2-002-A.md",
+    "EXECUTION_NOTE.md",
+    ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-POST-PR52-DURABLE-STATE-SYNC-R1",
+  "task_id": "ADT-S2-002-A-ARTIFACT-PACKAGE",
   "human_holder_approved": true
 }

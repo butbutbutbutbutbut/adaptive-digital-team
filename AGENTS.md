@@ -9,6 +9,7 @@ This repository's governance is organized as:
 | Document | Purpose |
 |----------|---------|
 | `METHODOLOGY.md` | What ADT is and is not — the methodology baseline |
+| `ROADMAP.md` | Current development baseline and phase status |
 | `governance/ROLE_MODEL.md` | Complete role topology, authority matrix, separation rules |
 | `governance/AUTHORITY_AND_FACTS.md` | Fact authority, action authority, FACT_SOURCE_REBIND |
 | `AGENTS.md` | Agent-facing rules, candidate lifecycle, CI gates (this file) |

@@ -1,17 +1,17 @@
 {
-  "authorization_id": "ADT-README-NARRATIVE-USER-FACING-R1",
-  "authority_source": "Human Holder explicit authorization for README narrative rewrite + user-facing asset protection",
+  "authorization_id": "ADT-ROADMAP-REBUILD-R1",
+  "authority_source": "Human Holder explicit authorization for roadmap rebuild",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "7c42688593ef82973e495776ec529140fd7d9ac3",
-  "branch": "hermes/adt-readme-narrative-user-facing-r1",
+  "base_sha": "16e50d348ed976e39da16bc9b9cd1a59761b647a",
+  "branch": "hermes/adt-roadmap-rebuild-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
-    "README.md",
+    "ROADMAP.md",
     "AGENTS.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-README-NARRATIVE-USER-FACING",
+  "task_id": "ADT-ROADMAP-REBUILD",
   "human_holder_approved": true
 }

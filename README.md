@@ -17,6 +17,11 @@ AI 可以快速生成代码、设计方案、文档和分析结果。
 
 ADT 解决的是这些协作问题。
 
+## 从这里开始
+
+**人类用户** → A. 了解 ADT（继续阅读） | B. [开始使用](#开始使用) | C. [开发者文档](#开发者文档)
+**AI / Agent** → 从 [`BOOTSTRAP.md`](./BOOTSTRAP.md) 开始，按 [`AGENTS.md`](./AGENTS.md) 操作
+
 ---
 
 # ADT 是什么？
@@ -171,13 +176,16 @@ Correction
 5. 保存关键证据
 6. 输出可追踪成果
 
+**入口**：[`BOOTSTRAP.md`](./BOOTSTRAP.md) → [`AGENTS.md`](./AGENTS.md) → [`protocols/BEGINNER_BOOTSTRAP_ROUTER.md`](./protocols/BEGINNER_BOOTSTRAP_ROUTER.md)
+
 ---
 
 # 开发者文档
 
 深入了解：
 
-- Architecture
-- Governance
-- Runtime Layer
-- Protocol Design
+- Architecture → [`docs/architecture/`](./docs/architecture/)
+- Governance → [`governance/`](./governance/)
+- Runtime Layer → [`protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md`](./protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md)
+- Protocol Design → [`protocols/`](./protocols/)
+- Agent 入口 → [`BOOTSTRAP.md`](./BOOTSTRAP.md) | [`AGENTS.md`](./AGENTS.md)

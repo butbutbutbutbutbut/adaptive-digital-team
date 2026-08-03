@@ -1,21 +1,16 @@
 {
-  "authorization_id": "ADT-S2-002-A-ARTIFACT-PACKAGE-R1",
-  "authority_source": "Human Holder explicit authorization on 2026-08-04 for S2-002-A Artifact Package delivery",
+  "authorization_id": "ADT-CHAIN-TEST-R1",
+  "authority_source": "Human Holder explicit authorization for ADT chain integrity test",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "6665e846a54c45862d063fcbef3ce22a067157af",
-  "branch": "hermes/adt-s2-002-a-artifact-package-r1",
+  "base_sha": "7c42688593ef82973e495776ec529140fd7d9ac3",
+  "branch": "hermes/adt-chain-test-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
-    "README.md",
-    "DELIVERY_CARD.md",
-    "docs/experiments/S2-002-A.md",
-    "EXECUTION_NOTE.md",
-    "docs/receipts/ADT-S2-002-A-ARTIFACT-PACKAGE-RECEIPT.md",
-    "tests/test_beginner_bootstrap.py",
+    "PROJECT_STATE.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-S2-002-A-ARTIFACT-PACKAGE",
+  "task_id": "ADT-CHAIN-TEST",
   "human_holder_approved": true
 }

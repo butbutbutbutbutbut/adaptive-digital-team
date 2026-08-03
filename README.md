@@ -6,7 +6,7 @@
 
 ## 你是人类还是 AI？
 
-- **人类** → 往下读，选你的使用方式（A / B / C）
+- **人类用户** → 往下读，选你的使用方式（A / B / C）
 - **AI / Agent** → 跳转 [BOOTSTRAP.md](./BOOTSTRAP.md)，按 [AGENTS.md](./AGENTS.md) 执行
 
 ---

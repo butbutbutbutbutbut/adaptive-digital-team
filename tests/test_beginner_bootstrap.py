@@ -45,10 +45,8 @@ class TestFrozenMenuText:
         assert "B｜我会上传文件" in proto
         assert "C｜连接我自己拥有或管理的项目仓库" in proto
 
-        # README must also contain it
-        assert "A｜直接开始" in readme
-        assert "B｜我会上传文件" in readme
-        assert "C｜连接我自己拥有或管理的项目仓库" in readme
+        # Menu text lives in the protocol; README is Human Facing and
+        # routes via a different structure (A/B/C as entry points, not frozen menu).
 
         # Constraints: no welcome, no intro, no GitHub tutorial alongside menu
         menu_section_start = proto.index("A｜直接开始")
@@ -76,19 +74,6 @@ class TestFrozenMenuText:
         assert "PROMPT_LOCAL" in proto
         assert "REPOSITORY_ACTION: PROHIBITED" in proto or "PROHIBITED" in proto
 
-        # README A section must not mention GitHub
-        readme = _read(README)
-        a_section_start = readme.index("### A｜")
-        # Find where A section ends (next ### or ---)
-        next_section = re.search(r"\n(?:### |---)", readme[a_section_start + 10 :])
-        a_section_end = (
-            a_section_start + 10 + next_section.start()
-            if next_section
-            else len(readme)
-        )
-        a_section = readme[a_section_start:a_section_end]
-        assert "GitHub" not in a_section, "A section must not mention GitHub"
-
     def test_t3_option_b_guide(self) -> None:
         """T3: Option B asks for file upload to current chat."""
         proto = _read(PROTOCOL)
@@ -97,17 +82,6 @@ class TestFrozenMenuText:
         assert "上传到当前对话" in proto or "CURRENT_CHAT" in proto
         assert "PROMPT_LOCAL_WITH_FILES" in proto
         assert "不需要上传到 GitHub" in proto
-
-        readme = _read(README)
-        b_section_start = readme.index("### B｜")
-        next_section = re.search(r"\n(?:### |---)", readme[b_section_start + 10 :])
-        b_section_end = (
-            b_section_start + 10 + next_section.start()
-            if next_section
-            else len(readme)
-        )
-        b_section = readme[b_section_start:b_section_end]
-        assert "不需要上传到 GitHub" in b_section
 
     def test_t4_option_c_guide(self) -> None:
         """T4: Option C requests user's own repo + 1/2 choice."""
@@ -118,10 +92,6 @@ class TestFrozenMenuText:
         assert "允许创建候选变更" in proto
         assert "REPOSITORY_REQUESTED" in proto
         assert "WRITE_AUTHORITY: NOT_GRANTED" in proto or "NOT_GRANTED" in proto
-
-        readme = _read(README)
-        assert "只读分析" in readme
-        assert "允许创建候选变更" in readme
 
 
 # ---------------------------------------------------------------------------
@@ -272,12 +242,13 @@ class TestProtocolStructure:
             assert section in proto, f"missing section: {section}"
 
     def test_readme_has_skip_summary_table(self) -> None:
-        """README first screen must include auto-skip summary."""
+        """README must route AI to BOOTSTRAP.md and provide human entry points."""
         readme = _read(README)
-        # Must describe skip behavior near the top
-        assert "自动跳过" in readme or "跳过菜单" in readme
-        # Must have the summary table
-        assert "明确" in readme
+        # README routes AI/Agent to BOOTSTRAP.md for protocol activation
+        assert "BOOTSTRAP.md" in readme
+        assert "AI" in readme
+        # Must route human users to entry points
+        assert "人类用户" in readme or "Human" in readme
 
     def test_agents_has_first_contact_routing(self) -> None:
         """AGENTS.md must route first-contact before general execution flow."""
@@ -334,12 +305,13 @@ class TestExternalBootstrapActivation:
     ANDING_INTERFACE assigned, but authority remains UNGRANTED."""
 
     def test_t31_readme_activates_protocol(self) -> None:
-        """T31: Reading README → ADT_PROTOCOL_ACTIVE."""
+        """T31: Reading README → routes to BOOTSTRAP.md for protocol activation."""
         readme = _read(README)
-        # README must contain activation directive
-        assert "ADT_PROTOCOL_ACTIVE" in readme or "进入" in readme or "协议" in readme
-        # Must reference the AI activation
-        assert "AI" in readme or "激活" in readme or "安鼎" in readme
+        # README routes AI to BOOTSTRAP.md which handles activation
+        assert "BOOTSTRAP.md" in readme
+        # Must reference AI and ADT
+        assert "AI" in readme
+        assert "ADT" in readme
 
     def test_t32_bootstrap_activates_protocol(self) -> None:
         """T32: Reading BOOTSTRAP → ADT_PROTOCOL_ACTIVE."""
@@ -408,18 +380,11 @@ class TestExternalBootstrapActivation:
         assert "verified" in proto.lower() or "authorization" in proto.lower() or "授权" in proto
 
     def test_t40_readme_first_screen_activation(self) -> None:
-        """T40: README first screen contains complete activation directive."""
+        """T40: README first screen routes to activation via BOOTSTRAP.md."""
         readme = _read(README)
-        # First 30 lines of README must contain the activation directive
+        # First 40 lines of README must contain core routing
         first_screen = "\n".join(readme.split("\n")[:40])
         assert "AI" in first_screen
-        assert "安鼎" in first_screen or "Anding" in first_screen
         assert "ADT" in first_screen
-        # Must reference protocol entry
-        has_activation = (
-            "ADT_PROTOCOL_ACTIVE" in first_screen
-            or "进入" in first_screen
-            or "activate" in first_screen.lower()
-            or "协议" in first_screen
-        )
-        assert has_activation, "README first screen must contain activation directive"
+        # Must route to BOOTSTRAP.md for protocol activation
+        assert "BOOTSTRAP.md" in first_screen

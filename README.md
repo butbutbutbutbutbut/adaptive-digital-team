@@ -1,116 +1,191 @@
-# Adaptive Digital Team
+# ADT 自适应数字团队
 
-ADT is a **governance tool system and control plane** — a set of protocols, validators,
-and reusable checks that help humans and AI agents work together safely on multi-agent
-projects. It is not a runtime, not a scheduler, and not a single AI personality.
+> 一个帮助人和 AI 团队稳定协作的治理系统。
 
-[中文说明](./中文内容/README.md)
+## 当你和 AI 一起完成一个项目时
 
-## 你是人类还是 AI？
+AI 可以快速生成代码、设计方案、文档和分析结果。
 
-- **人类 / 普通访问者** → 继续往下读，从 A/B/C 选择使用场景
-- **交互式 AI / Agent** → 立即跳转到 [BOOTSTRAP.md](./BOOTSTRAP.md) 激活协议，化身「安鼎」；激活后按 [AGENTS.md](./AGENTS.md) 执行
+但真正困难的问题通常不是“AI 能不能做”。
 
----
+而是：
 
-## A / B / C 快速开始
+- AI 是否理解了真实目标？
+- 执行过程中是否发生方向漂移？
+- 团队成员是否知道 AI 为什么这样决定？
+- 错误是否能在低成本阶段被发现？
 
-完整路由定义与冻结规范见 [protocols/BEGINNER_BOOTSTRAP_ROUTER.md](./protocols/BEGINNER_BOOTSTRAP_ROUTER.md)。
+ADT 解决的是这些协作问题。
 
-**菜单自动跳过**：第一条消息已包含明确任务、附件、仓库链接或控制包时，自动跳过菜单。
+## 从这里开始
 
-### A｜直接开始
-
-你可以直接告诉我想完成什么。建议包含：想得到什么结果、已经有哪些信息、希望以什么形式交付。此模式不涉及仓库操作，所有内容在对话中完成。
-
-### B｜我会上传文件
-
-请把文件上传到当前对话，然后告诉我们需要修改、分析还是整理。可以一次上传多个文件，不需要上传到 GitHub。
-
-### C｜连接我自己拥有或管理的项目仓库
-
-请提供你自己拥有或管理的项目仓库链接，然后选择只读分析或允许创建候选变更。最终提交和合并仍由你确认。上游仓库（包括本 ADT 治理仓库）不能被外部用户当作项目仓库。
-
-输入 **返回模式选择** 可随时重新显示菜单。
-
-### 推荐运行方式
-
-建议至少使用 **1 名人类 + 2 个独立 AI 窗口** 运行 ADT：一个窗口负责推进和执行，另一个窗口负责独立检查；人类保留授权、方向和最终决定权。
+**人类用户** → A. 了解 ADT（继续阅读） | B. [开始使用](#开始使用) | C. [开发者文档](#开发者文档)
+**AI / Agent** → 从 [`BOOTSTRAP.md`](./BOOTSTRAP.md) 开始，按 [`AGENTS.md`](./AGENTS.md) 操作
 
 ---
 
-## What ADT provides
+# ADT 是什么？
 
-- **Repository-as-prompt** — durable context that any fresh agent window reads before acting
-- **Maker/Checker separation** — independent implementation and audit roles
-- **Candidate state machine** — from LOCAL_DRAFT through FORMAL_CANDIDATE to AUDIT_ELIGIBLE
-- **Scope enforcement** — every task has an exact authorized file list; drift fails closed
-- **Fingerprint binding** — deterministic SHA-256 identity for every candidate
-- **Pre-write execution gate** — branch, Base, ancestry, and scope validated before any commit
-- **Human-facing evidence cards** — machine facts + Simplified Chinese explanation at critical nodes
-- **Adaptive counter-objective controls** — governance must never cost more than product value
+ADT（Adaptive Digital Team）是一套帮助人和 AI 协作的治理系统。
 
-## 安鼎 (Anding)
+它让 AI 不只是执行任务，而是在：
 
-交互式 AI 读取本仓库后自动进入 ADT 协议并获得「安鼎」界面身份（ANDING_INTERFACE）。
-完整激活条件与双层身份模型见 [BOOTSTRAP.md](./BOOTSTRAP.md)。
+- 明确目标
+- 理解约束
+- 接受验证
+- 保留证据
+- 持续修正
 
-## Roles
+的情况下参与团队工作。
 
-| Role | Who | Authority |
-|------|-----|-----------|
-| **Human Holder** | Human project owner | Direction, authorization, final acceptance, Ready, Merge |
-| **Persistent Holder Agent** | 安鼎 (ANDING_CONTROL) | Maintain fact source, route tasks, validate receipts |
-| **Maker** | Temporary, task-scoped | Implement exactly the authorized task on the authorized branch |
-| **Independent Checker** | Temporary, read-only | Independently audit a candidate it did not create |
+ADT 不是简单的 Agent 工具集合。
 
-完整的角色拓扑与权限矩阵见 [governance/ROLE_MODEL.md](./governance/ROLE_MODEL.md)。
+它关注的是：
 
-## Three-layer architecture
+> 如何让 AI 具备行动能力，同时保持可靠、透明和可纠正。
 
-| Layer | Repository | Contents |
-|-------|-----------|----------|
-| **PUBLIC CORE** | `adaptive-digital-team` (this repo) | Protocols, validator, tests, schemas, CI — everything needed to fork and run |
-| **PRIVATE OPS** | `adaptive-digital-team-ops` (private) | Runtime台账, deployment instances, account bindings, environment configuration |
-| **SECRETS / VAULT** | GitHub Secrets, external vault | Tokens, passwords, encryption keys, decryption material |
-| **PROJECT REPOS** | Individual project repos | Actual applications, products, design assets — separate from governance |
+---
 
-Public architecture design does **not** mean public credentials or private memories.
+# 为什么需要治理？
 
-## Quick start
+AI 的执行速度越来越快。
 
-```bash
-# Clone
-git clone https://github.com/butbutbutbutbutbut/adaptive-digital-team.git
-cd adaptive-digital-team
+但速度提升并不会自动带来可靠性。
 
-# Install dependencies (Python 3.11+)
-pip install pytest pyyaml
+没有治理机制时：
 
-# Run validator (static mode — no Git or CI context needed)
-python scripts/validate_binding.py
+- 小错误会快速扩大
+- 目标容易漂移
+- 团队无法理解 AI 决策
+- 后续修改成本增加
 
-# Run test suite
-python tests/run_tests.py
+因此，一个 AI 团队需要的不只是执行能力，还需要协作规则。
+
+---
+
+# ADT 治理哲学
+
+## 1. Objective First（目标优先）
+
+执行之前明确：
+
+- 目标是什么
+- 成功标准是什么
+- 哪些边界不能突破
+
+---
+
+## 2. Minimum Necessary Governance（最小必要治理）
+
+不是所有任务都需要同等强度的检查。
+
+治理强度应该匹配风险。
+
+低风险任务：
+
+快速执行。
+
+高风险任务：
+
+增加验证。
+
+---
+
+## 3. Evidence Driven（证据驱动）
+
+AI 不只提交结果。
+
+需要能够说明：
+
+- 做了什么
+- 为什么这样做
+- 如何验证
+
+---
+
+## 4. Human Authority（人类掌握关键决策）
+
+Human 不负责替 AI 完成所有步骤。
+
+Human 负责：
+
+- 定义目标
+- 设置边界
+- 判断关键变化
+
+---
+
+# ADT 如何工作？
+
+一个基础协作流程：
+
 ```
 
-## Current roadmap
+Human
+|
+Objective
+|
+Maker
+|
+Checker
+|
+Evidence
+|
+Correction
 
-| Phase | Status |
-|-------|--------|
-| P0 — Operational Baseline | `OPERATIONAL_BASELINE` / `CONTINUING_MAINTENANCE` |
-| P1–P3 — Dynamic Governance R1 | `PLANNED` / `NOT_AUTHORIZED` |
-| P4 — Public Release Readiness | `DESIGN_BASELINE_PARTIAL` / `IMPLEMENTATION_NOT_AUTHORIZED` |
-| P5 — ADT Ops Org Bootstrap | `PLANNED` / `NOT_AUTHORIZED` |
+```
 
-**Making this repository public does not authorize any P1–P5 implementation.**
-Every phase requires separate Human authorization with exact repository, branch, Base, and scope.
+---
 
-## License
+# 核心机制
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+## Governance Control Plane
 
-## Contributing
+管理团队协作规则。
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). One task = one branch = one PR targeting `main`.
-No stacked PRs, no force-push, no self-acceptance.
+## Maker / Checker
+
+执行和验证分离。
+
+## State Machine
+
+管理任务状态。
+
+## Validator
+
+检查结果是否符合要求。
+
+## Evidence Card
+
+记录决策依据和验证过程。
+
+## Adaptive Runtime Layer
+
+根据任务风险动态调整治理方式。
+
+---
+
+# 开始使用
+
+一次最小 ADT 任务：
+
+1. 定义目标
+2. 判断任务风险
+3. 执行任务
+4. 必要时触发检查
+5. 保存关键证据
+6. 输出可追踪成果
+
+**入口**：[`BOOTSTRAP.md`](./BOOTSTRAP.md) → [`AGENTS.md`](./AGENTS.md) → [`protocols/BEGINNER_BOOTSTRAP_ROUTER.md`](./protocols/BEGINNER_BOOTSTRAP_ROUTER.md)
+
+---
+
+# 开发者文档
+
+深入了解：
+
+- Architecture → [`docs/architecture/`](./docs/architecture/)
+- Governance → [`governance/`](./governance/)
+- Runtime Layer → [`protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md`](./protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md)
+- Protocol Design → [`protocols/`](./protocols/)
+- Agent 入口 → [`BOOTSTRAP.md`](./BOOTSTRAP.md) | [`AGENTS.md`](./AGENTS.md)

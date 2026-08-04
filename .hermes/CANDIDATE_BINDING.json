@@ -1,10 +1,10 @@
 {
-  "authorization_id": "ADT-VALIDATE-RECEIPT-FIELDS-R1",
+  "authorization_id": "ADT-VALIDATE-RECEIPT-FIELDS-R2",
   "authority_source": "Human Holder authorization for receipt field validator",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
   "base_sha": "f27cd5882b9101ae86699d499720c604f2aafe52",
-  "branch": "hermes/adt-validate-receipt-fields-r1",
+  "branch": "hermes/adt-validate-receipt-fields-r2",
   "authorized_actions": [
     "read",
     "write_file",

@@ -1,10 +1,10 @@
 {
-  "authorization_id": "ADT-ANTI-OBJECTIVE-PROMPT-R2",
-  "authority_source": "Human Holder authorization for Anti-Objective Prompt system",
+  "authorization_id": "ADT-GOVERNANCE-PREWRITE-GATE-R1",
+  "authority_source": "Human Holder authorization for governance pre-write CI gate",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "506bbfb2ad5e44a7c29766be9be29afa6a7fe514",
-  "branch": "hermes/adt-anti-objective-prompt-r2",
+  "base_sha": "982f64bc83cce22e108c3f7738ae6c5897add417",
+  "branch": "hermes/adt-governance-prewrite-gate-r1",
   "authorized_actions": [
     "read",
     "write_file",
@@ -13,11 +13,12 @@
     "create_draft_pr"
   ],
   "authorized_write_scope": [
-    "protocols/ADT_ANTI_OBJECTIVE_PROMPT.md",
+    "scripts/validate_binding.py",
     "AGENTS.md",
+    ".hermes/checker_receipt.json",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-ANTI-OBJECTIVE-PROMPT-R2",
+  "task_id": "ADT-GOVERNANCE-PREWRITE-GATE",
   "human_holder_approved": true
 }

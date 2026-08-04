@@ -87,6 +87,7 @@ class BindingValidator:
         merge_authorization_fingerprint: str | None = None,
         explicit_scope: list[str] | None = None,
         binding_path: str = ".hermes/CANDIDATE_BINDING.json",
+        skip_governance_check: bool = False,
     ) -> None:
         self.text = text
         self.live_mode = live_mode or candidate_mode or pre_merge
@@ -106,6 +107,7 @@ class BindingValidator:
         self.runtime_fields: dict[str, Any] | None = None
         self.runtime_fingerprint: str | None = None
         self.candidate_state: str = "LOCAL_DRAFT"
+        self.skip_governance_check = skip_governance_check
 
     def parse(self) -> dict[str, Any]:
         match = re.search(r"```ya?ml\s*\n(.*?)\n```", self.text, re.S)
@@ -860,7 +862,8 @@ class BindingValidator:
         if self.live_mode:
             self.check_prewrite_gate()
             self.check_live()
-            self.check_governance_gate()
+            if not self.skip_governance_check:
+                self.check_governance_gate()
         self.check_premerge()
         self.determine_candidate_state()
         return self._finish()

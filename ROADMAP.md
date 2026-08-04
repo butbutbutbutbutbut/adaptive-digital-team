@@ -52,9 +52,13 @@ P0 是地基。后续所有阶段在 P0 之上增量构建。
 
 **S2-002-A 实验发现（待办）：**
 
-- Artifact Delivery Layer — 产物位置对人类可见
+- ~~Artifact Delivery Layer — 产物位置对人类可见~~ → ✅ PR #59/#60
 - Human Point Budget — 低风险任务轻量治理
 - Artifact Existence Gate — "做完了"和"能看到产物"之间的验证
+
+**已完成的新增协议：**
+
+- 自迭代治理 — `protocols/ADT_SELF_ITERATION.md`（ADT 发现并修复自身缺陷的标准流程）
 
 **当前阻止 RUNTIME 激活的因素：**
 

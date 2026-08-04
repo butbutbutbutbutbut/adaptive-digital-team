@@ -1,16 +1,23 @@
 {
-  "authorization_id": "ADT-HUMAN-FACING-ENFORCEMENT-R1",
-  "authority_source": "Human Holder L1 authorization for Human Facing evidence enforcement",
+  "authorization_id": "ADT-VALIDATE-RECEIPT-FIELDS-R1",
+  "authority_source": "Human Holder authorization for receipt field validator",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "1fefdf74c52156b3aa2c4025c6063feb606b0d03",
-  "branch": "hermes/adt-human-facing-enforcement-r1",
-  "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
+  "base_sha": "f27cd5882b9101ae86699d499720c604f2aafe52",
+  "branch": "hermes/adt-validate-receipt-fields-r1",
+  "authorized_actions": [
+    "read",
+    "write_file",
+    "commit",
+    "push",
+    "create_draft_pr"
+  ],
   "authorized_write_scope": [
-    "AGENTS.md",
+    "scripts/validate_receipt.py",
+    "tests/test_validate_receipt.py",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-HUMAN-FACING-ENFORCEMENT",
+  "task_id": "ADT-VALIDATE-RECEIPT-FIELDS",
   "human_holder_approved": true
 }

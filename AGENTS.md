@@ -13,6 +13,7 @@ This repository's governance is organized as:
 | `governance/ROLE_MODEL.md` | Complete role topology, authority matrix, separation rules |
 | `governance/AUTHORITY_AND_FACTS.md` | Fact authority, action authority, FACT_SOURCE_REBIND |
 | `AGENTS.md` | Agent-facing rules, candidate lifecycle, CI gates (this file) |
+| `protocols/ARTIFACT_DELIVERY.md` | Artifact Delivery Layer — required delivery fields at task completion |
 | `protocols/*.md` | Detailed protocol specifications |
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
@@ -124,6 +125,8 @@ FACT
 AUTHORITY
 ACTION
 RESULT
+ARTIFACT_TYPE
+ARTIFACT_LOCATION
 TASK_PROGRESS
 CURRENT_STAGE_PROGRESS
 PROGRESS_BASIS

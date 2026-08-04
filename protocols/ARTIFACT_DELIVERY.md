@@ -1,8 +1,9 @@
 # Artifact Delivery Layer
 
-**PROTOCOL_STATUS:** `ADOPTED_GOVERNANCE_SPECIFICATION`
-**TASK_ID:** ADT-S2-003-ARTIFACT-DELIVERY-R1
+**PROTOCOL_STATUS:** `ADOPTED_GOVERNANCE_SPECIFICATION` / `ENFORCEMENT_NOT_IMPLEMENTED`
+**TASK_ID:** ADT-S2-003-ARTIFACT-DELIVERY-R2
 **INPUT:** S2-002-A Runtime Experiment § Correction
+**ANTI_OBJECTIVE_REVIEW:** #59 post-merge review (6 findings, all resolved in R2)
 
 ---
 
@@ -27,57 +28,70 @@ Human 知道系统做了什么，但不知道最终产物在哪里。任务完�
 Decision → Action → Artifact → Location → Verification
 ```
 
-`Artifact` 和 `Location` 不是可选的备注——它们是完成的一部分。
-没有这两个字段的任务不算完成。
+`Artifact` 和 `Location` 是完成的一部分。没有这两个字段的任务不算完成。
+
+**当前实施范围（R2）：** Maker Progress Receipt 和 Holder Summary 必须包含
+artifact 字段。Checker Receipt 附加 `artifact_exists` 验证。Controller
+回报中 artifact 前置。自动化 enforcement 待后续协议实现。
 
 ---
 
 ## 3. Artifact Delivery Card
 
-每次任务完成时，Maker Progress Receipt 和 Holder Summary 必须包含以下字段：
+### 3.1 必填字段
+
+每次任务完成时，Maker Progress Receipt 必须包含：
 
 | 字段 | 含义 | 示例 |
 |---|---|---|
-| `artifact_type` | 产物类型 | `PR`, `file`, `commit`, `document`, `branch` |
-| `artifact_location` | 产物位置（人类可访问） | `https://github.com/.../pull/55`, `MEDIA:/path/to/file`, `docs/xxx.md` |
-| `artifact_format` | 交付格式 | `markdown`, `JSON`, `HTML`, `source-code` |
-| `verification_command` | 如何验证产物存在 | `gh pr view 55`, `ls path/to/file`, `python scripts/validate.py` |
-| `human_access_path` | 人类最简单的访问方式 | "点击链接"、"打开文件"、"运行命令" |
+| `artifact_type` | 产物类型 | `PR`, `file`, `commit`, `document`, `branch`, `conclusion` |
+| `artifact_location` | 产物位置（人类可访问） | `https://github.com/.../pull/55`, `MEDIA:/path/to/file` |
+| `verification_hint` | 建议的验证方式（非强制） | `gh pr view 55`, `ls path/to/file` |
 
-### 3.1 最小示例
+### 3.2 可选字段
+
+| 字段 | 含义 |
+|---|---|
+| `artifact_format` | 交付格式（`markdown`, `JSON`, `source-code` 等） |
+| `human_access_note` | 额外的人类访问说明 |
+
+### 3.3 最小示例
 
 ```yaml
 artifact:
   type: PR
   location: https://github.com/butbutbutbutbutbut/adaptive-digital-team/pull/55
-  format: markdown + diff
-  verification: gh pr view 55 --json state,mergeable
-  human_access: 打开链接即可查看代码变更和 CI 状态
+  verification_hint: gh pr view 55 --json state,mergeable
 ```
 
-### 3.2 多产物
+### 3.4 多产物
 
-一个任务可能产出多个产物（例如：PR + 生成的文档 + 证据截图）。
-Delivery Card 使用列表：
+一个任务可能产出多个产物。Delivery Card 使用列表：
 
 ```yaml
 artifacts:
   - type: PR
     location: https://github.com/.../pull/55
-    ...
   - type: file
     location: docs/delivery/result.md
-    ...
-  - type: file
-    location: MEDIA:/path/to/screenshot.png
-    ...
+```
+
+### 3.5 零文件产物：`conclusion` 类型
+
+调研、审查、分析类任务不产生独立文件。使用 `conclusion` 类型：
+
+```yaml
+artifact:
+  type: conclusion
+  location: 本 receipt 上文（见 §Analysis 节）
+  verification_hint: 阅读本 receipt 的 Analysis 和 Recommendation 部分
 ```
 
 ---
 
 ## 4. 集成位置
 
-### 4.1 Maker Progress Receipt
+### 4.1 Maker Progress Receipt（强制）
 
 Maker 完成任务后，Progress Receipt 必须包含 `artifact` 或 `artifacts` 字段。
 
@@ -87,15 +101,15 @@ HEAD_SHA: abc123
 artifact:
   type: commit
   location: branch hermes/adt-xxx-r1@abc123
-  verification: git show abc123
-  human_access: PR 链接
+  verification_hint: git show abc123
 ```
 
 ### 4.2 Checker Receipt
 
-Checker 独立验证产物存在：`artifact_exists: true/false`，验证命令输出。
+Checker 独立验证产物存在：`artifact_exists: true/false`。
+Checker 在自己的环境中判断——不依赖 Maker 提供的 `verification_hint`。
 
-### 4.3 Holder Summary
+### 4.3 Holder Summary（强制）
 
 Holder 聚合时必须将 artifact 信息不变形地传递给 Human。
 Holder 不得将 `MEDIA:/path/to/file` 转换为"文件已生成"——必须保留原始路径。
@@ -109,10 +123,11 @@ Controller 回报 Human 时，Artifact Location 必须作为首要信息呈现�
 
 ## 5. 反目标
 
-- 不为产物增加"确认产物已收到"的人类确认步骤（那是 Human Point Budget 的事）
-- 不为验证失败自动创建修复任务（那是独立决策）
+- 不增加"确认产物已收到"的人类确认步骤
+- 不为验证失败自动创建修复任务
 - 不要求每个 commit 都带 Delivery Card（只在任务完成节点触发）
 - 产物位置不替代内容审查——位置正确 ≠ 内容正确
+- `verification_hint` 是建议，不是强制验证——Checker 用自己的环境判断 artifact_exists
 
 ---
 
@@ -122,14 +137,5 @@ Controller 回报 Human 时，Artifact Location 必须作为首要信息呈现�
 |---|---|
 | Evidence Card | Evidence Card 记录"怎么做的"；Delivery Card 记录"产物在哪" |
 | Candidate Identity | Candidate 的 SHA 是产物标识；Delivery Card 补充人类可读位置 |
-| Checker | Checker 在审计时验证 artifact_exists |
+| Checker | Checker 在审计时独立验证 artifact_exists |
 | Scope Enforcement | 产物文件必须在 authorized_write_scope 内 |
-
----
-
-## 7. 最低可行实施
-
-第一期只要求 Maker Progress Receipt 和 Holder Summary 包含 artifact 字段。
-Checker 附加 artifact_exists 验证。Controller 回报中 artifact 前置。
-
-不要求自动化 enforcement——先在 Humans 使用中验证格式是否能覆盖所有场景。

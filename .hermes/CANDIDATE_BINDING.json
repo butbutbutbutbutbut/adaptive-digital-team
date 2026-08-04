@@ -1,17 +1,17 @@
 {
-  "authorization_id": "ADT-ROADMAP-REBUILD-R1",
-  "authority_source": "Human Holder explicit authorization for roadmap rebuild",
+  "authorization_id": "ADT-S2-003-ARTIFACT-DELIVERY-R1",
+  "authority_source": "Human Holder explicit authorization for Artifact Delivery Layer implementation",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "16e50d348ed976e39da16bc9b9cd1a59761b647a",
-  "branch": "hermes/adt-roadmap-rebuild-r1",
+  "base_sha": "6499bf51ff78bf6b3ce31755f340efa29e9964de",
+  "branch": "hermes/adt-s2-003-artifact-delivery-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
-    "ROADMAP.md",
+    "protocols/ARTIFACT_DELIVERY.md",
     "AGENTS.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-ROADMAP-REBUILD",
+  "task_id": "ADT-S2-003-ARTIFACT-DELIVERY",
   "human_holder_approved": true
 }

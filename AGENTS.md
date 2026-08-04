@@ -69,6 +69,7 @@ window must internalize immediately.
 - The same task continues by default. Restart requires role isolation, invalidated fact source, context contamination, or an explicit Human request.
 - Safety risk, resource tier, and Checker timing are separate controls. HIGH risk alone does not authorize strong resources or an early Checker.
 - Human restatement, frustration, or scope correction is a control signal: shorten the response, discard inferred scope, and restore the latest explicit authorization.
+- Controller / Project Control / Holder returns to Human MUST include at minimum: FACT, AUTHORITY, ACTION, RESULT, ARTIFACT_TYPE, ARTIFACT_LOCATION. Any return missing one of these fields is an incomplete return — fail-closed until the missing fields are supplied. A narrative summary is not a substitute.
 
 ## Repository-as-prompt startup
 

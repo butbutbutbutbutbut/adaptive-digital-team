@@ -1,17 +1,23 @@
 {
-  "authorization_id": "ADT-RESOURCE-ALLOCATOR-INTEGRATION-R1",
-  "authority_source": "Human Holder authorization for Resource Allocator Integration",
+  "authorization_id": "ADT-ANTI-OBJECTIVE-PROMPT-R2",
+  "authority_source": "Human Holder authorization for Anti-Objective Prompt system",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "f27cd5882b9101ae86699d499720c604f2aafe52",
-  "branch": "hermes/adt-resource-allocator-integration-r1",
-  "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
+  "base_sha": "506bbfb2ad5e44a7c29766be9be29afa6a7fe514",
+  "branch": "hermes/adt-anti-objective-prompt-r2",
+  "authorized_actions": [
+    "read",
+    "write_file",
+    "commit",
+    "push",
+    "create_draft_pr"
+  ],
   "authorized_write_scope": [
-    "protocols/RESOURCE_ALLOCATOR_INTEGRATION.md",
+    "protocols/ADT_ANTI_OBJECTIVE_PROMPT.md",
     "AGENTS.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-RESOURCE-ALLOCATOR-INTEGRATION",
+  "task_id": "ADT-ANTI-OBJECTIVE-PROMPT-R2",
   "human_holder_approved": true
 }

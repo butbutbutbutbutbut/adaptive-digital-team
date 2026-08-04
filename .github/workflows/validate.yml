@@ -38,7 +38,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pytest pyyaml
+        run: pip install pytest pyyaml jsonschema referencing
 
       - name: Run binding validation (static)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md
@@ -48,6 +48,9 @@ jobs:
 
       - name: Run binding validation (live, CI mode)
         run: python scripts/validate_binding.py --file PROJECT_STATE.md --ci
+
+      - name: Run adapter schema validation
+        run: python scripts/validate_adapter.py
 
   history-check:
     if: ${{ github.event_name == 'push' || github.event_name == 'delete' }}
@@ -66,7 +69,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pytest pyyaml
+        run: pip install pytest pyyaml jsonschema referencing
 
       - name: Run candidate history immutability check
         env:
@@ -90,7 +93,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pytest pyyaml
+        run: pip install pytest pyyaml jsonschema referencing
 
       - name: Check PR eligibility (history immutability)
         env:

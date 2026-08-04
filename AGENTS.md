@@ -16,6 +16,7 @@ This repository's governance is organized as:
 | `protocols/ARTIFACT_DELIVERY.md` | Artifact Delivery Layer — required delivery fields at task completion |
 | `protocols/ADT_SELF_ITERATION.md` | ADT self-iteration — how ADT discovers and fixes its own governance defects |
 | `protocols/RESOURCE_ALLOCATOR_INTEGRATION.md` | Resource Allocator Integration — dispatch-time resource allocation flow |
+| `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
 | `protocols/*.md` | Detailed protocol specifications |
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.

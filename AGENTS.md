@@ -72,6 +72,7 @@ window must internalize immediately.
 - Safety risk, resource tier, and Checker timing are separate controls. HIGH risk alone does not authorize strong resources or an early Checker.
 - Human restatement, frustration, or scope correction is a control signal: shorten the response, discard inferred scope, and restore the latest explicit authorization.
 - Controller / Project Control / Holder returns to Human MUST include at minimum: FACT, AUTHORITY, ACTION, RESULT, ARTIFACT_TYPE, ARTIFACT_LOCATION. Any return missing one of these fields is an incomplete return — fail-closed until the missing fields are supplied. A narrative summary is not a substitute.
+- Governance file changes (AGENTS.md, METHODOLOGY.md, ROADMAP.md, protocols/, governance/) require independent Checker verification. A PR touching these files without a valid Checker receipt fails CI.
 
 ## Repository-as-prompt startup
 

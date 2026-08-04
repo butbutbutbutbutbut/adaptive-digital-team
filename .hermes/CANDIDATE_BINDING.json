@@ -1,16 +1,17 @@
 {
-  "authorization_id": "ADT-HUMAN-FACING-ENFORCEMENT-R1",
-  "authority_source": "Human Holder L1 authorization for Human Facing evidence enforcement",
+  "authorization_id": "ADT-RESOURCE-ALLOCATOR-INTEGRATION-R1",
+  "authority_source": "Human Holder authorization for Resource Allocator Integration",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "1fefdf74c52156b3aa2c4025c6063feb606b0d03",
-  "branch": "hermes/adt-human-facing-enforcement-r1",
+  "base_sha": "f27cd5882b9101ae86699d499720c604f2aafe52",
+  "branch": "hermes/adt-resource-allocator-integration-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
+    "protocols/RESOURCE_ALLOCATOR_INTEGRATION.md",
     "AGENTS.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-HUMAN-FACING-ENFORCEMENT",
+  "task_id": "ADT-RESOURCE-ALLOCATOR-INTEGRATION",
   "human_holder_approved": true
 }

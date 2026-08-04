@@ -1,16 +1,18 @@
 {
-  "authorization_id": "ADT-S2-003-ARTIFACT-DELIVERY-R2",
-  "authority_source": "Human Holder explicit authorization for R2 anti-objective fixes",
+  "authorization_id": "ADT-SELF-ITERATION-R1",
+  "authority_source": "Human Holder explicit authorization for self-iteration governance protocol",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "648ee30cd4fbf6ab314a53541817259c030e1270",
-  "branch": "hermes/adt-s2-003-artifact-delivery-r2",
+  "base_sha": "6409ffd844d729eea8901f90f7078c1d439268fe",
+  "branch": "hermes/adt-self-iteration-r1",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
-    "protocols/ARTIFACT_DELIVERY.md",
+    "protocols/ADT_SELF_ITERATION.md",
+    "AGENTS.md",
+    "ROADMAP.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-S2-003-ARTIFACT-DELIVERY-R2",
+  "task_id": "ADT-SELF-ITERATION",
   "human_holder_approved": true
 }

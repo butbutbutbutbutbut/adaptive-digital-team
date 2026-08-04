@@ -1,10 +1,10 @@
 {
-  "authorization_id": "ADT-GOVERNANCE-PREWRITE-GATE-R1",
+  "authorization_id": "ADT-GOVERNANCE-PREWRITE-GATE-R2",
   "authority_source": "Human Holder authorization for governance pre-write CI gate",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
   "base_sha": "982f64bc83cce22e108c3f7738ae6c5897add417",
-  "branch": "hermes/adt-governance-prewrite-gate-r1",
+  "branch": "hermes/adt-governance-prewrite-gate-r2",
   "authorized_actions": [
     "read",
     "write_file",

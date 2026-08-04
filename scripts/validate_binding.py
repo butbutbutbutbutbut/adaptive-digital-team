@@ -87,6 +87,7 @@ class BindingValidator:
         merge_authorization_fingerprint: str | None = None,
         explicit_scope: list[str] | None = None,
         binding_path: str = ".hermes/CANDIDATE_BINDING.json",
+        skip_governance_check: bool = False,
     ) -> None:
         self.text = text
         self.live_mode = live_mode or candidate_mode or pre_merge
@@ -106,6 +107,7 @@ class BindingValidator:
         self.runtime_fields: dict[str, Any] | None = None
         self.runtime_fingerprint: str | None = None
         self.candidate_state: str = "LOCAL_DRAFT"
+        self.skip_governance_check = skip_governance_check
 
     def parse(self) -> dict[str, Any]:
         match = re.search(r"```ya?ml\s*\n(.*?)\n```", self.text, re.S)
@@ -620,6 +622,54 @@ class BindingValidator:
             self.errors.append("VALIDATION-RESOLVED-HEAD: historical anchor is not in current history")
 
     # ═══════════════════════════════════════════════════════════
+    # Governance critical gate
+    # ═══════════════════════════════════════════════════════════
+
+    def check_governance_gate(self) -> None:
+        """Validate governance file changes have independent Checker receipt."""
+        GOVERNANCE_CRITICAL = ['AGENTS.md', 'METHODOLOGY.md', 'ROADMAP.md', 'governance/', 'protocols/']
+
+        # Get changed_files from the same source as check_live
+        changed_files: list[str] = []
+        event_name = os.environ.get("GITHUB_EVENT_NAME", "").strip()
+        if event_name:
+            ci_changed = self._ci_changed_files(event_name)
+            if ci_changed is not None:
+                changed_files = ci_changed
+            elif self.runtime_fields:
+                changed_files = self.runtime_fields.get("changed_files", [])
+        elif self.runtime_fields:
+            changed_files = self.runtime_fields.get("changed_files", [])
+        else:
+            local_changed = self._local_changed_files()
+            if local_changed is not None:
+                changed_files = local_changed
+
+        if not changed_files:
+            return
+
+        # Check if any changed file matches GOVERNANCE_CRITICAL
+        governance_changed = False
+        for f in changed_files:
+            norm = f.replace("\\", "/")
+            for pattern in GOVERNANCE_CRITICAL:
+                if fnmatch.fnmatch(norm, pattern) or fnmatch.fnmatch(norm, pattern + "*"):
+                    governance_changed = True
+                    break
+            if governance_changed:
+                break
+
+        if not governance_changed:
+            return
+
+        # Governance files modified — require independent Checker receipt
+        receipt_path = Path(".hermes/checker_receipt.json")
+        if not receipt_path.exists():
+            self.errors.append(
+                "GOVERNANCE_CHECK_MISSING: governance files modified without independent Checker receipt"
+            )
+
+    # ═══════════════════════════════════════════════════════════
     # Pre-write execution gate
     # ═══════════════════════════════════════════════════════════
 
@@ -812,6 +862,8 @@ class BindingValidator:
         if self.live_mode:
             self.check_prewrite_gate()
             self.check_live()
+            if not self.skip_governance_check:
+                self.check_governance_gate()
         self.check_premerge()
         self.determine_candidate_state()
         return self._finish()

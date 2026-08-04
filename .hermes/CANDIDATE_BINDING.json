@@ -1,10 +1,10 @@
 {
-  "authorization_id": "ADT-WIRE-VALIDATE-ADAPTER-CI-R3",
+  "authorization_id": "ADT-WIRE-VALIDATE-ADAPTER-CI-FINAL",
   "authority_source": "Human Holder authorization",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "dc29acdc4b004efcbf3db54d234692e240a708d3",
-  "branch": "hermes/adt-wire-validate-adapter-ci-r3",
+  "base_sha": "b0c24bfdf4ad248b0e4650c02469690bad9fcd5e",
+  "branch": "hermes/adt-validate-adapter-only",
   "authorized_actions": [
     "read",
     "write_file",

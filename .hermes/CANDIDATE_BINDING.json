@@ -1,9 +1,9 @@
 {
   "authorization_id": "ADT-VALIDATE-RECEIPT-FIELDS-R2",
-  "authority_source": "Human Holder authorization for receipt field validator",
+  "authority_source": "Human Holder authorization for Anti-Objective Prompt system",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "f27cd5882b9101ae86699d499720c604f2aafe52",
+  "base_sha": "506bbfb2ad5e44a7c29766be9be29afa6a7fe514",
   "branch": "hermes/adt-validate-receipt-fields-r2",
   "authorized_actions": [
     "read",
@@ -13,11 +13,11 @@
     "create_draft_pr"
   ],
   "authorized_write_scope": [
-    "scripts/validate_receipt.py",
-    "tests/test_validate_receipt.py",
+    "protocols/ADT_ANTI_OBJECTIVE_PROMPT.md",
+    "AGENTS.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-VALIDATE-RECEIPT-FIELDS",
+  "task_id": "ADT-ANTI-OBJECTIVE-PROMPT-R2",
   "human_holder_approved": true
 }

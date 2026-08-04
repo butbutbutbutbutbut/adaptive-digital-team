@@ -1,17 +1,16 @@
 {
-  "authorization_id": "ADT-S2-003-ARTIFACT-DELIVERY-R1",
-  "authority_source": "Human Holder explicit authorization for Artifact Delivery Layer implementation",
+  "authorization_id": "ADT-S2-003-ARTIFACT-DELIVERY-R2",
+  "authority_source": "Human Holder explicit authorization for R2 anti-objective fixes",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "6499bf51ff78bf6b3ce31755f340efa29e9964de",
-  "branch": "hermes/adt-s2-003-artifact-delivery-r1",
+  "base_sha": "648ee30cd4fbf6ab314a53541817259c030e1270",
+  "branch": "hermes/adt-s2-003-artifact-delivery-r2",
   "authorized_actions": ["read", "write_file", "commit", "push", "create_draft_pr"],
   "authorized_write_scope": [
     "protocols/ARTIFACT_DELIVERY.md",
-    "AGENTS.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-S2-003-ARTIFACT-DELIVERY",
+  "task_id": "ADT-S2-003-ARTIFACT-DELIVERY-R2",
   "human_holder_approved": true
 }

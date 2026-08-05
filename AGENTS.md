@@ -18,6 +18,7 @@ This repository's governance is organized as:
 | `protocols/RESOURCE_ALLOCATOR_INTEGRATION.md` | Resource Allocator Integration — dispatch-time resource allocation flow |
 | `protocols/WORKSPACE_ISOLATION.md` | Workspace isolation — git worktree per agent for parallel execution |
 | `protocols/CONCURRENCY_LIMIT.md` | Concurrency limit — in-flight task cap per Controller (default N=2) |
+| `protocols/HOLDER_TOKEN.md` | Holder token — one task one token; CANDIDATE_BINDING write-right arbitration |
 | `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
 | `protocols/*.md` | Detailed protocol specifications |
 
@@ -138,6 +139,29 @@ Rules:
   task's budget; the cap bounds concurrent tasks.
 
 Full specification: `protocols/CONCURRENCY_LIMIT.md`.
+
+## Holder token
+
+A task owns exactly one token (`ONE_TASK = ONE_TOKEN`). The token holder is
+the only writer of `.hermes/CANDIDATE_BINDING.json` while its task is in
+flight: dispatch writes binding + token atomically (no manual rebind), and the
+token is released when the Human gate (ACCEPT / REJECT / MODIFY) completes.
+
+Rules:
+
+- `ONE_IN_FLIGHT = ONE_TOKEN = ONE_BRANCH = ONE_WORKTREE = ONE_TASK` — token
+  count ≤ concurrency cap N; queued tasks hold no token.
+- Token state is recorded in the `token` field of `CANDIDATE_BINDING.json`
+  (`HELD` / `RELEASED`); binding and token update in one write, leaving no
+  dual-file inconsistency window.
+- Rebind is automatic at dispatch: the Controller writes binding + token
+  together; manual rebind is obsolete.
+- `validate_binding.py` checks are unchanged — the `token` field is additive
+  and optional; CI still fails closed on binding mismatch.
+- Abnormal release (timeout / failure / crash) recycles the token before the
+  next task is dispatched; recovery never guesses.
+
+Full specification: `protocols/HOLDER_TOKEN.md`.
 
 ## Roles and authority
 

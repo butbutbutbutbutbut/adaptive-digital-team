@@ -16,6 +16,7 @@ This repository's governance is organized as:
 | `protocols/ARTIFACT_DELIVERY.md` | Artifact Delivery Layer — required delivery fields at task completion |
 | `protocols/ADT_SELF_ITERATION.md` | ADT self-iteration — how ADT discovers and fixes its own governance defects |
 | `protocols/RESOURCE_ALLOCATOR_INTEGRATION.md` | Resource Allocator Integration — dispatch-time resource allocation flow |
+| `protocols/WORKSPACE_ISOLATION.md` | Workspace isolation — git worktree per agent for parallel execution |
 | `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
 | `protocols/*.md` | Detailed protocol specifications |
 
@@ -91,6 +92,29 @@ continuity classification is in `BOOTSTRAP.md`; the adaptive cost judgment is
 normative only in `METHODOLOGY.md`.
 
 Governance base and product fact source remain distinct. Main is the governance base by default and does not silently become a product fact source.
+
+## Workspace isolation
+
+Parallel agents MUST NOT share a single working tree. Every write task runs in its
+own `git worktree`, created outside the main working tree:
+
+```text
+<repo-parent>/.adt-worktrees/<repository-name>/<agent-name>/
+```
+
+Invariants:
+
+- `ONE_WORKTREE = ONE_BRANCH = ONE_TASK` — one worktree checks out exactly one branch;
+  Git natively forbids checking out the same branch in two worktrees.
+- The main working tree stays on `main` and carries no parallel write task.
+- `.hermes/CANDIDATE_BINDING.json` and `.hermes/checker_receipt.json` are tracked
+  per-branch files: each worktree holds its own branch's copy, eliminating
+  single-point binding contention.
+- A worktree mismatch with the Dispatch Card (`WORKTREE` field, `BASE_SHA`,
+  `BRANCH`) fails closed — never force, never bypass.
+
+Full specification: `protocols/WORKSPACE_ISOLATION.md`. Commands:
+`docs/worktree-quickstart.md`.
 
 ## Roles and authority
 

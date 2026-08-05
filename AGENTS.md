@@ -17,6 +17,7 @@ This repository's governance is organized as:
 | `protocols/ADT_SELF_ITERATION.md` | ADT self-iteration — how ADT discovers and fixes its own governance defects |
 | `protocols/RESOURCE_ALLOCATOR_INTEGRATION.md` | Resource Allocator Integration — dispatch-time resource allocation flow |
 | `protocols/WORKSPACE_ISOLATION.md` | Workspace isolation — git worktree per agent for parallel execution |
+| `protocols/CONCURRENCY_LIMIT.md` | Concurrency limit — in-flight task cap per Controller (default N=2) |
 | `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
 | `protocols/*.md` | Detailed protocol specifications |
 
@@ -115,6 +116,28 @@ Invariants:
 
 Full specification: `protocols/WORKSPACE_ISOLATION.md`. Commands:
 `docs/worktree-quickstart.md`.
+
+## Concurrency limit
+
+A Controller MUST NOT hold more than `N` in-flight tasks at the same time
+(default `N=2`). In-flight means dispatched but not yet aggregated: from
+Dispatch Card emission to merge, cancel, or close.
+
+Rules:
+
+- `ONE_IN_FLIGHT = ONE_BRANCH = ONE_WORKTREE = ONE_TASK` — each in-flight
+  task holds one write worktree on its own branch; read-only Checker worktrees
+  do not consume an in-flight slot.
+- When the cap is reached, new tasks queue FIFO with a bounded queue
+  (`MAX_QUEUE = 2 × N`); queue overflow or queue timeout returns
+  `CONCURRENCY_REJECTED`.
+- Only the Human Holder may change `N`. The Controller may fail-safe degrade to
+  `N=1` on sustained subagent timeouts and must report to Human; it never
+  raises `N` on its own (`N_MAX = 4`).
+- The concurrency cap is orthogonal to resource tiers: a tier bounds a single
+  task's budget; the cap bounds concurrent tasks.
+
+Full specification: `protocols/CONCURRENCY_LIMIT.md`.
 
 ## Roles and authority
 

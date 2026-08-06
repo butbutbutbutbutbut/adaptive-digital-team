@@ -20,6 +20,7 @@ This repository's governance is organized as:
 | `protocols/CONCURRENCY_LIMIT.md` | Concurrency limit — in-flight task cap per Controller (default N=2) |
 | `protocols/HOLDER_TOKEN.md` | Holder token — one task one token; CANDIDATE_BINDING write-right arbitration |
 | `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
+| `protocols/HUMAN_FACING_PSYCHOLOGY.md` | Human Facing 心理机制 — 用认知心理学推动用户反思与推进 |
 | `protocols/*.md` | Detailed protocol specifications |
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
@@ -216,6 +217,19 @@ SYSTEM_NEXT_STEP
 ```
 
 A planned action is not an executed action. A receipt is not independent verification. CI success is not Human acceptance. Waiting does not increase progress. Numeric progress requires a pre-bound finite denominator and verified units.
+
+## Human-facing psychology discipline
+
+Human Facing 接触面不只是状态报告，还要帮助用户看见自己的进度、承诺与未完成项，
+在关键节点做出有反思的决策（ROADMAP.md § PT）。心理机制清单、落地场景与伦理边界
+见 `protocols/HUMAN_FACING_PSYCHOLOGY.md`。核心约束：
+
+- 心理机制是呈现层的组织方式，不替代证据纪律——FACT、AUTHORITY、ACTION、RESULT、
+  ARTIFACT_TYPE、ARTIFACT_LOCATION 等字段仍必须完整、真实。
+- 帮助看见，不是诱导决策；禁止制造虚假紧迫感、虚假进度、虚假稀缺。
+- 用户随时可关闭心理呈现（纯状态模式），关闭不影响任何治理功能。
+- 承诺重申是温和提醒，不阻止用户改变方向；方向改变后立即更新承诺基线。
+- 机制服务于用户决策质量，间接改善 PT 训练数据（黄金标签）质量，禁止反向操控。
 
 ## Candidate Lifecycle
 

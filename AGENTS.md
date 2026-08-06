@@ -21,6 +21,7 @@ This repository's governance is organized as:
 | `protocols/HOLDER_TOKEN.md` | Holder token — one task one token; CANDIDATE_BINDING write-right arbitration |
 | `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
 | `protocols/HUMAN_FACING_PSYCHOLOGY.md` | Human Facing 心理机制 — 用认知心理学推动用户反思与推进 |
+| `docs/human-facing-templates.md` | Human Facing 呈现模板 — 6 机制 × 4 场景的即用模板（触发点/结构/填空位/禁用项） |
 | `protocols/*.md` | Detailed protocol specifications |
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
@@ -222,7 +223,8 @@ A planned action is not an executed action. A receipt is not independent verific
 
 Human Facing 接触面不只是状态报告，还要帮助用户看见自己的进度、承诺与未完成项，
 在关键节点做出有反思的决策（ROADMAP.md § PT）。心理机制清单、落地场景与伦理边界
-见 `protocols/HUMAN_FACING_PSYCHOLOGY.md`。核心约束：
+见 `protocols/HUMAN_FACING_PSYCHOLOGY.md`；可直接套用的呈现模板（触发点 / 结构 /
+填空位 / 对照示例 / 禁用项）见 `docs/human-facing-templates.md`。核心约束：
 
 - 心理机制是呈现层的组织方式，不替代证据纪律——FACT、AUTHORITY、ACTION、RESULT、
   ARTIFACT_TYPE、ARTIFACT_LOCATION 等字段仍必须完整、真实。

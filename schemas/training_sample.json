@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/training_sample.schema.json",
+  "title": "ADT Post-Training Sample Schema",
+  "description": "Defines the receipt-to-training-sample format for ADT's post-training track. Each operational receipt maps to exactly one training sample. Human ACCEPT/REJECT decisions serve as the gold label (supervised training target), while Defect Cards provide negative reinforcement signal.",
+  "type": "object",
+  "required": [
+    "sample_id",
+    "task_id",
+    "task_type",
+    "timestamp",
+    "protocol_version",
+    "progress",
+    "audit",
+    "label"
+  ],
+  "properties": {
+    "sample_id": {
+      "type": "string",
+      "pattern": "^SMPL-\\d{8}-\\d{3}$",
+      "description": "Unique sample identifier. Format: SMPL-YYYYMMDD-NNN."
+    },
+    "task_id": {
+      "type": "string",
+      "description": "References the ADT task that produced this sample."
+    },
+    "task_type": {
+      "type": "string",
+      "description": "Classification from the Dispatch Card (IMPLEMENT, AUDIT, FIX, REVIEW)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of sample generation."
+    },
+    "protocol_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Schema version (semver)."
+    },
+    "progress": {
+      "$ref": "#/$defs/ProgressReceipt",
+      "description": "Maker's task result and self-report."
+    },
+    "audit": {
+      "$ref": "#/$defs/CheckerReceipt",
+      "description": "Checker's independent audit conclusion."
+    },
+    "defect": {
+      "$ref": "#/$defs/DefectCard",
+      "description": "Optional governance defect record. Source: Defect Card."
+    },
+    "label": {
+      "type": "string",
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "MODIFY"
+      ],
+      "description": "Human gate decision — the gold label (supervised training target)."
+    },
+    "metadata": {
+      "$ref": "#/$defs/SampleMetadata",
+      "description": "Additional sample provenance metadata."
+    }
+  },
+  "$defs": {
+    "ProgressReceipt": {
+      "type": "object",
+      "required": [
+        "head_sha",
+        "changed_files",
+        "validation_result"
+      ],
+      "properties": {
+        "head_sha": {
+          "type": "string",
+          "description": "Commit SHA after Maker's work."
+        },
+        "changed_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Files modified by the Maker."
+        },
+        "validation_result": {
+          "type": "string",
+          "enum": [
+            "PASSED",
+            "FAILED",
+            "SKIPPED"
+          ],
+          "description": "Test/lint validation outcome."
+        },
+        "blocker": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Blocker description or null."
+        },
+        "known_limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Known limitations."
+        }
+      }
+    },
+    "CheckerReceipt": {
+      "type": "object",
+      "required": [
+        "audit_decision"
+      ],
+      "properties": {
+        "audit_decision": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ],
+          "description": "Independent audit verdict."
+        },
+        "evidence_summary": {
+          "type": "string",
+          "description": "Summary of audit evidence."
+        },
+        "veto_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Reason for FAIL verdict, if any."
+        }
+      }
+    },
+    "DefectCard": {
+      "type": "object",
+      "required": [
+        "defect_id",
+        "severity",
+        "description"
+      ],
+      "properties": {
+        "defect_id": {
+          "type": "string",
+          "description": "Unique defect identifier."
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ],
+          "description": "Defect severity level."
+        },
+        "description": {
+          "type": "string",
+          "description": "What went wrong."
+        },
+        "governance_mechanism_affected": {
+          "type": "string",
+          "description": "Which governance mechanism was affected."
+        }
+      }
+    },
+    "SampleMetadata": {
+      "type": "object",
+      "properties": {
+        "source_session": {
+          "type": "string",
+          "description": "Session or run identifier."
+        },
+        "model": {
+          "type": "string",
+          "description": "Model used during task execution."
+        },
+        "duration_seconds": {
+          "type": "number",
+          "description": "Task wall-clock duration."
+        },
+        "concurrency_slot": {
+          "type": "integer",
+          "description": "Which concurrency slot was used."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "sample_id": "SMPL-20260806-001",
+      "task_id": "ADT-20260806-001",
+      "task_type": "IMPLEMENT",
+      "timestamp": "2026-08-06T12:00:00+08:00",
+      "protocol_version": "1.0.0",
+      "progress": {
+        "head_sha": "abc123def456",
+        "changed_files": [
+          "scripts/controller_dispatch.py"
+        ],
+        "validation_result": "PASSED",
+        "blocker": null,
+        "known_limits": []
+      },
+      "audit": {
+        "audit_decision": "PASS",
+        "evidence_summary": "Diff scope clean, syntax check passed, all gates fail-closed.",
+        "veto_reason": null
+        },
+        "label": "ACCEPT",
+      "metadata": {
+        "source_session": "deleg_d0ba4b59",
+        "model": "deepseek-v4-pro",
+        "duration_seconds": 600.0,
+        "concurrency_slot": 1
+      }
+    }
+  ]
+}

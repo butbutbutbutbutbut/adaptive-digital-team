@@ -23,6 +23,7 @@ typical open-source repo. Please read this before opening a pull request.
 - **Do not** self-accept — the Maker who wrote the change cannot be its Checker.
 - **Do not** commit secrets, private material, unapproved binaries, or product-repo changes.
 - **Do** keep scope tight — every task has an exact `authorized_write_scope` file list.
+- **Do** write PR titles in Simplified Chinese (中文) — Human Holder requirement, effective from PR #83 (2026-08-06). Format: `类别：内容` (e.g. `治理：心理机制呈现模板（观点1 runtime 落地）`). Commit messages remain unchanged.
 - **Do** accept that the Human Holder retains Ready, Merge, and final acceptance.
 
 ## Roles during contribution

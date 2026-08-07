@@ -1,17 +1,21 @@
 {
-  "authorization_id": "AUTH-2026-08-06-010",
+  "authorization_id": "AUTH-2026-08-07-001",
   "authority_source": "Human Holder authorization",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "f980106d45ebd59d1ef87b9658c33a9956e4e048",
-  "branch": "hermes/adt-psych-templates-r1",
-  "authorized_actions": ["read", "write_file", "commit", "push"],
+  "base_sha": "f8b21c0abd6dd29a4e7dc10b1c167186a93fa90c",
+  "branch": "hermes/zh-pr-title-r1",
+  "authorized_actions": [
+    "read",
+    "write_file",
+    "commit",
+    "push"
+  ],
   "authorized_write_scope": [
-    "AGENTS.md",
-    "docs/human-facing-templates.md",
+    "CONTRIBUTING.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-2026-08-06-010",
+  "task_id": "ADT-2026-08-07-001",
   "human_holder_approved": true
 }

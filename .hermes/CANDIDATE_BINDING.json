@@ -1,10 +1,10 @@
 {
-  "authorization_id": "AUTH-2026-08-07-002",
+  "authorization_id": "AUTH-ADT-2026-08-07-003",
   "authority_source": "Human Holder authorization",
   "human_role": "HUMAN_HOLDER",
   "repository": "butbutbutbutbutbut/adaptive-digital-team",
-  "base_sha": "b216b48495c5885ce7a73d0975669c9a211b693e",
-  "branch": "hermes/zh-pr-history-r1",
+  "base_sha": "3c2dfc789d8220c2bef87cf40ab5612fe7c311a7",
+  "branch": "hermes/p0-runtime-push-20260807",
   "authorized_actions": [
     "read",
     "write_file",
@@ -12,10 +12,14 @@
     "push"
   ],
   "authorized_write_scope": [
-    "docs/pr-history-zh.md",
+    "scripts/controller_dispatch.py",
+    "schemas/training_sample.json",
+    "schemas/training_samples/*",
+    "scripts/evacuate-all.bat",
+    "ROADMAP.md",
     ".hermes/CANDIDATE_BINDING.json"
   ],
   "risk_boundary": "LOW",
-  "task_id": "ADT-2026-08-07-002",
+  "task_id": "ADT-2026-08-07-003",
   "human_holder_approved": true
 }

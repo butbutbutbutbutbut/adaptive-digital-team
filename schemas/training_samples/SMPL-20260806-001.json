@@ -1,0 +1,28 @@
+{
+  "sample_id": "SMPL-20260806-001",
+  "task_id": "ADT-20260806-001",
+  "task_type": "GOVERNANCE",
+  "timestamp": "2026-08-06T17:35:46+08:00",
+  "protocol_version": "1.0.0",
+  "progress": {
+    "head_sha": "e086fc1ef67a04493a2cfae63e37c95cc9a24c09",
+    "changed_files": [
+      "ROADMAP.md"
+    ],
+    "validation_result": "PASSED",
+    "blocker": null,
+    "known_limits": []
+  },
+  "audit": {
+    "audit_decision": "PASS",
+    "evidence_summary": "Diff scope clean (ROADMAP.md only), S2 runtime layer closure recorded and absorbed into P0. No regressions detected.",
+    "veto_reason": null
+  },
+  "label": "ACCEPT",
+  "metadata": {
+    "source_session": "公司机-20260806",
+    "model": "deepseek-v4-pro",
+    "duration_seconds": 420.0,
+    "concurrency_slot": 1
+  }
+}

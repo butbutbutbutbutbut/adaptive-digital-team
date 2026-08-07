@@ -24,6 +24,7 @@
 | Beginner Bootstrap Router（A/B/C 路由） | `protocols/BEGINNER_BOOTSTRAP_ROUTER.md` |
 | Human Facing README | `README.md` |
 | User-facing Asset Protection | `AGENTS.md` § Non-negotiable boundaries |
+| Controller Dispatch Gate（并发+令牌+隔离合成） | `scripts/controller_dispatch.py`（#82） |
 
 P0 是地基。后续所有阶段在 P0 之上增量构建。
 
@@ -50,11 +51,11 @@ P0 是地基。后续所有阶段在 P0 之上增量构建。
 - Handoff Envelope FROM/TO/CONSUMER 全链追溯 ✅
 - Holder HARD GATE 防止 self-implement ✅
 
-**S2-002-A 实验发现（待办）：**
+**S2 实验吸收（已关闭 #54）：**
 
-- ~~Artifact Delivery Layer — 产物位置对人类可见~~ → ✅ PR #59/#60
-- Human Point Budget — 低风险任务轻量治理
-- Artifact Existence Gate — "做完了"和"能看到产物"之间的验证
+- Artifact Delivery Layer → 已通过 PR #59/#60 交付 ✅
+- Human Point Budget → 吸收至 P0 Runtime Dispatch Gate
+- Artifact Existence Gate → 吸收至 P0 Runtime Dispatch Gate
 
 **已完成的新增协议：**
 
@@ -64,7 +65,7 @@ P0 是地基。后续所有阶段在 P0 之上增量构建。
 
 - `PROJECT_STATE.md`: `implementation_status: NOT_AUTHORIZED`
 - 缺少持续运行的 Runtime 实例
-- S2 Adaptive Runtime Layer 仍是实验概念，未形成正式协议文档
+- S2 Adaptive Runtime Layer 已被 P0 Runtime Controller Dispatch Gate 吸收（#82）
 
 ---
 

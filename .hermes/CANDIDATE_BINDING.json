@@ -14,7 +14,7 @@
   "authorized_write_scope": [
     "scripts/controller_dispatch.py",
     "schemas/training_sample.json",
-    "schemas/training_samples/",
+    "schemas/training_samples/*",
     "scripts/evacuate-all.bat",
     "ROADMAP.md",
     ".hermes/CANDIDATE_BINDING.json"

@@ -1,0 +1,28 @@
+{
+  "sample_id": "SMPL-20260806-003",
+  "task_id": "ADT-20260806-003",
+  "task_type": "IMPLEMENT",
+  "timestamp": "2026-08-06T17:36:04+08:00",
+  "protocol_version": "1.0.0",
+  "progress": {
+    "head_sha": "3fc174450103563b47a033a89e26597abf46cc33",
+    "changed_files": [
+      "schemas/training_sample.json"
+    ],
+    "validation_result": "PASSED",
+    "blocker": null,
+    "known_limits": []
+  },
+  "audit": {
+    "audit_decision": "PASS",
+    "evidence_summary": "222-line post-training sample schema defined, JSON Schema draft-2020-12 compliant, all required fields and $defs present and valid.",
+    "veto_reason": null
+  },
+  "label": "ACCEPT",
+  "metadata": {
+    "source_session": "公司机-20260806",
+    "model": "deepseek-v4-pro",
+    "duration_seconds": 480.0,
+    "concurrency_slot": 1
+  }
+}

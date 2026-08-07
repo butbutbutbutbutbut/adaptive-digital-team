@@ -1,0 +1,28 @@
+{
+  "sample_id": "SMPL-20260806-002",
+  "task_id": "ADT-20260806-002",
+  "task_type": "IMPLEMENT",
+  "timestamp": "2026-08-06T17:36:03+08:00",
+  "protocol_version": "1.0.0",
+  "progress": {
+    "head_sha": "7e8c7027dd40d2fdd7b04bd1b54f0e537d0853d0",
+    "changed_files": [
+      "scripts/controller_dispatch.py"
+    ],
+    "validation_result": "PASSED",
+    "blocker": null,
+    "known_limits": []
+  },
+  "audit": {
+    "audit_decision": "PASS",
+    "evidence_summary": "1072-line controller dispatch gate implemented for P0 runtime. All fail-closed paths verified, syntax check passed, no regressions.",
+    "veto_reason": null
+  },
+  "label": "ACCEPT",
+  "metadata": {
+    "source_session": "公司机-20260806",
+    "model": "deepseek-v4-pro",
+    "duration_seconds": 720.0,
+    "concurrency_slot": 1
+  }
+}

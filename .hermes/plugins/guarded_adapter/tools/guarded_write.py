@@ -15,14 +15,37 @@ or adapter_execution_status=BLOCKED with adapter_error=ATTEMPTED_SCOPE_VIOLATION
 from __future__ import annotations
 
 import logging
+import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
-from ..gate import GateRequest, validate_scope
+from ..gate import GateRequest, resolve_repo_target, validate_scope
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+def _resolve_repo_root() -> Path:
+    """Resolve the repository root dynamically (git worktree-safe).
+
+    Path arithmetic (parents[4]) breaks inside git worktrees. Use the
+    canonical git answer instead, falling back to parents[4] only if git
+    is unavailable.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True,
+            cwd=str(Path(__file__).resolve().parent),
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip())
+    except Exception:
+        pass
+    return Path(__file__).resolve().parents[4]
+
+
+_REPO_ROOT = _resolve_repo_root()
 
 # ---------------------------------------------------------------------------
 # Schema for the guarded_write tool (JSON Schema subset)
@@ -45,11 +68,12 @@ GUARDED_WRITE_SCHEMA = {
 
 
 def _resolve_scope_context() -> Dict[str, Any]:
-    """Resolve scope context from CANDIDATE_BINDING.json, falling back to PROJECT_STATE.md.
+    """Resolve scope context from CANDIDATE_BINDING.json ONLY (fail-closed).
 
-    Binding-first: consumes ExecutionAuthorizationBinding via load_binding().
-    Falls back to PROJECT_STATE.md YAML parsing only when the binding file is missing.
-    No YAML/JSON dual interpretation.
+    No fallback: if the binding is missing, malformed, or fails validation,
+    load_binding() raises and the scope context stays EMPTY. The handler then
+    returns BLOCKED (PLAN_WRITE_SCOPE_UNAVAILABLE / AUTHORIZED_WRITE_SCOPE_UNAVAILABLE).
+    Authorization is NEVER synthesized from PROJECT_STATE.md.
     """
     from ..runtime_models import load_binding
 
@@ -64,119 +88,24 @@ def _resolve_scope_context() -> Dict[str, Any]:
     }
 
     # ------------------------------------------------------------------
-    # 1. Try the External Authorization Binding first
+    # External Authorization Binding is the ONLY authority source
     # ------------------------------------------------------------------
-    binding = load_binding()
-
-    if binding is not None:
-        # Populate ALL scope fields from the binding dataclass — no YAML parsing.
-        scope_context["authorized_write_scope"] = list(binding.authorized_write_scope)
-        scope_context["plan_write_scope"] = list(binding.authorized_write_scope)
-        scope_context["branch"] = binding.branch
-        scope_context["base_sha"] = binding.base_sha
-        scope_context["task_id"] = binding.task_id or "UNKNOWN"
-        scope_context["repository"] = binding.repository
-        scope_context["authorization_binding"] = binding.to_dict()
-        return scope_context
-
-    # ------------------------------------------------------------------
-    # 2. Fallback: PROJECT_STATE.md (legacy path — keep existing logic)
-    # ------------------------------------------------------------------
-    project_state_path = _REPO_ROOT / "PROJECT_STATE.md"
-
-    if not project_state_path.exists():
-        logger.warning("PROJECT_STATE.md not found; scope enforcement will be strict")
-        return scope_context
-
     try:
-        content = project_state_path.read_text(encoding="utf-8")
-        # Extract YAML block from markdown
-        in_yaml = False
-        yaml_lines = []
-        for line in content.split("\n"):
-            if line.strip() == "```yaml":
-                in_yaml = True
-                continue
-            if line.strip() == "```" and in_yaml:
-                in_yaml = False
-                continue
-            if in_yaml:
-                yaml_lines.append(line)
-
-        if not yaml_lines:
-            logger.warning("No YAML block found in PROJECT_STATE.md")
-            return scope_context
-
-        # Simple YAML parser (no PyYAML dependency required)
-        current_key = None
-        current_list = None
-        for line in yaml_lines:
-            stripped = line.rstrip()
-            if not stripped:
-                continue
-
-            # List item
-            if stripped.lstrip().startswith("- "):
-                item = stripped.lstrip()[2:].strip().strip("'").strip('"')
-                if current_key and current_list is not None:
-                    current_list.append(item)
-                continue
-
-            # Key: value
-            if ":" in stripped and not stripped.lstrip().startswith("-"):
-                key, _, value = stripped.partition(":")
-                key = key.strip()
-                value = value.strip().strip("'").strip('"')
-
-                if key in {"plan_write_scope", "authorized_write_scope"}:
-                    scope_context[key] = []
-                    current_key = key
-                    current_list = scope_context[key]
-                    continue
-
-                # Also read top-level task_id / branch / starting_base_sha / repository
-                if key == "task_id":
-                    scope_context["task_id"] = value
-                if key == "repository":
-                    scope_context["repository"] = value
-                if key == "branch":
-                    scope_context["branch"] = value
-                if key == "starting_base_sha":
-                    scope_context["base_sha"] = value
-                if key == "current_gate":
-                    scope_context["current_gate"] = value
-                continue
-
-            # End of list
-            if current_key and current_list is not None and stripped and ":" not in stripped:
-                continue
-
-        # Transfer collected lists
-        if "authorized_write_scope" in scope_context and isinstance(scope_context["authorized_write_scope"], list):
-            pass  # already populated
-
-        # In current PROJECT_STATE.md schema, the single 'authorized_write_scope' field
-        # serves as both the plan's write scope and the authorization's write scope.
-        # Both must be independently present for dual-scope gate enforcement.
-        auth_scope = scope_context.get("authorized_write_scope")
-        if auth_scope:
-            scope_context["plan_write_scope"] = list(auth_scope)
-
+        binding = load_binding()
     except Exception as e:
-        logger.warning("Failed to parse PROJECT_STATE.md: %s", e)
+        # Missing / malformed / invalid binding → no scope → BLOCKED downstream.
+        # Never degrade to PROJECT_STATE.md synthesis.
+        logger.warning("guarded_write: no valid authorization binding; writes BLOCKED: %s", e)
+        return scope_context
 
-    # Build synthetic authorization binding from PROJECT_STATE.md (legacy)
-    scope_context["authorization_binding"] = {
-        "authorization_id": scope_context.get("task_id", "UNKNOWN"),
-        "authority_source": "PROJECT_STATE.md",
-        "human_role": "HUMAN_HOLDER",
-        "repository": scope_context.get("repository", ""),
-        "base_sha": scope_context.get("base_sha", ""),
-        "branch": scope_context.get("branch", ""),
-        "authorized_actions": ["write_file", "commit", "push", "create_draft_pr"],
-        "authorized_write_scope": scope_context.get("authorized_write_scope", []),
-    }
-
+    # Populate ALL scope fields from the binding dataclass — no YAML parsing.
+    scope_context["authorized_write_scope"] = list(binding.authorized_write_scope)
+    scope_context["plan_write_scope"] = list(binding.authorized_write_scope)
+    scope_context["branch"] = binding.branch
+    scope_context["base_sha"] = binding.base_sha
+    scope_context["task_id"] = binding.task_id or "UNKNOWN"
+    scope_context["repository"] = binding.repository
+    scope_context["authorization_binding"] = binding.to_dict()
     return scope_context
 
 
@@ -236,8 +165,21 @@ def guarded_write_handler(path: str, content: str) -> Dict[str, Any]:
             "action_type": "write_file",
         }
 
-    # Scope passed — execute write
-    target_path = _REPO_ROOT / path
+    # Scope passed — resolve the target and verify it stays inside the repo
+    # (rejects absolute paths, ".." traversal, and symlink escapes)
+    target_path = resolve_repo_target(path)
+    if target_path is None:
+        logger.warning("guarded_write BLOCKED: path=%s resolves outside repo", path)
+        return {
+            "adapter_execution_status": "BLOCKED",
+            "adapter_error": "ATTEMPTED_SCOPE_VIOLATION",
+            "gate_error": (
+                f"PATH_TRAVERSAL_REJECTED: path '{path}' is unsafe or "
+                f"resolves outside the repository root"
+            ),
+            "path": path,
+            "action_type": "write_file",
+        }
     try:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(content, encoding="utf-8")

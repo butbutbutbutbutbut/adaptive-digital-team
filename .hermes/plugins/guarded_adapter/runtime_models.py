@@ -12,13 +12,38 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+def _resolve_repo_root() -> Path:
+    """Resolve the repository root dynamically (git worktree-safe).
+
+    Path arithmetic (parents[4]) breaks inside git worktrees, where the
+    plugin lives one level deeper than in the main checkout — the resolved
+    root silently points one level ABOVE the worktree, so schemas/writes
+    resolve outside it. Use the canonical git answer instead, falling back
+    to the parents[4] heuristic only if git is unavailable.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True,
+            cwd=str(Path(__file__).resolve().parent),
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip())
+    except Exception:
+        pass
+    return Path(__file__).resolve().parents[4]
+
+
+_REPO_ROOT = _resolve_repo_root()
 _SCHEMAS_DIR = _REPO_ROOT / "schemas"
 
 
@@ -375,28 +400,11 @@ class ExecutionAuthorizationBinding:
         return binding
 
 
-def load_binding() -> Optional[ExecutionAuthorizationBinding]:
-    """Load the execution authorization binding.
+def load_binding() -> ExecutionAuthorizationBinding:
+    """Load the execution authorization binding. Fail-closed.
 
-    Tries CANDIDATE_BINDING.json first. Returns None on missing file
-    (with a warning) so callers can fall back to PROJECT_STATE.md.
-
-    Returns:
-        ExecutionAuthorizationBinding instance or None if the file is missing.
+    Raises on ANY failure (missing file, malformed JSON, schema/validation
+    failure) instead of returning None. Callers MUST treat absence or
+    invalidity as BLOCKED — no fallback synthesis from PROJECT_STATE.md.
     """
-    try:
-        return ExecutionAuthorizationBinding.from_json_file()
-    except FileNotFoundError:
-        logger.warning(
-            "CANDIDATE_BINDING.json not found; "
-            "no external authorization binding available."
-        )
-        return None
-    except ValueError as e:
-        logger.warning("CANDIDATE_BINDING.json is invalid: %s", e)
-        return None
-    except Exception as e:
-        logger.warning(
-            "Unexpected error loading CANDIDATE_BINDING.json: %s", e
-        )
-        return None
+    return ExecutionAuthorizationBinding.from_json_file()

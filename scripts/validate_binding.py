@@ -108,6 +108,7 @@ class BindingValidator:
         self.runtime_fingerprint: str | None = None
         self.candidate_state: str = "LOCAL_DRAFT"
         self.skip_governance_check = skip_governance_check
+        self._idle: bool = False  # UNGRANTED idle binding (no active authorization)
 
     def parse(self) -> dict[str, Any]:
         match = re.search(r"```ya?ml\s*\n(.*?)\n```", self.text, re.S)
@@ -121,16 +122,14 @@ class BindingValidator:
     candidate_fingerprint = staticmethod(candidate_fingerprint)
 
     def get(self, key: str, default: Any = None) -> Any:
-        # Check candidate binding first for transient fields
+        # Transient fields (authorization identity) come EXCLUSIVELY from the
+        # binding when one is present. No fallback to PROJECT_STATE.md — that
+        # would synthesize authorization from a non-authoritative source.
         if self._binding is not None and key in self.TRANSIENT_FIELDS:
             binding_key = self.BINDING_FIELD_MAP.get(key, key)
             if binding_key in self._binding:
-                value = self._binding[binding_key]
-                if isinstance(value, list):
-                    return value
-                if value is not None and value != "":
-                    return value
-        # Fall back to parsed PROJECT_STATE.md
+                return self._binding[binding_key]
+        # Stable fields still come from PROJECT_STATE.md
         node: Any = self.parsed
         for part in key.split("."):
             if not isinstance(node, dict) or part not in node:
@@ -160,6 +159,12 @@ class BindingValidator:
         if not isinstance(binding, dict):
             self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json root must be an object")
             return None
+
+        # UNGRANTED idle state: explicit no-authorization template.
+        # Skipped here; check_binding/check_static/check_live honour self._idle.
+        if binding.get("authorization_id") == "UNGRANTED":
+            self._idle = True
+            return binding
 
         # Validate required fields (from execution-authorization-binding.schema.json)
         required = [
@@ -197,17 +202,37 @@ class BindingValidator:
             self.errors.append(f"{HARD_STOP}: CANDIDATE_BINDING.json: authorized_write_scope must be a list")
             return None
 
+        # P0-2 hard rule: scope must NOT include the binding file itself
+        # (self-referential scope would let the agent authorize its own grant).
+        binding_file_norm = self.binding_path.replace("\\", "/")
+        for entry in binding["authorized_write_scope"]:
+            entry_norm = str(entry).replace("\\", "/")
+            if entry_norm == binding_file_norm or (
+                binding_file_norm.endswith(".json")
+                and entry_norm.rstrip("/") == binding_file_norm.rstrip("/")
+            ):
+                self.errors.append(
+                    f"{HARD_STOP}: SELF_REFERENTIAL_SCOPE: authorized_write_scope must not "
+                    f"contain the binding file itself: {entry}"
+                )
+
         return binding
 
     def check_binding(self) -> None:
         """Validate the binding file vs PROJECT_STATE.md.
 
-        - Binding present: ALL transient fields must come from binding.
+        - Binding present & UNGRANTED (idle): no authorization is active;
+          transient-field and scope requirements are skipped (idle exemption).
+        - Binding present (granted): ALL transient fields must come from binding.
           Dual-source (transient fields also in PROJECT_STATE.md) → HARD_STOP.
-        - Binding absent: full legacy fallback required.
-          Missing transient fields in PROJECT_STATE.md → HARD_STOP.
+        - Binding absent: HARD_STOP. No authorization is ever synthesized from
+          PROJECT_STATE.md (legacy fallback removed).
         """
         if self._binding is not None:
+            if self._idle:
+                # UNGRANTED idle state: nothing to cross-check; historical
+                # PROJECT_STATE.md transient leftovers are ignored.
+                return
             # Binding loaded successfully — check for dual-source conflict
             dual_source = []
             for field in sorted(self.TRANSIENT_FIELDS):
@@ -246,21 +271,12 @@ class BindingValidator:
             # Binding file exists but failed to load — errors already added in _load_binding
             return
         else:
-            # No binding file — full legacy fallback from PROJECT_STATE.md
-            transient_required = ["branch", "task_id", "starting_base_sha", "authorized_write_scope"]
-            missing_transient = []
-            for field in transient_required:
-                val = self.parsed.get(field)
-                if isinstance(val, list):
-                    if len(val) == 0:
-                        missing_transient.append(field)
-                elif val in (None, ""):
-                    missing_transient.append(field)
-            if missing_transient:
-                self.errors.append(
-                    f"{HARD_STOP}: no CANDIDATE_BINDING.json and PROJECT_STATE.md "
-                    f"missing transient fields: {', '.join(missing_transient)}"
-                )
+            # No binding file — fail-closed. PROJECT_STATE.md alone cannot
+            # authorize anything (legacy fallback removed).
+            self.errors.append(
+                f"{HARD_STOP}: CANDIDATE_BINDING.json missing; "
+                f"no authorization binding — writes are not permitted"
+            )
 
     def _git(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["git", *args], text=True, capture_output=True, check=False, timeout=30)
@@ -477,7 +493,7 @@ class BindingValidator:
         elif not status:
             self.errors.append("VALIDATION-STATE: implementation_status is missing or empty")
         scope = self._scope()
-        if not scope:
+        if not scope and not self._idle:
             self.errors.append("VALIDATION-SCOPE: authorized_write_scope is missing or empty")
         if any("*" in x for x in scope):
             self.warnings.append("VALIDATION-SCOPE: glob patterns in scope require live enforcement")
@@ -576,6 +592,11 @@ class BindingValidator:
     # ═══════════════════════════════════════════════════════════
 
     def check_live(self) -> None:
+        # UNGRANTED idle state: no candidate identity to resolve or enforce.
+        # Skipping live identity/scope checks keeps idle validation PASSing in
+        # every --ci context (bare local run included).
+        if self._idle:
+            return
         fields = self.resolve_runtime()
         if fields is None:
             return
@@ -590,7 +611,7 @@ class BindingValidator:
         # Scope enforcement — entry validation already done in check_static()
         scope_deduped = self._scope_deduped()
 
-        if self.candidate_mode or self.live_mode:
+        if (self.candidate_mode or self.live_mode) and not self._idle:
             if not scope_deduped:
                 self.errors.append(f"{SCOPE_VIOLATION}: authorized_write_scope is missing or empty in candidate mode")
             else:
@@ -648,12 +669,15 @@ class BindingValidator:
         if not changed_files:
             return
 
-        # Check if any changed file matches GOVERNANCE_CRITICAL
+        # Check if any changed file matches GOVERNANCE_CRITICAL.
+        # Case-insensitive matching (P1-5): fnmatch is case-sensitive on
+        # Linux — "agents.md" must not bypass the AGENTS.md governance gate.
         governance_changed = False
         for f in changed_files:
-            norm = f.replace("\\", "/")
+            norm = f.replace("\\", "/").lower()
             for pattern in GOVERNANCE_CRITICAL:
-                if fnmatch.fnmatch(norm, pattern) or fnmatch.fnmatch(norm, pattern + "*"):
+                pattern_l = pattern.lower()
+                if fnmatch.fnmatch(norm, pattern_l) or fnmatch.fnmatch(norm, pattern_l + "*"):
                     governance_changed = True
                     break
             if governance_changed:
@@ -662,11 +686,33 @@ class BindingValidator:
         if not governance_changed:
             return
 
-        # Governance files modified — require independent Checker receipt
+        # Governance files modified — require an independent Checker receipt
+        # whose task_id matches the current binding (P1-5: a stale receipt
+        # from a previous task must not satisfy the gate).
         receipt_path = Path(".hermes/checker_receipt.json")
         if not receipt_path.exists():
             self.errors.append(
                 "GOVERNANCE_CHECK_MISSING: governance files modified without independent Checker receipt"
+            )
+            return
+        try:
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            self.errors.append(
+                "GOVERNANCE_CHECK_MISSING: checker receipt is malformed or unreadable"
+            )
+            return
+        if not isinstance(receipt, dict):
+            self.errors.append(
+                "GOVERNANCE_CHECK_MISSING: checker receipt root must be an object"
+            )
+            return
+        receipt_task = receipt.get("task_id")
+        binding_task = self._get_from_binding("task_id")
+        if binding_task and receipt_task and binding_task != receipt_task:
+            self.errors.append(
+                f"GOVERNANCE_CHECK_MISSING: checker receipt task_id ({receipt_task}) "
+                f"does not match binding task_id ({binding_task})"
             )
 
     # ═══════════════════════════════════════════════════════════
@@ -685,6 +731,14 @@ class BindingValidator:
         - GitHub Actions detached checkout: use GITHUB_REF for logical identity
         """
         if not self.candidate_mode and not self.live_mode:
+            return
+
+        # UNGRANTED idle state: no active candidate exists, so there is nothing
+        # to pre-write-check (no branch/base/identity to verify against). Writes
+        # are already blocked at runtime (guarded_write has no scope). Skipping
+        # here keeps idle validation PASSing in every --ci context, including a
+        # bare local run without GitHub env vars.
+        if self._idle:
             return
 
         event_name = os.environ.get("GITHUB_EVENT_NAME", "").strip()
@@ -779,6 +833,11 @@ class BindingValidator:
 
         if has_errors:
             return "LOCAL_DRAFT"
+
+        if self._idle:
+            # UNGRANTED idle state: no active candidate, nothing authorized.
+            self.candidate_state = "UNGRANTED_IDLE"
+            return "UNGRANTED_IDLE"
 
         if not self.runtime_fields:
             # Precheck may have passed (no errors) but no runtime yet

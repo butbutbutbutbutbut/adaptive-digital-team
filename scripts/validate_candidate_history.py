@@ -32,6 +32,9 @@ from typing import Any
 # ── Constants ──────────────────────────────────────────────────
 CANDIDATE_PREFIXES = ("refs/heads/hermes/", "refs/heads/codex/",
                       "refs/heads/agent/", "refs/heads/maker/")
+# Bare form (no refs/heads/ prefix) — used by GitHub delete events, whose
+# "ref" is a plain branch name such as "hermes/x".
+CANDIDATE_BRANCH_PREFIXES = ("hermes/", "codex/", "agent/", "maker/")
 DISQUALIFIED_REF_PREFIX = "refs/adt/disqualified/"
 ZERO_SHA = "0" * 40
 
@@ -69,8 +72,14 @@ def _commit_exists(sha: str) -> bool:
 
 
 def _is_candidate_branch(ref: str) -> bool:
-    """Check if a ref matches formal candidate branch prefixes."""
-    return ref.startswith(CANDIDATE_PREFIXES)
+    """Check if a ref matches formal candidate branch prefixes.
+
+    Normalizes the ref before matching (P1-2): GitHub delete events carry a
+    bare branch name ("hermes/x") while push/PR events carry the full
+    "refs/heads/hermes/x". Both forms must match.
+    """
+    norm = ref.removeprefix("refs/heads/")
+    return norm.startswith(CANDIDATE_BRANCH_PREFIXES)
 
 
 def _safe_name(branch: str) -> str:
@@ -97,10 +106,23 @@ def _get_repo() -> str:
 
 
 def _ref_exists(repo: str, ref: str) -> bool:
-    """Check if a Git ref exists via the GitHub API."""
+    """Check if a Git ref exists via the GitHub API.
+
+    Fail-closed (P1-3): if the API call itself fails (exception, unreachable,
+    gh CLI missing), treat the ref as existing — eligibility cannot be
+    proven, so the PR must be blocked rather than released. A clean 404
+    (ref genuinely absent) still returns False.
+    """
     safe_ref = ref.removeprefix("refs/").replace("/", "%2F")
-    result = _gh_api(f"repos/{repo}/git/ref/{safe_ref}")
-    return result is not None
+    try:
+        cp = subprocess.run(
+            ["gh", "api", f"repos/{repo}/git/ref/{safe_ref}"],
+            text=True, capture_output=True, check=False, timeout=30,
+        )
+    except Exception:
+        # Cannot prove absence → fail-closed: block.
+        return True
+    return cp.returncode == 0
 
 
 def _create_ref(repo: str, ref: str, sha: str) -> bool:

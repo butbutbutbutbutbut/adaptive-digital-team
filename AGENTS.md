@@ -13,16 +13,30 @@ This repository's governance is organized as:
 | `governance/ROLE_MODEL.md` | Complete role topology, authority matrix, separation rules |
 | `governance/AUTHORITY_AND_FACTS.md` | Fact authority, action authority, FACT_SOURCE_REBIND |
 | `AGENTS.md` | Agent-facing rules, candidate lifecycle, CI gates (this file) |
-| `protocols/ARTIFACT_DELIVERY.md` | Artifact Delivery Layer — required delivery fields at task completion |
-| `protocols/ADT_SELF_ITERATION.md` | ADT self-iteration — how ADT discovers and fixes its own governance defects |
-| `protocols/RESOURCE_ALLOCATOR_INTEGRATION.md` | Resource Allocator Integration — dispatch-time resource allocation flow |
-| `protocols/WORKSPACE_ISOLATION.md` | Workspace isolation — git worktree per agent for parallel execution |
-| `protocols/CONCURRENCY_LIMIT.md` | Concurrency limit — in-flight task cap per Controller (default N=2) |
-| `protocols/HOLDER_TOKEN.md` | Holder token — one task one token; CANDIDATE_BINDING write-right arbitration |
-| `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template |
-| `protocols/HUMAN_FACING_PSYCHOLOGY.md` | Human Facing 心理机制 — 用认知心理学推动用户反思与推进 |
-| `docs/human-facing-templates.md` | Human Facing 呈现模板 — 6 机制 × 4 场景的即用模板（触发点/结构/填空位/禁用项） |
-| `protocols/*.md` | Detailed protocol specifications |
+| `protocols/PHILOSOPHY.md` | Philosophy layer — 5 principles + judgment guides（判断对齐，不设门禁） |
+| `protocols/BINDING.md` | Execution core 1/3（事前）— 授权绑定核：无绑定不动笔 |
+| `protocols/GATE.md` | Execution core 2/3（事中）— 执行门控核：越界即拦，故障关闭 |
+| `protocols/RECEIPT.md` | Execution core 3/3（事后）— 回执验收核：无独立验收不合并 |
+| `protocols/ARTIFACT_DELIVERY.md` | Artifact Delivery Layer — required delivery fields at task completion（强制力已迁入 RECEIPT，见 NORMATIVE_MAP） |
+| `protocols/ADT_SELF_ITERATION.md` | ADT self-iteration — how ADT discovers and fixes its own governance defects（哲学化，降级为判断指南，见 NORMATIVE_MAP） |
+| `protocols/RESOURCE_ALLOCATOR_INTEGRATION.md` | Resource Allocator Integration — dispatch-time resource allocation flow（哲学化；拔牙③人类上限→GATE，见 NORMATIVE_MAP） |
+| `protocols/WORKSPACE_ISOLATION.md` | Workspace isolation — git worktree per agent for parallel execution（强制力已迁入 GATE，见 NORMATIVE_MAP） |
+| `protocols/CONCURRENCY_LIMIT.md` | Concurrency limit — in-flight task cap per Controller (default N=2)（强制力已迁入 GATE，见 NORMATIVE_MAP） |
+| `protocols/HOLDER_TOKEN.md` | Holder token — one task one token; CANDIDATE_BINDING write-right arbitration（Token 三段切：BINDING/GATE/RECEIPT，见 NORMATIVE_MAP） |
+| `protocols/ADT_ANTI_OBJECTIVE_PROMPT.md` | Anti-objective prompt system — per-role self-checks and Authority Dispatch Card template（哲学化；拔牙①授权卡→BINDING，见 NORMATIVE_MAP） |
+| `protocols/HUMAN_FACING_PSYCHOLOGY.md` | Human Facing 心理机制 — 用认知心理学推动用户反思与推进（哲学化；呈现纪律保留，见 NORMATIVE_MAP） |
+| `docs/human-facing-templates.md` | Human Facing 呈现模板 — 6 机制 × 4 场景的即用模板（模板库已随拍板④砍掉，见 NORMATIVE_MAP） |
+| `protocols/CANDIDATE_LIFECYCLE.md` | Candidate Lifecycle — single normative source for identity/fingerprint/state machine/CI gates（强制力已迁入 BINDING+GATE，见 NORMATIVE_MAP） |
+| `protocols/INSTRUCTION_ROUTING_AND_AUTHORITY.md` | Instruction routing and authority — cross-agent instruction headers（强制力已迁入 BINDING，见 NORMATIVE_MAP） |
+| `protocols/DYNAMIC_GOVERNANCE_ROUTER.md` | Dynamic governance routing — task classification, risk, GovernancePlan（分派包部分强制力已迁入 BINDING，见 NORMATIVE_MAP） |
+| `protocols/ADT_RUNTIME_ADAPTER_CONTRACT.md` | Runtime Adapter Contract — three-layer isolation（强制部分已迁入 GATE，见 NORMATIVE_MAP） |
+| `protocols/MULTIMODAL_EVIDENCE_ACCEPTANCE_GATE.md` | Multimodal evidence acceptance gate（强制力已迁入 RECEIPT，见 NORMATIVE_MAP） |
+| `protocols/PROJECT_CLOSEOUT_PROTOCOL.md` | Project closeout protocol（强制力已迁入 RECEIPT，见 NORMATIVE_MAP） |
+| `protocols/PERSISTENT_HOLDER_CONTROL_PLANE.md` | Persistent Holder Control Plane — Dispatch Card / Progress Receipt 格式定义（半废弃：格式→BINDING，见 NORMATIVE_MAP） |
+| `protocols/BEGINNER_BOOTSTRAP_ROUTER.md` | Beginner Bootstrap Router — A/B/C first-contact routing（哲学化；入口结构冻结，见 NORMATIVE_MAP） |
+| `protocols/LIGHTWEIGHT_EXECUTION_FLOW.md` | Lightweight execution flow（哲学化；拓扑/scope 强制力在 CANDIDATE_LIFECYCLE + 三核，见 NORMATIVE_MAP） |
+| `protocols/REPOSITORY_AS_PROMPT_RUNTIME_BINDING.md` | Repository-as-prompt runtime binding — fact source priority（哲学化；拔牙②外部绑定→BINDING，见 NORMATIVE_MAP） |
+| `protocols/ADAPTIVE_COUNTER_OBJECTIVE_GOVERNANCE.md` | Adaptive counter-objective governance — NO_UNBOUND_EXECUTION（哲学化；强制力在 BINDING，见 NORMATIVE_MAP） |
 
 These documents are read in a chain: a new agent window starts from AGENTS.md and follows the index.
 

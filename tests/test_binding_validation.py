@@ -42,7 +42,7 @@ def state(**changes):
         "schema_version": "2",
         "repository": REPO,
         "authority": {
-            "holder": "HE-WEIZHI",
+            "holder": "Kairos",
             "maker": "HERMES_TEMPORARY_GOVERNANCE_MAKER",
             "checker": "EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024",
         },
@@ -67,7 +67,7 @@ def state_legacy(**changes):
         "repository": REPO, "branch": BRANCH, "starting_base_sha": BASE,
         "authorized_write_scope": list(SCOPE),
         "authority": {
-            "holder": "HE-WEIZHI",
+            "holder": "Kairos",
             "maker": "HERMES_TEMPORARY_GOVERNANCE_MAKER",
             "checker": "EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024",
         },
@@ -1004,7 +1004,7 @@ def _stable_state(**changes):
         "schema_version": "2",
         "repository": REPO,
         "authority": {
-            "holder": "HE-WEIZHI",
+            "holder": "Kairos",
             "maker": "HERMES_TEMPORARY_GOVERNANCE_MAKER",
             "checker": "EXTERNAL_INDEPENDENT_GOVERNANCE_CHECKER-024",
         },

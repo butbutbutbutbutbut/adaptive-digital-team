@@ -131,7 +131,7 @@ def repo_fixture(tmp_path, monkeypatch):
         "```yaml\n"
         "schema_version: '2'\n"
         f"repository: {REPO_ID}\n"
-        "authority: {holder: HE-WEIZHI, maker: UNASSIGNED, checker: UNASSIGNED}\n"
+        "authority: {holder: Kairos, maker: UNASSIGNED, checker: UNASSIGNED}\n"
         "current_gate: NO_ACTIVE_CANDIDATE\n"
         "implementation_status: NOT_AUTHORIZED\n"
         "```\n",
@@ -165,7 +165,7 @@ def _stable_state(**changes: Any) -> str:
     value: dict[str, Any] = {
         "schema_version": "2",
         "repository": REPO_ID,
-        "authority": {"holder": "HE-WEIZHI", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
+        "authority": {"holder": "Kairos", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
         "current_gate": "NO_ACTIVE_CANDIDATE",
         "implementation_status": "NOT_AUTHORIZED",
     }

@@ -174,23 +174,25 @@ def validate_schema_against_metaschema(schema: dict, name: str) -> bool:
         return False
 
 
-def validate_document(schema: dict, document: dict, name: str, label: str,
-                     registry: Registry | None = None) -> bool:
-    """Validate a document against a schema."""
+def validate_document_should_reject(schema: dict, document: dict, label: str,
+                                    registry: Registry | None = None) -> bool:
+    """Validate a document that SHOULD be rejected (negative case).
+
+    Fail-closed (P1-1): if the invalid document unexpectedly PASSES schema
+    validation, return False — a negative case that slips through must fail
+    the suite. Expected rejection returns True.
+    """
     try:
         if registry:
             validator = Draft202012Validator(schema, registry=registry)
             validator.validate(document)
         else:
             validate(instance=document, schema=schema)
-        print(f"  ✓ {label}: valid")
-        return True
+        print(f"  ✗ {label}: PASSED UNEXPECTEDLY (should be rejected)")
+        return False
     except jsonschema.exceptions.ValidationError as e:
         print(f"  ✓ {label}: correctly rejected — {e.message}")
-        return True  # expected rejection
-    except Exception as e:
-        print(f"  ✗ {label}: unexpected error — {e}")
-        return False
+        return True
 
 
 def validate_document_should_pass(schema: dict, document: dict, label: str,
@@ -313,11 +315,11 @@ def main() -> int:
     env_schema = schemas["adapter-envelope"]
     if not validate_document_should_pass(env_schema, VALID_ADAPTER_ENVELOPE, "valid envelope"):
         all_pass = False
-    if not validate_document(env_schema, INVALID_ADAPTER_ENVELOPE_MISSING_REQUIRED,
-                             "missing required fields", "invalid envelope (missing required)"):
+    if not validate_document_should_reject(env_schema, INVALID_ADAPTER_ENVELOPE_MISSING_REQUIRED,
+                                           "invalid envelope (missing required)"):
         all_pass = False
-    if not validate_document(env_schema, INVALID_ADAPTER_ENVELOPE_BAD_CAPABILITY,
-                             "bad capability tag", "invalid envelope (bad capability)"):
+    if not validate_document_should_reject(env_schema, INVALID_ADAPTER_ENVELOPE_BAD_CAPABILITY,
+                                           "invalid envelope (bad capability)"):
         all_pass = False
 
     # Authorization Binding
@@ -326,11 +328,11 @@ def main() -> int:
     if not validate_document_should_pass(auth_schema, VALID_EXECUTION_AUTHORIZATION_BINDING,
                                          "valid binding"):
         all_pass = False
-    if not validate_document(auth_schema, INVALID_AUTH_BINDING_FORBIDDEN_ACTION,
-                             "forbidden action", "invalid binding (forbidden action)"):
+    if not validate_document_should_reject(auth_schema, INVALID_AUTH_BINDING_FORBIDDEN_ACTION,
+                                           "invalid binding (forbidden action)"):
         all_pass = False
-    if not validate_document(auth_schema, INVALID_AUTH_BINDING_MISSING_FIELDS,
-                             "missing fields", "invalid binding (missing fields)"):
+    if not validate_document_should_reject(auth_schema, INVALID_AUTH_BINDING_MISSING_FIELDS,
+                                           "invalid binding (missing fields)"):
         all_pass = False
 
     # Adapter Output
@@ -339,9 +341,9 @@ def main() -> int:
     if not validate_document_should_pass(out_schema, VALID_ADAPTER_OUTPUT, "valid output",
                                          registry=registry):
         all_pass = False
-    if not validate_document(out_schema, INVALID_ADAPTER_OUTPUT_MISSING_ROUTE,
-                             "missing route", "invalid output (missing route)",
-                             registry=registry):
+    if not validate_document_should_reject(out_schema, INVALID_ADAPTER_OUTPUT_MISSING_ROUTE,
+                                           "invalid output (missing route)",
+                                           registry=registry):
         all_pass = False
 
     # ── Result ──

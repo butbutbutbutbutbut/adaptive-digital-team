@@ -17,11 +17,39 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..gate import GateRequest, validate_scope
+from ..gate import (
+    GateRequest,
+    _check_path_in_scope,
+    normalize_repo_path,
+    resolve_repo_target,
+    validate_scope,
+)
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+def _resolve_repo_root() -> Path:
+    """Resolve the repository root dynamically (git worktree-safe).
+
+    Path arithmetic (parents[4]) breaks inside git worktrees. Use the
+    canonical git answer instead, falling back to parents[4] only if git
+    is unavailable.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True,
+            cwd=str(Path(__file__).resolve().parent),
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip())
+    except Exception:
+        pass
+    return Path(__file__).resolve().parents[4]
+
+
+_REPO_ROOT = _resolve_repo_root()
 
 # ---------------------------------------------------------------------------
 # Allowed actions (enum)
@@ -83,27 +111,8 @@ GUARDED_REPO_ACTIONS_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# Scope path matcher (same logic as gate.py:_check_path_in_scope)
+# Scope path matcher — imported from gate.py (single normalization entry)
 # ---------------------------------------------------------------------------
-
-def _check_path_in_scope(action_path: str, scopes: List[str]) -> bool:
-    """Check if action_path is covered by any scope entry.
-
-    Exact match or directory prefix match.
-    """
-    if not scopes:
-        return False
-    action_path = action_path.replace("\\", "/")
-    for scope in scopes:
-        scope = scope.replace("\\", "/")
-        if action_path == scope:
-            return True
-        if scope.endswith("/") and action_path.startswith(scope):
-            return True
-        if action_path.startswith(scope.rstrip("/") + "/"):
-            return True
-    return False
-
 
 def _check_files_in_dual_scope(
     files: List[str],
@@ -339,11 +348,14 @@ def _compute_scope_intersection(
     plan_files: set = set()
     auth_files: set = set()
 
-    # Walk repo to find files matching scopes
+    # Walk repo to find files matching scopes (unsafe scope entries are skipped)
     for scope in plan_scope:
-        scope_path = _REPO_ROOT / scope
+        scope_norm = normalize_repo_path(scope)
+        if scope_norm is None:
+            continue
+        scope_path = _REPO_ROOT / scope_norm
         if scope_path.is_file():
-            plan_files.add(scope)
+            plan_files.add(scope_norm)
         elif scope_path.is_dir():
             for f in scope_path.rglob("*"):
                 if f.is_file():
@@ -351,19 +363,22 @@ def _compute_scope_intersection(
                     plan_files.add(rel)
         else:
             # Wildcard / non-existent: treat as literal scope entry
-            plan_files.add(scope)
+            plan_files.add(scope_norm)
 
     for scope in auth_scope:
-        scope_path = _REPO_ROOT / scope
+        scope_norm = normalize_repo_path(scope)
+        if scope_norm is None:
+            continue
+        scope_path = _REPO_ROOT / scope_norm
         if scope_path.is_file():
-            auth_files.add(scope)
+            auth_files.add(scope_norm)
         elif scope_path.is_dir():
             for f in scope_path.rglob("*"):
                 if f.is_file():
                     rel = str(f.relative_to(_REPO_ROOT)).replace("\\", "/")
                     auth_files.add(rel)
         else:
-            auth_files.add(scope)
+            auth_files.add(scope_norm)
 
     # Intersection: only files that match BOTH scopes
     intersection = plan_files & auth_files
@@ -459,7 +474,19 @@ def _action_git_add_authorized_paths(
 
     staged = []
     for path in paths_to_stage:
-        full_path = _REPO_ROOT / path
+        # Resolve and verify the target stays inside the repo before staging
+        # (rejects absolute paths, ".." traversal, and symlink escapes)
+        full_path = resolve_repo_target(path)
+        if full_path is None:
+            return {
+                "adapter_execution_status": "BLOCKED",
+                "adapter_error": "ATTEMPTED_SCOPE_VIOLATION",
+                "gate_error": (
+                    f"PATH_TRAVERSAL_REJECTED: path '{path}' is unsafe or "
+                    f"resolves outside the repository root"
+                ),
+                "action": "git_add_authorized_paths",
+            }
         if full_path.exists():
             result = _run_git(["add", "--", path])
             if result["success"]:

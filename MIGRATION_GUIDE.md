@@ -27,6 +27,17 @@
 
 **没变的**：入口层（README / BOOTSTRAP / AGENTS）产品接触面不变；A/B/C 路由不变；497 测试与双校验器全绿不回退；历史 PR 与提交不可变。
 
+## 外部贡献者的第一个 PR
+
+第一次来？不需要提前了解整套治理，按四步走即可：
+
+1. **从最新 main 拉分支**：`git checkout main && git pull && git checkout -b <你的分支>`。当前 binding 自带 UNGRANTED 空闲态，CI 会自动通过，无需任何额外操作。
+2. **不要碰 `.hermes/CANDIDATE_BINDING.json`**：这是 ADT 管理的候选任务专用授权文件，由 Controller 写入。外部贡献者不读、不写、不提交它。
+3. **老分支（基于 2026-08-08 之前的 main）先 rebase**：`git rebase origin/main` 后 `git push --force-with-lease` 重推。旧分支缺少新 binding schema，直接提 PR 会被 CI 拦下。
+4. **报错速查**：
+   - `HARD_STOP: missing required fields` → 你的分支基于旧 main，按第 3 步 rebase 到最新
+   - `SCOPE_VIOLATION` → 你改了授权 scope 之外的文件，把改动移回 scope 内，或在 PR 描述里说明为什么必须改
+
 ## 迁移路径（读者版）
 
 ```text

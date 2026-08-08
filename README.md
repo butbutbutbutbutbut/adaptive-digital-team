@@ -79,12 +79,17 @@ AI 很快写了几百行代码。登录确实能用了。但你还发现了一�
 
 ```json
 {
+  "authorization_id": "AUTH-2026-08-08-001",
+  "authority_source": "HUMAN_HOLDER",
+  "human_role": "HUMAN_HOLDER",
+  "repository": "butbutbutbutbutbut/adaptive-digital-team",
+  "base_sha": "<40位完整SHA>",
+  "branch": "maker/<task-slug>-r1",
   "task_id": "ADT-S2-002-A-ARTIFACT-PACKAGE",
-  "authorized_write_scope": [
-    "README.md",
-    "PROJECT_STATE.md",
-    ".hermes/CANDIDATE_BINDING.json"
-  ]
+  "authorized_write_scope": ["README.md", "PROJECT_STATE.md"],
+  "authorized_actions": ["write", "commit", "pr"],
+  "approved": true,
+  "approved_at": "2026-08-08T10:00:00Z"
 }
 ```
 
@@ -144,6 +149,18 @@ PASS: All validations passed
 ```
 
 这套分层在 ADT 的动态治理路由器里运行——任务分类、Checker 分配、验证深度由系统根据风险等级自动匹配，最终由你确认。
+
+---
+
+### 治理结构导览
+
+ADT 的治理分两层：**哲学层**定判断，**执行核**管动作。
+
+- **哲学层** — [`protocols/PHILOSOPHY.md`](./protocols/PHILOSOPHY.md)：5 条原则 + 判断指南（对齐判断，不设门禁）
+- **执行核 · 事前** — [`protocols/BINDING.md`](./protocols/BINDING.md)：无绑定不动笔（授权事实、指纹、令牌发放）
+- **执行核 · 事中** — [`protocols/GATE.md`](./protocols/GATE.md)：越界即拦，故障关闭（scope 执行、drift、令牌校验）
+- **执行核 · 事后** — [`protocols/RECEIPT.md`](./protocols/RECEIPT.md)：无独立验收不合并（回执、pre-merge 终态、令牌释放）
+- **迁移** — [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md)：19 个旧协议已归档为 DEPRECATED 态，去向见 [`governance/NORMATIVE_MAP.md`](./governance/NORMATIVE_MAP.md)
 
 ---
 

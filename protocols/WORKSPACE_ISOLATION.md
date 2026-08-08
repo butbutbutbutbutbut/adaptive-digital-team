@@ -1,3 +1,8 @@
+> **DEPRECATED — 归档态（2026-08-08）**：本协议已被双层重构取代。
+> 完整规范见 `protocols/BINDING.md` / `GATE.md` / `RECEIPT.md` / `PHILOSOPHY.md`；
+> 去向登记见 `governance/NORMATIVE_MAP.md`（唯一活入口）。
+> 文件保留仅为维持历史引用（84+ PR）不断链，不参与新作业。
+
 # 工作区隔离协议（Workspace Isolation）
 
 PROTOCOL_STATUS: `ADOPTED_GOVERNANCE_SPECIFICATION`

@@ -75,7 +75,7 @@ def _stable_state(**changes) -> str:
     value = {
         "schema_version": "2",
         "repository": REPO_ID,
-        "authority": {"holder": "HE-WEIZHI", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
+        "authority": {"holder": "Kairos", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
         "current_gate": "NO_ACTIVE_CANDIDATE",
         "implementation_status": "NOT_AUTHORIZED",
     }

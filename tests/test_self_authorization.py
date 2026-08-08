@@ -38,7 +38,7 @@ def _stable_state(**changes) -> str:
     value = {
         "schema_version": "2",
         "repository": REPO,
-        "authority": {"holder": "HE-WEIZHI", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
+        "authority": {"holder": "Kairos", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
         "current_gate": "NO_ACTIVE_CANDIDATE",
         "implementation_status": "NOT_AUTHORIZED",
     }
@@ -57,7 +57,7 @@ def _legacy_state(**changes) -> str:
         "branch": "maker/legacy",
         "starting_base_sha": "0" * 40,
         "authorized_write_scope": ["docs/"],
-        "authority": {"holder": "HE-WEIZHI", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
+        "authority": {"holder": "Kairos", "maker": "UNASSIGNED", "checker": "UNASSIGNED"},
         "current_gate": "FINAL_CANDIDATE_FREEZE",
         "implementation_status": "NOT_AUTHORIZED",
     }

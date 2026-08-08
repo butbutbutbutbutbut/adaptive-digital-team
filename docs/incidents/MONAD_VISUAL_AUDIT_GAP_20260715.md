@@ -176,7 +176,7 @@ Manifest, ledger, filenames, and SHA records remain valid as metadata facts. The
 Hermes was authorized under:
 
 ```text
-HE-WEIZHI-MONAD-VISUAL-AUDIT-CORRECTION-20260715-001
+KAIROS-MONAD-VISUAL-AUDIT-CORRECTION-20260715-001
 ```
 
 The correction was completed through PR #19 and merged as:

@@ -10,7 +10,7 @@ gate and are never durable fields in this record.
 schema_version: "2"
 repository: butbutbutbutbutbut/adaptive-digital-team
 authority:
-  holder: HE-WEIZHI
+  holder: Kairos
   maker: UNASSIGNED
   checker: UNASSIGNED
 current_gate: NO_ACTIVE_CANDIDATE

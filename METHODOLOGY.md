@@ -2,6 +2,8 @@
 
 ## What ADT is
 
+> **2026-08-09 定位定案（Human Holder 拍板）**：ADT 不做产品。它是 Human Holder 的**个人开发里程碑**与**纯粹个人对齐颗粒度工具**，作为**之lab 底座**运转（Workshop / 网站 / 漫剧跑在它上面）。机制层面——聚合 agent 群聊、记忆存档、对话状态卡、跨 agent 协作治理——大公司已覆盖，竞争无意义；"接入不同 api 的聚合 agent 群聊"也已有先例。ADT 的真实价值不是机制本身，而是 Holder 自己摸索出的**治理纪律**：holder / 证据留痕 / 故障关闭 / maker-checker 分权。工具会被复制，制度不会——制度因"谁在遵守"而不同。方向是**极致的客制化**：不为大众优化，只为之一个人优化；放下产品执念与包装执念，返回完善个人工作流的本身。
+
 ADT (Adaptive Digital Team) is a **governance tool system and control plane** — a
 set of protocols, validators, and reusable checks that help humans and AI agents
 work together safely on multi-agent projects.
@@ -29,6 +31,7 @@ they build.
 ADT is **not**:
 
 - A product build system or deployment pipeline
+- A product（对外产品；2026-08-09 定位定案：不做产品）
 - A runtime engine or task scheduler
 - A single AI personality or agent identity
 - A memory management or conversation persistence layer

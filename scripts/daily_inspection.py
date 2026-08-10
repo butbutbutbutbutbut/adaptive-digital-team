@@ -11,7 +11,7 @@
 │ 环境变量 LARK_BASE_TOKEN 提供；lark-cli 路径通过      │
 │ LARK_CLI_PATH 提供（缺省使用本机默认安装路径）。       │
 │ 含真实凭据的本地 cron 运行版位于                     │
-│ C:\\Users\\x2270\\AppData\\Local\\hermes\\scripts\\       │
+│ <USER>\\AppData\\Local\\hermes\\scripts\\       │
 │ daily_inspection.py，永不入库。                       │
 └──────────────────────────────────────────────────────┘
 """

@@ -18,7 +18,7 @@
 本仓库实际路径：
 
 ```text
-C:\Users\x2270\.adt-worktrees\adaptive-digital-team\maker-adt-2026-08-06-001\
+C:\Users\<USER>\.adt-worktrees\adaptive-digital-team\maker-adt-2026-08-06-001\
 ```
 
 agent 名 = `<role>-<task-id>`，小写，字符集 `[a-z0-9-]`。
@@ -28,9 +28,9 @@ agent 名 = `<role>-<task-id>`，小写，字符集 `[a-z0-9-]`。
 在主工作区执行：
 
 ```bash
-cd /c/Users/x2270/adaptive-digital-team
+cd /c/Users/<USER>/adaptive-digital-team
 git worktree add -b hermes/adt-workspace-isolation-r1 \
-  "C:/Users/x2270/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001" \
+  "C:/Users/<USER>/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001" \
   0b6b1a4
 ```
 
@@ -42,7 +42,7 @@ git worktree add -b hermes/adt-workspace-isolation-r1 \
 
 ```bash
 git worktree add --detach \
-  "C:/Users/x2270/.adt-worktrees/adaptive-digital-team/checker-adt-2026-08-06-001" \
+  "C:/Users/<USER>/.adt-worktrees/adaptive-digital-team/checker-adt-2026-08-06-001" \
   <candidate_head_sha>
 ```
 
@@ -52,7 +52,7 @@ git worktree add --detach \
 ## 5. 进入 worktree 工作
 
 ```bash
-cd "C:/Users/x2270/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001"
+cd "C:/Users/<USER>/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001"
 ```
 
 进去之后就是普通 git 仓库操作（edit / add / commit / push），
@@ -79,8 +79,8 @@ git worktree list
 输出示例：
 
 ```text
-C:/Users/x2270/adaptive-digital-team                0b6b1a4 [main]
-C:/Users/x2270/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001  0b6b1a4 [hermes/adt-workspace-isolation-r1]
+C:/Users/<USER>/adaptive-digital-team                0b6b1a4 [main]
+C:/Users/<USER>/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001  0b6b1a4 [hermes/adt-workspace-isolation-r1]
 ```
 
 ## 8. 关闭与清理
@@ -88,7 +88,7 @@ C:/Users/x2270/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001  0b
 候选合并完成后（或任务取消并获授权后）：
 
 ```bash
-git worktree remove "C:/Users/x2270/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001"
+git worktree remove "C:/Users/<USER>/.adt-worktrees/adaptive-digital-team/maker-adt-2026-08-06-001"
 git worktree prune
 ```
 

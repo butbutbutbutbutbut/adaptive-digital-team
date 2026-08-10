@@ -2,8 +2,9 @@
 """之lab 每日朝报（三省六部版）——早 9:00 推微信（脱敏归档版）
 
 正反馈为主：尚书省成果（昨日完成节点/任务/合入 PR）+ 六部进展
-奏本为次：状态过期/阻塞/待审核/7天内截止
-数据：飞书表格（三源之一）+ GitHub PR（gh）
+奏本为次：状态过期/阻塞/待审核/7天内截止/反馈表待处理/本地 repo 不同步
+数据：飞书表格（反馈/任务/节点/决定四表）+ GitHub PR（gh）+ 本地 repo 实查
+事实层交叉验证：飞书 vs GitHub vs 本地（三源真查，尾注只声明已实查的三源）
 
 ┌────────────────────── 凭据边界 ──────────────────────┐
 │ 本仓库为公开仓库。飞书 Base token 不入库，必须通过     │
@@ -25,7 +26,9 @@ DEFAULT_LARK_CLI = r"C:\Users\x2270\AppData\Local\hermes\node\lark-cli"
 TASKS_TBL = "tblArqwuZQtzIIdt"
 NODES_TBL = "tblwEKyFdDDKG6aB"
 DECISIONS_TBL = "tblZHOwWWZtWpv9b"
+FEEDBACK_TBL = "tbldnGHlDjb9zfU5"
 REPOS = ["butbutbutbutbutbut/adaptive-digital-team"]
+LOCAL_REPOS = {"butbutbutbutbutbut/adaptive-digital-team": os.path.expanduser("~/adaptive-digital-team")}
 
 
 def env_required(name):
@@ -77,6 +80,7 @@ def main():
     tasks = load_rows(TASKS_TBL)
     nodes = load_rows(NODES_TBL)
     decisions = load_rows(DECISIONS_TBL)
+    feedbacks = load_rows(FEEDBACK_TBL)
 
     # ===== 尚书省：昨日成果（正反馈） =====
     done_nodes = [n for n in nodes
@@ -106,6 +110,30 @@ def main():
     for m in merged_prs:
         praise.append(f"合入 {m}")
 
+    # ===== 本地 repo 实查（第三源：真查不宣称） =====
+    local_sync = True
+    for repo, local_path in LOCAL_REPOS.items():
+        try:
+            subprocess.run(["git", "-C", local_path, "fetch", "origin", "--quiet"],
+                           capture_output=True, text=True, shell=True, timeout=30)
+            head = subprocess.run(["git", "-C", local_path, "rev-parse", "HEAD"],
+                                  capture_output=True, text=True, shell=True).stdout.strip()[:7]
+            om = subprocess.run(["git", "-C", local_path, "rev-parse", "origin/main"],
+                                capture_output=True, text=True, shell=True).stdout.strip()[:7]
+            dirty = subprocess.run(["git", "-C", local_path, "status", "--porcelain"],
+                                   capture_output=True, text=True, shell=True).stdout.strip()
+            if head != om:
+                local_sync = False
+                issues.append(f"本地 repo 不同步: {repo} 本地 {head} ≠ 远端 {om}")
+            if dirty:
+                local_sync = False
+                issues.append(f"本地 repo 工作区脏: {repo} 有未提交改动")
+        except Exception as e:
+            local_sync = False
+            issues.append(f"本地 repo 检查失败: {repo} ({str(e)[:40]})")
+    if local_sync:
+        praise.append("本地 repo 与远端一致（已实查）")
+
     # ===== 六部：各线进展 =====
     for proj in ["ADT", "Workshop（之lab 业务线）", "个人网站"]:
         active = [n for n in nodes if val(n.get("所属项目")) == proj and val(n.get("节点状态")) == "进行中"]
@@ -128,6 +156,11 @@ def main():
 
     waiting = [t for t in tasks if val(t.get("任务状态")) == "待审核"]
     blocked = [t for t in tasks if val(t.get("任务状态")) == "阻塞"]
+
+    # ===== 反馈表奏本：待处理反馈/洞察 =====
+    fb_pending = [f for f in feedbacks if val(f.get("处理状态")) == "待处理"]
+    for f in fb_pending[:4]:
+        issues.append(f"反馈待处理:『{(val(f.get('反馈内容')) or '')[:20]}』")
     soon = []
     for t in tasks:
         end = val(t.get("计划结束"))
@@ -167,7 +200,7 @@ def main():
             lines.append(f"  ⚠️ {i}")
     if not issues and not blocked:
         lines.append("📢 奏本: 无")
-    lines.append("— 三源一致 · 本地|飞书|GitHub —")
+    lines.append("— 三源交叉验证 · 飞书|GitHub|本地" + ("一致" if local_sync else "（本地不同步，见奏本）") + " —")
 
     print("\n".join(lines))
 

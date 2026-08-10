@@ -61,7 +61,7 @@ Resource Allocator Integration、Repository-as-Prompt Runtime Binding），
 本仓库（`butbutbutbutbutbut/adaptive-digital-team`）示例：
 
 ```text
-C:\Users\x2270\
+C:\Users\<USER>\
   adaptive-digital-team\                      # 主工作区（main）
   .adt-worktrees\
     adaptive-digital-team\

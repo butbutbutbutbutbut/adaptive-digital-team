@@ -1,17 +1,19 @@
 # 飞书多维表格操作红牌纪律（Feishu Bitable Guardrails）
 
 > 版本：v1.0（2026-08-10）
-> 来源：两次实测事故沉淀——① 8/10 日记本心情字段改选项名致 32 条值全失联；② 8/10 问卷分析落飞书，三队红队审查（见 RED_TEAM_REVIEW_METHODOLOGY.md）P0 全中。
-> 定位：数据写入层操作纪律。与三方向对抗审查方法论同级：红队审结构，本纪律管写入。
+> 来源：两次实测事故沉淀——① 8/10 日记本心情字段改选项名致 32 条值全失联；② 8/10 问卷分析落飞书，三队红队审查（见 `RED_TEAM_REVIEW_METHODOLOGY.md`）P0 全中。
+> 定位：数据写入层操作纪律。与三方向对抗审查方法论同级：**红队审结构，本纪律管写入**。
 > 适用范围：之lab 飞书主 base（HZtLbcYpLaTgGvsLoqJcKfPOn9g）及所有经 lark-cli 写入的多维表格。
 
 **原则：写前先查，改前先想，宁慢勿错。多维表格是结构性数据，不是草稿纸。**
+
+---
 
 ## 一、红牌（禁止，违反即事故）
 
 1. **禁止改 select 字段的选项名**（含加 emoji、改措辞）——改名=该选项下所有存量记录值立即失联显示 None，改回原名也无法恢复，只能按正文映射手工回写。
    - 正确：只增不改。新增选项永远安全，改名字永远危险。
-2. **禁止不查枚举就写 select 值**——写前必须 base +field-list 看选项；值不存在=batch 整体 not_found（code 800030005），不是跳过那条而是整批失败。
+2. **禁止不查枚举就写 select 值**——写前必须 `base +field-list` 看选项；值不存在=batch 整体 not_found（code 800030005），不是跳过那条而是整批失败。
 3. **禁止把状态/哨兵值（未交/待定/暂无）混进值枚举**——"最怕=未交"语义污染；同一行留空与哨兵混用=两种约定并存。状态用独立字段，值字段对缺失者留空。
 4. **禁止把分析判断与原始事实混在同一列**（分层/评级/备注判断 vs 问卷原值）——拆列（事实列/判断列）或加【判断】前缀。判断字段必须可复算：有判定规则、有来源标注。
 5. **禁止无来源字段入表**——外部数据（记忆/名单/口头）必须标注来源（列名加注或来源字段），否则构成第二事实源。
@@ -19,12 +21,12 @@
 7. **禁止把多选事实压平成组合字符串**（[技能,时间]→"技能+时间"）——丢项、枚举不闭合。保持 multiple:true 多选字段。
 8. **禁止复制粘贴行值不核对**——每行值对原始数据。
 9. **禁止一行多语义**——分析发现+决策+动作+风险捆一行=无法筛选跟进。一行一语义，决策拆进决定记录表。
-10. **禁止猜字段 id**——field-id 必须从 +field-list 实查。
+10. **禁止猜字段 id**——field-id 必须从 `+field-list` 实查。
 
 ## 二、CLI 技术坑（Windows 实测）
 
-1. Python subprocess 调 lark-cli 必须走 bash（["bash","-lc", cmd]）；shell=True 在 Windows 走 cmd.exe，单引号 JSON 被拆。
-2. +field-update --json 不支持 @file，须直接传 JSON（bash 单引号包裹）；+field-create、+record-batch-create/update 支持 --json @file。
+1. Python subprocess 调 lark-cli 必须走 bash（`["bash","-lc", cmd]`）；`shell=True` 在 Windows 走 cmd.exe，单引号 JSON 被拆。
+2. `+field-update --json` 不支持 @file，须直接传 JSON（bash 单引号包裹）；`+field-create`、`+record-batch-create/update` 支持 `--json @file`。
 3. lark-cli 是脚本不是 exe，Windows CreateProcess 直接执行报 WinError 193。
 4. 大 JSON 一律 @file，避免长度与转义问题。
 5. HTTPS_PROXY=http://127.0.0.1:7897 为调用前置条件。
@@ -51,5 +53,5 @@
 
 ## 五、治理挂钩
 
-- 重大表格变更（建表/迁移/改结构）自动触发三队红队（RED_TEAM_REVIEW_METHODOLOGY.md）。
+- 重大表格变更（建表/迁移/改结构）自动触发三队红队（`RED_TEAM_REVIEW_METHODOLOGY.md`）。
 - 本纪律与红队方法论同源同层：红队审结构，本纪律管写入；两者都受反目标约束（审查/纪律必须比对象轻，连续 3 次无新发现即砍检查项）。

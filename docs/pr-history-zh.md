@@ -1,7 +1,7 @@
 # ADT 合并 PR 中文汇总（#1–#84）
 
 > 本文档用中文简要说明 ADT 仓库已合并 PR 的内容，供快速回顾。
-> 生成日期：2026-08-07。规范来源：GitHub PR 历史（butbutbutbutbutbut/adaptive-digital-team）。
+> 生成日期：2026-08-07。规范来源：GitHub PR 历史（Kairos-zhi/adaptive-digital-team）。
 
 ## 近期治理主线（7/14 至今）
 

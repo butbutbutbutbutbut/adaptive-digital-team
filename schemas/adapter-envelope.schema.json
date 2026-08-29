@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/adapter-envelope.schema.json",
+  "$id": "https://github.com/Kairos-zhi/adaptive-digital-team/schemas/adapter-envelope.schema.json",
   "title": "ADT Adapter Envelope Schema (Layer 2)",
   "description": "Structured metadata carried alongside the task intake. Contains tool identity, session metadata, and credential tags (descriptive only — never credential values). Stripped before reaching ADT Core Layer 3.",
   "type": "object",

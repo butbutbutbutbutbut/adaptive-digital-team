@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/training_sample.schema.json",
+  "$id": "https://github.com/Kairos-zhi/adaptive-digital-team/schemas/training_sample.schema.json",
   "title": "ADT Post-Training Sample Schema",
   "description": "Defines the receipt-to-training-sample format for ADT's post-training track. Each operational receipt maps to exactly one training sample. Human ACCEPT/REJECT decisions serve as the gold label (supervised training target), while Defect Cards provide negative reinforcement signal.",
   "type": "object",

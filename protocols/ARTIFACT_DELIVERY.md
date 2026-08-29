@@ -65,7 +65,7 @@ artifact 字段。Checker Receipt 附加 `artifact_exists` 验证。Controller
 ```yaml
 artifact:
   type: PR
-  location: https://github.com/butbutbutbutbutbut/adaptive-digital-team/pull/55
+  location: https://github.com/Kairos-zhi/adaptive-digital-team/pull/55
   verification_hint: gh pr view 55 --json state,mergeable
 ```
 

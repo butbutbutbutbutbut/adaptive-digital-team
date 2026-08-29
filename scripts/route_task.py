@@ -149,7 +149,7 @@ CONTROL_PACKET_REQUIRED_FIELDS = {
 }
 CANCEL_KEYWORDS = ("取消", "cancel", "停止", "stop", "中止", "abort")
 P0_CONTRACT_KEYWORDS = ("a/b/c", "first-contact", "beginner bootstrap", "初学者引导", "模式选择")
-UPSTREAM_KEYWORDS = ("butbutbutbutbutbut/adaptive-digital-team", "adaptive-digital-team")
+UPSTREAM_KEYWORDS = ("Kairos-zhi/adaptive-digital-team", "adaptive-digital-team")
 VALID_RESTART_REASONS = {
     "ROLE_ISOLATION", "FACT_SOURCE_INVALID", "CONTEXT_CONTAMINATION", "HUMAN_EXPLICIT_REQUEST"
 }

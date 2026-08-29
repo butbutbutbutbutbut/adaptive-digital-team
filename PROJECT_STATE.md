@@ -8,7 +8,7 @@ gate and are never durable fields in this record.
 
 ```yaml
 schema_version: "2"
-repository: butbutbutbutbutbut/adaptive-digital-team
+repository: Kairos-zhi/adaptive-digital-team
 authority:
   holder: Kairos
   maker: UNASSIGNED

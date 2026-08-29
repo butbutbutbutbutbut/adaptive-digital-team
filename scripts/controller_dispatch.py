@@ -404,7 +404,7 @@ def write_binding_with_token(
     token_id: str,
     maker_name: str,
     authorization_id: str = "",
-    repository: str = "butbutbutbutbutbut/adaptive-digital-team",
+    repository: str = "Kairos-zhi/adaptive-digital-team",
 ) -> Dict[str, Any]:
     """Atomically write .hermes/CANDIDATE_BINDING.json with embedded token.
 
@@ -920,7 +920,7 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
         # ── Standard fields (PERSISTENT_HOLDER_CONTROL_PLANE.md) ──
         "TASK_ID": task_id,
         "AUTHORIZATION_ID": authorization_id or f"AUTH-{task_id}",
-        "REPOSITORY": "butbutbutbutbutbut/adaptive-digital-team",
+        "REPOSITORY": "Kairos-zhi/adaptive-digital-team",
         "BRANCH": branch,
         "BASE_SHA": base_sha,
         "SCOPE": scope,

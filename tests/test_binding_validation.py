@@ -16,7 +16,7 @@ from validate_binding import (  # noqa: E402
     CANDIDATE_STATES,
 )
 
-REPO = os.environ.get("GITHUB_REPOSITORY", "butbutbutbutbutbut/adaptive-digital-team")
+REPO = os.environ.get("GITHUB_REPOSITORY", "Kairos-zhi/adaptive-digital-team")
 BASE, HEAD = "0" * 40, "1" * 40
 BRANCH = "hermes/adt-external-bootstrap-activation-r1"
 SCOPE = [

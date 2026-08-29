@@ -82,7 +82,7 @@ def _resolve_scope_context() -> Dict[str, Any]:
         "authorized_write_scope": [],
         "authorization_binding": None,
         "task_id": "UNKNOWN",
-        "repository": "butbutbutbutbutbut/adaptive-digital-team",
+        "repository": "Kairos-zhi/adaptive-digital-team",
         "branch": "UNKNOWN",
         "base_sha": "UNKNOWN",
     }

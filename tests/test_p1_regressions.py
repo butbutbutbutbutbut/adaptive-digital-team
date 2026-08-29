@@ -31,7 +31,7 @@ import validate_adapter  # noqa: E402
 import validate_candidate_history as vch  # noqa: E402
 from validate_binding import BindingValidator, HARD_STOP  # noqa: E402
 
-REPO_ID = "butbutbutbutbutbut/adaptive-digital-team"
+REPO_ID = "Kairos-zhi/adaptive-digital-team"
 
 # ═══════════════════════════════════════════════════════════
 # Load the REAL gate module (as in M3)

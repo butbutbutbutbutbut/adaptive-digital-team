@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/adapter-output.schema.json",
+  "$id": "https://github.com/Kairos-zhi/adaptive-digital-team/schemas/adapter-output.schema.json",
   "title": "ADT Adapter Output Schema",
   "description": "Output contract for the Runtime Adapter. Wraps the Governance Plan (via $ref — no duplicate definition) with adapter-level error state. The route field mirrors governance_plan.route for convenience but is NOT authoritative.",
   "type": "object",
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "governance_plan": {
-      "$ref": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/governance-plan.schema.json",
+      "$ref": "https://github.com/Kairos-zhi/adaptive-digital-team/schemas/governance-plan.schema.json",
       "description": "The Governance Plan produced by the Dynamic Governance Router. $ref to the single normative GovernancePlan schema — no duplicate definition."
     },
     "adapter_error": {

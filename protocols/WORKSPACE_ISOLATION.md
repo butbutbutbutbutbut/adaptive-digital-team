@@ -58,7 +58,7 @@ Resource Allocator Integration、Repository-as-Prompt Runtime Binding），
       <agent-name>/                           # 单个 agent 的 worktree
 ```
 
-本仓库（`butbutbutbutbutbut/adaptive-digital-team`）示例：
+本仓库（`Kairos-zhi/adaptive-digital-team`）示例：
 
 ```text
 C:\Users\<USER>\

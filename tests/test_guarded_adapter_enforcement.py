@@ -30,7 +30,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-REPO_ID = "butbutbutbutbutbut/adaptive-digital-team"
+REPO_ID = "Kairos-zhi/adaptive-digital-team"
 PLUGIN_DIR = REPO_ROOT / ".hermes" / "plugins" / "guarded_adapter"
 PKG = "adt_ga_real_gate"
 

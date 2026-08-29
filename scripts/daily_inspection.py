@@ -30,8 +30,8 @@ TASKS_TBL = "tblArqwuZQtzIIdt"
 NODES_TBL = "tblwEKyFdDDKG6aB"
 DECISIONS_TBL = "tblZHOwWWZtWpv9b"
 FEEDBACK_TBL = "tbldnGHlDjb9zfU5"
-REPOS = ["butbutbutbutbutbut/adaptive-digital-team"]
-LOCAL_REPOS = {"butbutbutbutbutbut/adaptive-digital-team": os.path.expanduser("~/adaptive-digital-team")}
+REPOS = ["Kairos-zhi/adaptive-digital-team"]
+LOCAL_REPOS = {"Kairos-zhi/adaptive-digital-team": os.path.expanduser("~/adaptive-digital-team")}
 REPORT_DIR = os.path.expanduser("~/hermes-sync/daily-reports")
 WEEK_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 

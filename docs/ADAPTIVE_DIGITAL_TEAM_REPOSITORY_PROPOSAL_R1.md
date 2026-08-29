@@ -8,7 +8,7 @@
 
 ## 1. 目标
 
-建立独立的 `butbutbutbutbutbut/adaptive-digital-team` 私有仓库，使任意新 AI 只收到：
+建立独立的 `Kairos-zhi/adaptive-digital-team` 私有仓库，使任意新 AI 只收到：
 
 ```text
 任务 + 一个项目仓库链接
@@ -76,7 +76,7 @@ R1 只允许以下一条根读取路径，任何其他顺序均为无效：
 `.adt/project-binding.yaml` 必须固定：
 
 ```yaml
-organization_repository: butbutbutbutbutbut/adaptive-digital-team
+organization_repository: Kairos-zhi/adaptive-digital-team
 organization_commit: FULL_COMMIT_SHA
 bootstrap_entry: BOOTSTRAP.md
 project_policy: AGENTS.md
@@ -335,7 +335,7 @@ ACTIVE_CONTROL_PLANE: NONE
 来源固定为：
 
 ```text
-Source repository: butbutbutbutbutbut/he-weizhi-site
+Source repository: Kairos-zhi/he-weizhi-site
 Source path: docs/AGENT_GITOPS_CONTINUITY_METHOD.md
 Source merged commit: bff061181faff8e44c977e88339693e8248bbde1
 Source status: VALIDATED_IN_PROJECT
@@ -388,7 +388,7 @@ Phase 5: 人工协议稳定后再评估自动化
 ```text
 PROPOSAL_STATUS: READY_FOR_INDEPENDENT_REVIEW
 AUDITED_HEAD_626DC443: SUPERSEDED_AFTER_CHANGES_REQUESTED
-CURRENT_REPOSITORY: butbutbutbutbutbut/he-weizhi-site
+CURRENT_REPOSITORY: Kairos-zhi/he-weizhi-site
 BASE_COMMIT: bff061181faff8e44c977e88339693e8248bbde1
 NEW_REPOSITORY_CREATION: NOT_ALLOWED
 CONTENT_MIGRATION: NOT_ALLOWED

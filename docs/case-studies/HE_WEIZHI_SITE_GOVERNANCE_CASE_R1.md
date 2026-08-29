@@ -8,7 +8,7 @@
 > Current document state: `R2_AMENDMENT_MERGED`  
 > R2 amendment main SHA: `c911df097632f4ba9496601fa618d267cf562182`  
 > Evidence class: `PROJECT_LEVEL_GOVERNANCE_CASE`  
-> Source repository: `butbutbutbutbutbut/he-weizhi-site`  
+> Source repository: `Kairos-zhi/he-weizhi-site`  
 > Target repository base: `79da69258056e059a07f35a9d1d32f2c698b473e`
 
 ## 1. Purpose
@@ -30,7 +30,7 @@ User directive "写报告，送审" in the current project conversation,
 sent at 2026-07-15T05:32:23Z.
 
 AUTHORIZED_REPOSITORY:
-butbutbutbutbutbut/adaptive-digital-team
+Kairos-zhi/adaptive-digital-team
 
 AUTHORIZED_BASE:
 ae5f0b725374a4cd9108c631cd5e081e0c19c010
@@ -68,7 +68,7 @@ agent/control/he-weizhi-governance-case-r2
 The source case is the private repository:
 
 ```text
-butbutbutbutbutbut/he-weizhi-site
+Kairos-zhi/he-weizhi-site
 ```
 
 The original case and the post-acceptance R2 amendment use separate fixed evidence boundaries:
@@ -123,17 +123,17 @@ The project's answer became a Git-centered governance method in which the human 
 
 | Event | Pull request | Merged main commit | Governance evidence |
 |---|---:|---|---|
-| Accidental direct-main change corrected through forward history | [#4](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/4) | `24d091b76e98ce0e224153a1b9b1e8b96e7475da` | The accidental commit `a063405e7ccfe7865fad3a331061cdfad7ccbd82` was not erased. A separate revert branch and reviewed revert commit restored `main`; reset and force-push were explicitly excluded. |
-| R0 evidence boundary frozen | [#6](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/6) | `db388741182080613003e12864ae431bfabbf189` | A fixed evidence boundary was established before later observation and tooling work. |
-| R1 observation protocol defined | [#7](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/7) | `ae43dcfe6e51525531d8c15952615dd42e906981` | Execution was separated from protocol approval; reference access remained blocked until the preceding gate passed. |
-| R1S sandbox interaction protocol defined | [#8](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/8) | `b30e5e48d015ca27dd994ac6b1bbafe21da67459` | A constrained sandbox protocol was reviewed before pilot execution. |
-| Stale protocol status corrected | [#9](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/9) | `2d8eb8654b91b4617a33afb2896f07944482e1db` | Post-merge state drift was repaired as a new visible commit rather than silently rewriting prior history. |
-| Tooling safety and evidence gates accepted | [#10](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/10) | `42c1cee0d893bad267a35c25683bd1b67bc9e788` | Action budgets, screenshot budgets, domain gates, control isolation, and frozen runner hashes were treated as auditable prerequisites. |
-| Sui sandbox pilot recorded | [#11](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/11) | `a3e2db05714bdbfe7885e36fd922f9410c4a062a` | Passing, blocked, diagnostic, and unresolved outcomes were preserved separately; CT06 remained an explicit limit rather than being rewritten as success. |
-| Agent GitOps continuity method added | [#12](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/12) | `e1e0c48c99a0c950514b8e46397516d81f03f860` | The project experience was formalized into Maker–Checker, three-layer facts, `HANDOFF_READY`, Evidence Ledger, gates, recovery, and rollback. |
-| Method marked validated in project | [#13](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/13) | `bff061181faff8e44c977e88339693e8248bbde1` | The method status changed from `READY_FOR_REVIEW` to `VALIDATED_IN_PROJECT` without claiming organization-level validation. |
-| Adaptive Digital Team proposal accepted in source project | [#14](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/14) | `334ee56c1c08164c6548f6825ff5c63aa6ba13de` | The repository-as-prompt principle, project-first cold start, Task Freeze, single active Control Lease, and falsifiable tests were derived from the project method. |
-| Accepted Patagon history integrated through migration-integrity review | [#15](https://github.com/butbutbutbutbutbut/he-weizhi-site/pull/15) | `ae5b105742da41cd1d8954dc5c6f487a95de7687` | Migration preserved a frozen base, exact commit count and order, independent integrity review, and prohibitions on rebase, amend, reset, and force-push. |
+| Accidental direct-main change corrected through forward history | [#4](https://github.com/Kairos-zhi/he-weizhi-site/pull/4) | `24d091b76e98ce0e224153a1b9b1e8b96e7475da` | The accidental commit `a063405e7ccfe7865fad3a331061cdfad7ccbd82` was not erased. A separate revert branch and reviewed revert commit restored `main`; reset and force-push were explicitly excluded. |
+| R0 evidence boundary frozen | [#6](https://github.com/Kairos-zhi/he-weizhi-site/pull/6) | `db388741182080613003e12864ae431bfabbf189` | A fixed evidence boundary was established before later observation and tooling work. |
+| R1 observation protocol defined | [#7](https://github.com/Kairos-zhi/he-weizhi-site/pull/7) | `ae43dcfe6e51525531d8c15952615dd42e906981` | Execution was separated from protocol approval; reference access remained blocked until the preceding gate passed. |
+| R1S sandbox interaction protocol defined | [#8](https://github.com/Kairos-zhi/he-weizhi-site/pull/8) | `b30e5e48d015ca27dd994ac6b1bbafe21da67459` | A constrained sandbox protocol was reviewed before pilot execution. |
+| Stale protocol status corrected | [#9](https://github.com/Kairos-zhi/he-weizhi-site/pull/9) | `2d8eb8654b91b4617a33afb2896f07944482e1db` | Post-merge state drift was repaired as a new visible commit rather than silently rewriting prior history. |
+| Tooling safety and evidence gates accepted | [#10](https://github.com/Kairos-zhi/he-weizhi-site/pull/10) | `42c1cee0d893bad267a35c25683bd1b67bc9e788` | Action budgets, screenshot budgets, domain gates, control isolation, and frozen runner hashes were treated as auditable prerequisites. |
+| Sui sandbox pilot recorded | [#11](https://github.com/Kairos-zhi/he-weizhi-site/pull/11) | `a3e2db05714bdbfe7885e36fd922f9410c4a062a` | Passing, blocked, diagnostic, and unresolved outcomes were preserved separately; CT06 remained an explicit limit rather than being rewritten as success. |
+| Agent GitOps continuity method added | [#12](https://github.com/Kairos-zhi/he-weizhi-site/pull/12) | `e1e0c48c99a0c950514b8e46397516d81f03f860` | The project experience was formalized into Maker–Checker, three-layer facts, `HANDOFF_READY`, Evidence Ledger, gates, recovery, and rollback. |
+| Method marked validated in project | [#13](https://github.com/Kairos-zhi/he-weizhi-site/pull/13) | `bff061181faff8e44c977e88339693e8248bbde1` | The method status changed from `READY_FOR_REVIEW` to `VALIDATED_IN_PROJECT` without claiming organization-level validation. |
+| Adaptive Digital Team proposal accepted in source project | [#14](https://github.com/Kairos-zhi/he-weizhi-site/pull/14) | `334ee56c1c08164c6548f6825ff5c63aa6ba13de` | The repository-as-prompt principle, project-first cold start, Task Freeze, single active Control Lease, and falsifiable tests were derived from the project method. |
+| Accepted Patagon history integrated through migration-integrity review | [#15](https://github.com/Kairos-zhi/he-weizhi-site/pull/15) | `ae5b105742da41cd1d8954dc5c6f487a95de7687` | Migration preserved a frozen base, exact commit count and order, independent integrity review, and prohibitions on rebase, amend, reset, and force-push. |
 
 ## 6. Governance pattern mapping
 

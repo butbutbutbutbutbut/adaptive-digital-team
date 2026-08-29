@@ -73,7 +73,7 @@ VALID_EXECUTION_AUTHORIZATION_BINDING = {
     "authorization_id": "ADT-RUNTIME-ADAPTER-CONTRACT-20260723-001",
     "authority_source": "Human Holder directive #42",
     "human_role": "HUMAN_HOLDER",
-    "repository": "butbutbutbutbutbut/adaptive-digital-team",
+    "repository": "Kairos-zhi/adaptive-digital-team",
     "base_sha": "1f53b68ef9f0b5a9053d0a96d114d229942ff2d8",
     "branch": "hermes/adt-runtime-adapter-contract-r1",
     "authorized_actions": ["commit", "push", "create_draft_pr"],

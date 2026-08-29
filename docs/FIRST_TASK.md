@@ -29,7 +29,7 @@ AUTHORITY DISPATCH CARD
   EXPIRES_AT: 2026-08-08T18:00:00Z
   AUTHORIZED_ACTIONS: [write, commit]
   BOUNDARY:
-    REPOSITORY: butbutbutbutbutbut/adaptive-digital-team
+    REPOSITORY: Kairos-zhi/adaptive-digital-team
     BASE_SHA: c4615f310482dfd7cbd9c1f0b024807cd3974d63
     BRANCH: maker/docs-fix-r1
     FILES_IN_SCOPE: [README.md, docs/FIRST_TASK.md]
@@ -53,7 +53,7 @@ AUTHORITY DISPATCH CARD
   "authorization_id": "AUTH-2026-08-08-001",
   "authority_source": "HUMAN_HOLDER",
   "human_role": "HUMAN_HOLDER",
-  "repository": "butbutbutbutbutbut/adaptive-digital-team",
+  "repository": "Kairos-zhi/adaptive-digital-team",
   "base_sha": "c4615f310482dfd7cbd9c1f0b024807cd3974d63",
   "branch": "maker/docs-fix-r1",
   "task_id": "ADT-2026-08-08-001",

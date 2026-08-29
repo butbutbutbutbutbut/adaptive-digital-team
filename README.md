@@ -84,7 +84,7 @@ AI 很快写了几百行代码。登录确实能用了。但你还发现了一�
   "authorization_id": "AUTH-2026-08-08-001",
   "authority_source": "HUMAN_HOLDER",
   "human_role": "HUMAN_HOLDER",
-  "repository": "butbutbutbutbutbut/adaptive-digital-team",
+  "repository": "Kairos-zhi/adaptive-digital-team",
   "base_sha": "<40位完整SHA>",
   "branch": "maker/<task-slug>-r1",
   "task_id": "ADT-S2-002-A-ARTIFACT-PACKAGE",
@@ -223,7 +223,7 @@ AI 负责执行，人类负责方向、边界和关键判断。授权是分层�
 ## 快速开始
 
 ```bash
-git clone https://github.com/butbutbutbutbutbut/adaptive-digital-team.git
+git clone https://github.com/Kairos-zhi/adaptive-digital-team.git
 cd adaptive-digital-team
 pip install pytest pyyaml
 python scripts/validate_binding.py

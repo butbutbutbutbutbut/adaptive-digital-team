@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/execution-authorization-binding.schema.json",
+  "$id": "https://github.com/Kairos-zhi/adaptive-digital-team/schemas/execution-authorization-binding.schema.json",
   "title": "ADT Execution Authorization Binding Schema",
   "description": "External authorization evidence that gates execution AFTER the Governance Router. Binds repository, base SHA, branch, authorized actions, and authorized write scope. The adapter MUST NOT self-set human_holder_approved: true.",
   "type": "object",

@@ -155,7 +155,7 @@ def test_cancellation_has_zero_writes():
 
 
 def test_public_upstream_default_read_only():
-    result = plan({"request": "修改 AGENTS.md", "repository": "butbutbutbutbutbut/adaptive-digital-team"})
+    result = plan({"request": "修改 AGENTS.md", "repository": "Kairos-zhi/adaptive-digital-team"})
     assert result["route"] == "READ_ONLY_REPOSITORY_ANALYSIS"
 
 
@@ -477,13 +477,13 @@ def test_p1_t17b_textual_cancel():
 
 
 def test_p1_t18_public_adt_upstream_read_only():
-    result = plan({"request": "修改 AGENTS.md", "repository": "butbutbutbutbutbut/adaptive-digital-team"})
+    result = plan({"request": "修改 AGENTS.md", "repository": "Kairos-zhi/adaptive-digital-team"})
     assert result["route"] == Route.READ_ONLY_REPOSITORY_ANALYSIS.value
     assert result["write_actions_permitted"] is False
 
 
 def test_p1_t18b_upstream_read_works():
-    result = plan({"request": "检查仓库状态", "repository": "butbutbutbutbutbut/adaptive-digital-team"})
+    result = plan({"request": "检查仓库状态", "repository": "Kairos-zhi/adaptive-digital-team"})
     assert result["route"] == Route.READ_ONLY_REPOSITORY_ANALYSIS.value
     assert result["write_actions_permitted"] is False
 

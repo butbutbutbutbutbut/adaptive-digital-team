@@ -491,9 +491,9 @@ permissions:
   pull_requests: "read"
   metadata: "read"
 repositories:
-  - butbutbutbutbutbut/adaptive-digital-team
-  - butbutbutbutbutbut/he-weizhi-site
-  - butbutbutbutbutbut/xiaohe-memory-index-private  # 如存在
+  - Kairos-zhi/adaptive-digital-team
+  - Kairos-zhi/he-weizhi-site
+  - Kairos-zhi/xiaohe-memory-index-private  # 如存在
 validity_days: 90
 storage: "anding_agent_environment"
 ```
@@ -526,8 +526,8 @@ permissions:
   pull_requests: "read"
   metadata: "read"
 repositories:
-  - butbutbutbutbutbut/adaptive-digital-team
-  - butbutbutbutbutbut/he-weizhi-site
+  - Kairos-zhi/adaptive-digital-team
+  - Kairos-zhi/he-weizhi-site
 validity_days: 90
 storage: "independent_checker_environment"
 independence_requirement:

@@ -2,7 +2,7 @@
 
 TASK_ID: ADT-REPOSITORY-AS-PROMPT-RUNTIME-BINDING-R1
 AUTHORIZATION_ID: ADT-REPOSITORY-AS-PROMPT-RUNTIME-BINDING-20260720-001
-REPOSITORY: butbutbutbutbutbut/adaptive-digital-team
+REPOSITORY: Kairos-zhi/adaptive-digital-team
 EXECUTOR: Xiaohe (Hermes Agent, single-writer Maker)
 
 ## Execution Summary
@@ -12,7 +12,7 @@ EXECUTOR: Xiaohe (Hermes Agent, single-writer Maker)
 | BASE_SHA (origin/main at start) | `8d343f26dfc9f29422b448705bf85e6f0be37362` |
 | WORKING_BRANCH | `hermes/adt-repository-as-prompt-runtime-binding-r1` |
 | HEAD_SHA | `b5818cdaac37b5bb33e96e0907dbb16ef7b59975` |
-| DRAFT_PR | [#21](https://github.com/butbutbutbutbutbut/adaptive-digital-team/pull/21) |
+| DRAFT_PR | [#21](https://github.com/Kairos-zhi/adaptive-digital-team/pull/21) |
 | PRODUCT_REPOSITORY_WRITE | FORBIDDEN — none performed |
 | ORIGIN_MAIN_MODIFIED | NO |
 | FORCE_PUSH / REBASE / AMEND | NONE |
@@ -174,7 +174,7 @@ PASS: All validations passed
 
 ## Product Repository Proof
 
-No write to `butbutbutbutbutbut/he-weizhi-site` or any product repository. Scope limited to `adaptive-digital-team` repository only. No origin/main modification. No Ready, no Merge.
+No write to `Kairos-zhi/he-weizhi-site` or any product repository. Scope limited to `adaptive-digital-team` repository only. No origin/main modification. No Ready, no Merge.
 
 ## Independent Audit Required
 
@@ -182,7 +182,7 @@ No write to `butbutbutbutbutbut/he-weizhi-site` or any product repository. Scope
 |------|-------|
 | Base for audit | `origin/main@8d343f26dfc9f29422b448705bf85e6f0be37362` |
 | Head for audit | `hermes/adt-repository-as-prompt-runtime-binding-r1@b5818cdaac37b5bb33e96e0907dbb16ef7b59975` |
-| Draft PR | [#21](https://github.com/butbutbutbutbutbut/adaptive-digital-team/pull/21) |
+| Draft PR | [#21](https://github.com/Kairos-zhi/adaptive-digital-team/pull/21) |
 | Next gate | INDEPENDENT_GOVERNANCE_AUDIT |
 | Self-acceptance | FORBIDDEN — not performed |
 

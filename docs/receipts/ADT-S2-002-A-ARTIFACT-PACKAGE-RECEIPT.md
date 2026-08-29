@@ -2,7 +2,7 @@
 
 TASK_ID: ADT-S2-002-A-ARTIFACT-PACKAGE
 AUTHORIZATION_ID: ADT-S2-002-A-ARTIFACT-PACKAGE-R1
-REPOSITORY: butbutbutbutbutbut/adaptive-digital-team
+REPOSITORY: Kairos-zhi/adaptive-digital-team
 EXECUTOR: Hermes (Maker)
 
 ## Execution Summary
@@ -12,7 +12,7 @@ EXECUTOR: Hermes (Maker)
 | BASE_SHA (origin/main at start) | `6665e846a54c45862d063fcbef3ce22a067157af` |
 | WORKING_BRANCH | `hermes/adt-s2-002-a-artifact-package-r1` |
 | HEAD_SHA | `61071ea529bd053eab07ea4f301693d5c9af404c` |
-| DRAFT_PR | [#55](https://github.com/butbutbutbutbutbut/adaptive-digital-team/pull/55) |
+| DRAFT_PR | [#55](https://github.com/Kairos-zhi/adaptive-digital-team/pull/55) |
 | PRODUCT_REPOSITORY_WRITE | FORBIDDEN — none performed |
 | ORIGIN_MAIN_MODIFIED | NO |
 | FORCE_PUSH / REBASE / AMEND | NONE |

@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from validate_binding import BindingValidator, HARD_STOP  # noqa: E402
 
-REPO = "butbutbutbutbutbut/adaptive-digital-team"
+REPO = "Kairos-zhi/adaptive-digital-team"
 
 # ---------------------------------------------------------------------------
 # Validator fixtures

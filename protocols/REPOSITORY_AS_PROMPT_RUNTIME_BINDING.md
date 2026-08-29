@@ -53,7 +53,7 @@ The binding model MUST express:
 
 ```yaml
 schema_version: "1"
-adt_repository: butbutbutbutbutbut/adaptive-digital-team
+adt_repository: Kairos-zhi/adaptive-digital-team
 adt_pin: <full commit SHA of the ADT org repo>
 
 # product_repository is only present when this binding describes a product repo

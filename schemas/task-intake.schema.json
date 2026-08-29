@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/butbutbutbutbutbut/adaptive-digital-team/schemas/task-intake.schema.json",
+  "$id": "https://github.com/Kairos-zhi/adaptive-digital-team/schemas/task-intake.schema.json",
   "title": "ADT Task Intake Schema",
   "description": "Input contract for deterministic task routing, counter-objective review, continuity, claim review, and resource boundaries. Audit requests and non-empty pure read-only requested_actions take precedence over Control Packet write routing. Incomplete Control Packets remain valid intake data and are routed to HUMAN_DECISION_REQUIRED with facts_status=INCOMPLETE.",
   "type": "object",
